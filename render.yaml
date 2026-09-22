@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: sih26138-dashboard
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt && bash scripts/build_for_deploy.sh"
+    startCommand: "streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true --browser.gatherUsageStats false"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10

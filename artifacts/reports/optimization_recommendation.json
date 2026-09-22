@@ -1,0 +1,30 @@
+{
+  "voyage_id": "VY-000001",
+  "vessel_id": "VSL-OT-037",
+  "fuel_type": "Diesel",
+  "predicted_fuel": 2732.7125,
+  "ttw_emissions": {
+    "fuel_type": "Diesel",
+    "co2": 8761.0763,
+    "ch4": 0.136636,
+    "n2o": 0.491888,
+    "co2e": 8895.2525
+  },
+  "wtw_emissions": {
+    "fuel_type": "Diesel",
+    "co2": 10373.3767,
+    "ch4": 0.136636,
+    "n2o": 0.491888,
+    "co2e": 10507.5529
+  },
+  "optimization_opportunities": [
+    "Weather Routing"
+  ],
+  "estimated_savings": {
+    "fuel_tons": 197.11,
+    "co2_tons": 631.95,
+    "fuel_savings_pct": 7.21
+  },
+  "recommended_speed": 12.9,
+  "recommendation_text": "Adverse weather factor (1.22 > 1.15) detected. Implement optimal weather routing to avoid high sea states. Estimated avoidance savings: 197.11 tons."
+}

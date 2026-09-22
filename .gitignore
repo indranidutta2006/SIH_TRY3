@@ -1,0 +1,32 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Generated runtime data and models
+# Rebuilt automatically during Render build via scripts/build_for_deploy.sh
+data/raw/*.csv
+data/processed/*.csv
+data/maritime_dataset.csv
+artifacts/models/*.pkl
+artifacts/metrics/*.json
+outputs/logs/*.log
+outputs/reports/*.json
+outputs/figures/*.png
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

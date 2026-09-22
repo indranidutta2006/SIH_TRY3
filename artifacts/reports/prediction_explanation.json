@@ -1,0 +1,97 @@
+{
+  "model_name": "hist_gradient_boosting",
+  "feature_importance_ranking": [
+    {
+      "rank": 1,
+      "feature": "transport_work",
+      "importance": 0.1917,
+      "importance_percentage": 19.17
+    },
+    {
+      "rank": 2,
+      "feature": "weather_speed_interaction",
+      "importance": 0.154,
+      "importance_percentage": 15.4
+    },
+    {
+      "rank": 3,
+      "feature": "distance_nm",
+      "importance": 0.1347,
+      "importance_percentage": 13.47
+    },
+    {
+      "rank": 4,
+      "feature": "cargo_ratio",
+      "importance": 0.0633,
+      "importance_percentage": 6.33
+    },
+    {
+      "rank": 5,
+      "feature": "cargo_tons",
+      "importance": 0.0583,
+      "importance_percentage": 5.83
+    },
+    {
+      "rank": 6,
+      "feature": "power_proxy",
+      "importance": 0.0533,
+      "importance_percentage": 5.33
+    },
+    {
+      "rank": 7,
+      "feature": "weather_sea_interaction",
+      "importance": 0.0533,
+      "importance_percentage": 5.33
+    },
+    {
+      "rank": 8,
+      "feature": "fuel_type_methanol",
+      "importance": 0.0513,
+      "importance_percentage": 5.13
+    },
+    {
+      "rank": 9,
+      "feature": "vessel_dwt",
+      "importance": 0.0487,
+      "importance_percentage": 4.87
+    },
+    {
+      "rank": 10,
+      "feature": "hours_at_sea",
+      "importance": 0.0327,
+      "importance_percentage": 3.27
+    }
+  ],
+  "dominant_factors": {
+    "top_positive_drivers": [
+      {
+        "feature": "transport_work",
+        "impact_score": 0.4699
+      },
+      {
+        "feature": "distance_nm",
+        "impact_score": 0.1345
+      },
+      {
+        "feature": "cargo_tons",
+        "impact_score": 0.0976
+      }
+    ],
+    "top_negative_drivers": [
+      {
+        "feature": "fuel_type_methanol",
+        "impact_score": -0.017
+      },
+      {
+        "feature": "implied_speed",
+        "impact_score": -0.0142
+      },
+      {
+        "feature": "speed_knots",
+        "impact_score": -0.0132
+      }
+    ],
+    "dominant_factor": "transport_work"
+  },
+  "evaluated_voyage_id": "VY-000001"
+}

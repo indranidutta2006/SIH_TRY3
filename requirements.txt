@@ -1,0 +1,14 @@
+# ==============================================================================
+# SIH26138 - Quantum-Inspired Fuel Consumption Prediction & Green Fleet Optimization
+# Runtime dependencies pinned to validated working local environment
+# ==============================================================================
+
+# Core Numerical & Data Science
+numpy==2.5.0
+pandas==3.0.3
+scipy==1.18.1
+scikit-learn==1.9.0
+
+# Executive Web Dashboard & Visual Analytics
+streamlit==1.64.0
+plotly==7.0.0
