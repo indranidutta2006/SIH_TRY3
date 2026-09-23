@@ -47,6 +47,58 @@ def render_prediction_page() -> None:
     leaderboard_df = pd.DataFrame(rows).sort_values(by="R² Score", ascending=False)
     st.dataframe(leaderboard_df, use_container_width=True)
 
+    # ── Per-Source Normalized Error Subsection ──────────────────────────────
+    st.subheader("Per-Source Normalized Error")
+
+    norm_rows = []
+    for name, m in models.items():
+        by_source = m.get("by_source", {})
+        for src, sm in by_source.items():
+            norm_rows.append(
+                {
+                    "Model": m.get("model_name", name),
+                    "Source": src,
+                    "NRMSE_mean": sm.get("nrmse_mean", None),
+                    "MAPE_pct": sm.get("mape_pct", None),
+                    "R²": sm.get("r2", None),
+                }
+            )
+
+    if norm_rows:
+        norm_df = pd.DataFrame(norm_rows)
+
+        def _color_nrmse(val):
+            """Green if NRMSE < 1.0 (error < target mean), red if > 1.0."""
+            if val is None:
+                return ""
+            if val < 1.0:
+                return "color: #2e7d32"  # green
+            return "color: #c62828"  # red
+
+        styled = (
+            norm_df.style
+            .format({"NRMSE_mean": "{:.4f}", "MAPE_pct": "{:.2f}%", "R²": "{:.4f}"}, na_rep="—")
+            .map(_color_nrmse, subset=["NRMSE_mean"])
+        )
+        st.dataframe(styled, use_container_width=True)
+
+        st.caption(
+            "FuelCast's low raw RMSE (56.50 t) partly reflects its smaller target scale "
+            "(mean ≈ 57 t vs. ≈ 871 t for Mock); normalized metrics (NRMSE, MAPE) should be "
+            "used for fair cross-source comparison."
+        )
+
+        st.info(
+            "**Cross-source trade-off:** Tree-based models (RF, HistGBDT) achieve excellent accuracy on Mock "
+            "(NRMSE 0.11) but suffer severe leaf shrinkage on FuelCast's low-rate regime (NRMSE 2.66–2.88). "
+            "QIFCP's continuous quantum projection is more stable across sources (FuelCast NRMSE 0.99) but "
+            "less accurate than trees on Mock (NRMSE 0.34 vs. 0.11). Neither model class is categorically "
+            "superior — the choice depends on whether source-balanced fairness or peak single-source accuracy "
+            "is prioritised."
+        )
+    else:
+        st.info("Per-source normalized metrics not available. Re-run the benchmark with `--target-mode rate`.")
+
     # 2. Performance Comparison Charts
     col1, col2 = st.columns(2)
     with col1:
