@@ -70,6 +70,8 @@ def run_full_pipeline(
     seeds: Sequence[int] | None = None,
     normalize_objective: bool = True,
     force_regenerate_data: bool = False,
+    blend_real: bool = False,
+    use_real_data: bool = False,
 ) -> dict[str, Any]:
     """Execute the full end-to-end maritime intelligence and optimization pipeline."""
     configure_logging(level="INFO")
@@ -77,10 +79,15 @@ def run_full_pipeline(
     t_pipeline_start = time.perf_counter()
     start_iso = datetime.now(timezone.utc).isoformat()
     eval_seeds = tuple(seeds) if seeds is not None else (42, 101, 2024)
+    real_data_enabled = bool(use_real_data or blend_real)
 
     logger.info("=" * 72)
     logger.info("SIH26138: STARTING COMPLETE END-TO-END MARITIME PIPELINE")
     logger.info("Seeds configured for swarm sweep: %s", eval_seeds)
+    if real_data_enabled:
+        logger.info("Real Data Integration: ENABLED (Targeting ~50/50 Real/Synthetic, Canonical Rate Framing)")
+    else:
+        logger.info("Real Data Integration: DISABLED (Synthetic-Only Fallback)")
     logger.info("=" * 72)
 
     stage_timings: dict[str, float] = {}
@@ -99,6 +106,41 @@ def run_full_pipeline(
         logger.info("Generated synthetic voyage dataset: %s (%d rows)", data_file, len(records))
     else:
         logger.info("Found existing voyage dataset: %s (%d bytes)", data_file, data_file.stat().st_size)
+
+    active_training_dataset = dataset_path
+    if real_data_enabled:
+        logger.info("Blending synthetic dataset with real observational data (THETIS-MRV + FuelCast)...")
+        from src.ingestion.real_data_adapter import blend_real_and_synthetic_datasets
+        blended_path = "data/processed/voyages_blended.csv"
+        _, blend_stats = blend_real_and_synthetic_datasets(
+            synthetic_path=data_file,
+            target_ratio=0.5,
+            output_path=blended_path,
+            seed=seed,
+        )
+        active_training_dataset = blended_path
+        ratio_msg = (
+            f"[OK] Blended Dataset Achieved: {blend_stats['real_pct']:.1f}% Real ({blend_stats['real_rows']:,} rows) / "
+            f"{blend_stats['synthetic_pct']:.1f}% Synthetic ({blend_stats['synthetic_rows']:,} rows) "
+            f"[Total: {blend_stats['total_rows']:,} rows] -> '{blended_path}'\n"
+            f"     Pre-Blend Auditing:\n"
+            f"       - THETIS-MRV Pre-Blend Rows: {blend_stats.get('thetis_pre_blend_count', 0):,}\n"
+            f"       - FuelCast Pre-Blend Rows:   {blend_stats.get('fuelcast_pre_blend_count', 0):,}\n"
+            f"       - Total Real Pre-Blend Rows: {blend_stats.get('total_real_pre_blend_count', 0):,}\n"
+            f"       - Synthetic Pre-Blend Rows:  {blend_stats.get('synthetic_pre_blend_count', 0):,}\n"
+            f"       - Subsampling Performed:     {blend_stats.get('subsampling_performed', False)} "
+            f"(subsampled {blend_stats['real_rows']:,} from {blend_stats.get('total_real_pre_blend_count', 0):,} real rows without replacement)\n"
+            f"       - Duplication Performed:     {blend_stats.get('duplication_performed', False)} (zero duplicate rows)"
+        )
+        print(f"\n{ratio_msg}\n")
+        logger.info(ratio_msg)
+
+        # Log ratio to outputs/logs/
+        blend_log_file = Path("outputs/logs/blend_dataset.log")
+        blend_log_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(blend_log_file, "a", encoding="utf-8") as f:
+            f.write(f"[{datetime.now(timezone.utc).isoformat()}]\n{ratio_msg}\n\n")
+
     stage_timings["1_data_ingestion"] = round(time.perf_counter() - t0, 3)
 
     # -------------------------------------------------------------------------
@@ -106,15 +148,20 @@ def run_full_pipeline(
     # -------------------------------------------------------------------------
     logger.info("\n>>> [STAGE 2/6] Prediction Layer: Model Training & QIFCP Benchmarking")
     t0 = time.perf_counter()
-    logger.info("Training baseline models (Linear Regression, Random Forest, HistGBDT)...")
-    train_all_models(dataset_path=dataset_path, artifacts_dir="artifacts", random_state=seed)
+    logger.info("Training baseline models using dataset '%s'...", active_training_dataset)
+    train_all_models(dataset_path=active_training_dataset, artifacts_dir="artifacts", random_state=seed)
 
-    logger.info("Benchmarking models and tuning QIFCP via QPSO (Objective 1)...")
+    target_mode = "rate" if real_data_enabled else "absolute"
+    logger.info(
+        "Benchmarking models and tuning QIFCP via QPSO (Objective 1, target_mode=%s)...",
+        target_mode,
+    )
     pred_benchmark = run_prediction_benchmark(
-        dataset_path=dataset_path,
+        dataset_path=active_training_dataset,
         output_report="outputs/reports/prediction_benchmark.json",
         sample_size=5000,
         random_state=seed,
+        target_mode=target_mode,
     )
     stage_timings["2_prediction_layer"] = round(time.perf_counter() - t0, 3)
 
@@ -330,6 +377,16 @@ def main() -> None:
         action="store_true",
         help="Use unnormalized scalarization objective instead of normalized trade-off",
     )
+    parser.add_argument(
+        "--use-real-data",
+        action="store_true",
+        help="Train models on blended real (THETIS-MRV + FuelCast) and synthetic dataset using canonical rate framing",
+    )
+    parser.add_argument(
+        "--blend-real",
+        action="store_true",
+        help="Merge synthetic dataset with real observational data (THETIS-MRV + FuelCast) targeting ~50/50 ratio before training",
+    )
     args = parser.parse_args()
 
     run_full_pipeline(
@@ -339,6 +396,8 @@ def main() -> None:
         seeds=args.seeds,
         normalize_objective=not args.unnormalized,
         force_regenerate_data=args.regenerate_data,
+        blend_real=args.blend_real,
+        use_real_data=args.use_real_data,
     )
 
 

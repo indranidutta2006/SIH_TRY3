@@ -212,3 +212,43 @@ To run the executive dashboard locally:
 streamlit run app.py
 ```
 
+---
+
+## 7. Real-World Observational Data Integration & Canonical Target Formulation
+
+### Heterogeneous Telemetry Sources
+The system integrates observational maritime data alongside synthetic hydrodynamic simulations:
+1. **EU THETIS-MRV:** Annual mandatory reporting data covering commercial cargo vessels, container ships, and tankers operating in European waters (macro-scale operational reporting).
+2. **FuelCast:** High-frequency, sensor-level underway telemetry capturing second-by-second and hourly engine fuel rates and sea state conditions across commercial container and cargo vessels.
+
+### Neutralizing Duration Proxy Leakage
+Prior to mitigation, an adversarial 3-class classifier trained solely on `hours_at_sea` achieved **95.25% accuracy** in fingerprinting dataset source (`mock`, `thetis_mrv`, `fuelcast`). This occurred because high-frequency sensor streams operated at 1.0-hour intervals while annual MRV logs aggregated thousands of hours.
+
+To eliminate this proxy leakage:
+- **Uniform Leg Sampling:** Observational records are decomposed into standard commercial voyage legs ($D \in [300, 7500]\text{ nm}$), standardizing voyage duration distributions ($\mu \approx 280\text{ h}$).
+- **Feature Pipeline Disconnection:** Raw `hours_at_sea` is completely removed from model feature matrix $X$ and replaced with `implied_hours = distance_nm / speed_knots` derived identically across all sources, augmented by one-hot `source_group` duration bins (`short` $<100\text{ h}$, `medium` $100\text{--}400\text{ h}$, `long` $>400\text{ h}$).
+- **Leakage Invariant Test:** Verified via `tests/test_no_source_leakage.py`, single-feature classifier accuracy drops to **52.4%** on blended data and **37.3%** on balanced classes (near the 33.3% random baseline), strictly satisfying the required $\le 60\%$ safety threshold.
+
+### Canonical Target Framing: Rate Formulation ($t/h$)
+The platform designates **fuel burn rate** ($\text{metric tons per hour}$, $t/h$) as its canonical target framing:
+$$\text{Target: } y_{\text{rate}} = \frac{\text{fuel\_consumption}}{\text{hours\_at\_sea}}$$
+Absolute fuel consumption for any voyage is reconstructed via:
+$$\hat{y}_{\text{abs}} = \hat{y}_{\text{rate}} \times \text{hours\_at\_sea}$$
+
+**Why Rate Framing is the Scientifically Rigorous Choice:**
+1. **Scale Invariance Across Temporal Resolutions:** Absolute fuel consumption scales directly with voyage duration ($R^2$ dominated by voyage length). Rate framing normalizes across 1-hour sensor intervals, multi-day coastal legs, and trans-oceanic voyages without introducing multi-order-of-magnitude variance.
+2. **Alignment with Naval Propulsion Hydrodynamics:** The instantaneous rate of fuel burn reflects the ship's instantaneous power requirement ($P \propto \Delta^{2/3} V^3 / C_{\text{adm}}$) and engine specific fuel oil consumption (SFOC). Predicting rate directly forces the regressors to learn physical hull resistance and payload efficiencies rather than simple duration multiplication.
+3. **Prevention of Source Dominance:** In absolute mode, large voyages dominate the mean squared loss gradient. Rate formulation balances the learning signal equally across long-haul and regional routes.
+
+### Execution Modes
+- **Blended Real Data Pipeline (Canonical):**
+  ```bash
+  python scripts/run_full_pipeline.py --use-real-data
+  ```
+  Blends 50/50 real and synthetic data, trains on leakage-free features, evaluates rate-formulated regressors, and updates `artifacts/metrics/baseline_metrics.json` and `outputs/reports/prediction_benchmark.json`.
+- **Synthetic Fallback Mode:**
+  ```bash
+  python scripts/run_full_pipeline.py
+  ```
+  Runs exclusively on synthetic baseline voyages without external data dependencies.
+
