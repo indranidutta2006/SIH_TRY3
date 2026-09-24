@@ -220,3 +220,39 @@ def test_shore_power_energy_consumption_mwh_representation() -> None:
     assert res.total_cost == pytest.approx(res.energy_consumption_mwh * 300.0, rel=1e-2)
 
 
+def test_heterogeneous_multi_vessel_shore_power_energy_aggregation() -> None:
+    """Verify that multi-vessel ShorePower aggregates individual vessel energies rather than reusing last_energy_mwh."""
+    engine = ScenarioAnalysisEngine()
+    fleet = ["VSL-A", "VSL-B", "VSL-C"]
+    vessel_specs = {
+        "VSL-A": {"distance_nm": 500.0, "speed_knots": 12.0, "cargo_tons": 20000.0, "vessel_dwt": 30000.0},
+        "VSL-B": {"distance_nm": 1000.0, "speed_knots": 14.0, "cargo_tons": 35000.0, "vessel_dwt": 45000.0},
+        "VSL-C": {"distance_nm": 1500.0, "speed_knots": 16.0, "cargo_tons": 50000.0, "vessel_dwt": 65000.0},
+    }
+    params = {
+        "fuel_type": "ShorePower",
+        "vessel_specs": vessel_specs,
+    }
+
+    # Evaluate each vessel individually
+    res_a = engine.run_scenario("Indiv_A", ["VSL-A"], params)
+    res_b = engine.run_scenario("Indiv_B", ["VSL-B"], params)
+    res_c = engine.run_scenario("Indiv_C", ["VSL-C"], params)
+
+    # Verify heterogeneous individual energies
+    assert res_a.energy_consumption_mwh < res_b.energy_consumption_mwh < res_c.energy_consumption_mwh
+
+    # Evaluate multi-vessel fleet
+    res_multi = engine.run_scenario("Multi_Fleet", fleet, params)
+
+    # The multi-vessel energy must equal the exact sum of individual energies
+    expected_sum = res_a.energy_consumption_mwh + res_b.energy_consumption_mwh + res_c.energy_consumption_mwh
+    assert res_multi.energy_consumption_mwh == pytest.approx(expected_sum, rel=1e-3)
+    assert res_multi.total_cost == pytest.approx(res_a.total_cost + res_b.total_cost + res_c.total_cost, rel=1e-3)
+
+    # Crucial assertion: Must NOT equal 3 * the last vessel's energy (which was the bug!)
+    erroneous_overwritten_sum = res_c.energy_consumption_mwh * 3.0
+    assert abs(res_multi.energy_consumption_mwh - erroneous_overwritten_sum) > 50.0
+
+
+

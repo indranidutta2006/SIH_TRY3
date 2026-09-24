@@ -146,6 +146,9 @@ class ScenarioAnalysisEngine(ScenarioEngine):
         )
 
         # 1. Compute fuel consumption per vessel respecting the strict routing boundary
+        lcv_mj_per_ton = FUEL_LCV_MJ_PER_TON.get(fuel_type, 42700.0)
+        vessel_consumptions: list[tuple[float, float]] = []
+
         if is_ml_route:
             # Route ML-trained fuels (Diesel, LNG, Methanol) through ProductionModelManager
             records: list[VoyageRecord] = []
@@ -181,11 +184,13 @@ class ScenarioAnalysisEngine(ScenarioEngine):
 
             best_model = self.model_manager.get_best_model()
             predictions = best_model.predict(records)
-            fuel_per_vessel = [float(p.predicted_fuel_consumption) for p in predictions]
+            for p in predictions:
+                f_tons = float(p.predicted_fuel_consumption)
+                e_mwh = (f_tons * lcv_mj_per_ton) / 3600.0
+                vessel_consumptions.append((f_tons, e_mwh))
         else:
             # Route non-ML alternative fuels (Hydrogen, Ammonia, ShorePower) through FuelPhysicsEngine
             # ProductionModelManager is NEVER called or touched here
-            fuel_per_vessel = []
             for v_id in vessel_fleet:
                 spec = vessel_specs.get(v_id, {})
                 dist = float(spec.get("distance_nm", operational_parameters.get("distance_nm", 1000.0)))
@@ -202,13 +207,17 @@ class ScenarioAnalysisEngine(ScenarioEngine):
                     fuel_type=fuel_type,
                     vessel_dwt=dwt,
                 )
-                fuel_per_vessel.append(fuel_val)
+                if fuel_type == FuelType.SHORE_POWER.value:
+                    # Capture electrical MWh immediately per-vessel to prevent overwrite in heterogeneous multi-vessel fleets
+                    energy_mwh = float(self.physics_engine.last_energy_mwh)
+                else:
+                    energy_mwh = (fuel_val * lcv_mj_per_ton) / 3600.0
+                vessel_consumptions.append((fuel_val, energy_mwh))
 
         # 2. Lifecycle Emissions, Energy, and FuelEU Compliance Penalties
-        lcv_mj_per_ton = FUEL_LCV_MJ_PER_TON.get(fuel_type, 42700.0)
-
-        for fuel_tons in fuel_per_vessel:
+        for fuel_tons, energy_mwh in vessel_consumptions:
             total_fuel_tons += fuel_tons
+            total_energy_mwh += energy_mwh
 
             # Calculate Well-to-Wake CO2e emissions
             emiss_result = self.emission_engine.calculate_wtw(fuel_tons, fuel_type)
@@ -218,13 +227,11 @@ class ScenarioAnalysisEngine(ScenarioEngine):
             # Energy and statutory compliance calculation
             if fuel_type == FuelType.SHORE_POWER.value:
                 # Shore power electrical MWh directly translated into energy and cost
-                energy_mwh = self.physics_engine.last_energy_mwh
                 voyage_energy_mj = energy_mwh * 3600.0
                 fueleu_penalty_eur = 0.0  # Zero operational GHG emissions
                 bunker_cost_usd = energy_mwh * price_per_ton  # price_per_ton acts as USD/MWh for shore power
             else:
                 voyage_energy_mj = fuel_tons * lcv_mj_per_ton
-                energy_mwh = voyage_energy_mj / 3600.0
                 ghg_intensity = (co2e * 1e6) / voyage_energy_mj if voyage_energy_mj > 0.0 else 0.0
                 comp_result = self.compliance_engine.evaluate_fueleu(
                     ghg_intensity=ghg_intensity,
@@ -234,7 +241,6 @@ class ScenarioAnalysisEngine(ScenarioEngine):
                 fueleu_penalty_eur = float(comp_result.penalty_eur)
                 bunker_cost_usd = fuel_tons * price_per_ton
 
-            total_energy_mwh += energy_mwh
             total_fuel_cost_usd += bunker_cost_usd
             total_penalty_eur += fueleu_penalty_eur
 
