@@ -23,7 +23,12 @@ def test_loader_implements_interface() -> None:
 
 
 def test_load_sample_csv_dataset() -> None:
-    """Verify loading the 10,000-row sample dataset produces typed VoyageRecord instances."""
+    """Verify the sample dataset loads correctly and produces typed VoyageRecord instances.
+
+    Intentionally does NOT assert a specific row count — the dataset may have been
+    generated with any --rows value (CI uses 500, local default is 10 000).
+    The meaningful contract is schema correctness, not dataset size.
+    """
     sample_csv = Path("data/raw/voyages_sample.csv")
     if not sample_csv.exists():
         pytest.skip("Sample CSV dataset not generated yet.")
@@ -31,7 +36,7 @@ def test_load_sample_csv_dataset() -> None:
     loader = CSVDatasetLoader()
     records = loader.load_data(sample_csv)
 
-    assert len(records) == 10000
+    assert len(records) >= 1, "Dataset loaded 0 records — expected at least one."
     assert all(isinstance(rec, VoyageRecord) for rec in records)
 
     first = records[0]
@@ -44,6 +49,7 @@ def test_load_sample_csv_dataset() -> None:
 
     # Verify domain validation succeeds
     assert loader.validate_data(records, strict=False) is True
+
 
 
 def test_load_nonexistent_file_raises_error() -> None:
