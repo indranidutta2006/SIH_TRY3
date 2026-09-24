@@ -261,10 +261,25 @@ class ComplianceResult:
         )
 
     @property
-    def fueleu_result(self) -> FuelEUResult:
-        """Extract dedicated FuelEUResult view."""
+    def fueleu_result(self) -> "FuelEUResult | None":
+        """Extract dedicated FuelEUResult view, or None if FuelEU was not evaluated.
+
+        Returns None when fueleu_pass is None, indicating this ComplianceResult was
+        produced by a standalone CII assessment rather than a FuelEU or combined run.
+        Preserves the three-state semantics:
+
+            True   -- FuelEU evaluated, vessel passed
+            False  -- FuelEU evaluated, vessel failed
+            None   -- FuelEU not evaluated (standalone CII result)
+
+        Previously this property coerced None -> False, converting "not evaluated"
+        into "failed" -- a semantic error for any consumer of this compatibility accessor.
+        """
+        if self.fueleu_pass is None:
+            # FuelEU was not part of this assessment -- do not manufacture a failure.
+            return None
         return FuelEUResult(
-            fueleu_pass=bool(self.fueleu_pass) if self.fueleu_pass is not None else False,
+            fueleu_pass=bool(self.fueleu_pass),
             fueleu_target=self.fueleu_target,
             ghg_intensity=self.ghg_intensity,
             penalty_eur=self.penalty_eur,

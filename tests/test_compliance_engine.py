@@ -447,6 +447,12 @@ def test_cii_does_not_overload_fueleu_pass() -> None:
     assert res_e.fueleu_pass is None
     # Concrete canonical metric is cii_ratio
     assert res_e.cii_ratio > 1.0
+    # Compatibility accessor must return None, not a manufactured FuelEUResult(fueleu_pass=False)
+    assert res_e.fueleu_result is None, (
+        "fueleu_result must be None for a standalone CII result — "
+        "returning FuelEUResult(fueleu_pass=False) would convert 'not evaluated' into 'failed'."
+    )
+
 
 
 def test_decoupled_cii_and_fueleu_result_objects() -> None:
@@ -482,6 +488,20 @@ def test_decoupled_cii_and_fueleu_result_objects() -> None:
     assert fe_res.is_compliant is False
     assert not hasattr(fe_res, "cii_rating")
     assert not hasattr(fe_res, "attained_cii")
+
+    # Positive side of fueleu_result compatibility accessor:
+    # evaluate_fueleu() always sets fueleu_pass to a real bool, so fueleu_result
+    # must return a FuelEUResult (not None) in this case.
+    raw_fe_result = engine.evaluate_fueleu(
+        ghg_intensity=95.0,
+        energy_used_mj=50_000_000.0,
+        year=2025,
+    )
+    compat = raw_fe_result.fueleu_result
+    assert compat is not None, "fueleu_result must be a FuelEUResult when FuelEU was evaluated."
+    assert isinstance(compat, FuelEUResult)
+    assert compat.fueleu_pass is False
+
 
 
 def test_compliance_assessment_container() -> None:
