@@ -175,7 +175,17 @@ def test_constants_definitions() -> None:
     assert FuelType.DIESEL == "Diesel"
     assert FuelType.AMMONIA == "Ammonia"
     assert OptimizerType.QPSO == "QPSO"
+    assert ModelType.LINEAR_REGRESSION == "LinearRegression"
+    assert ModelType.RANDOM_FOREST == "RandomForest"
+    assert ModelType.HIST_GRADIENT_BOOSTING == "HistGradientBoosting"
     assert ModelType.QIFCP == "QIFCP"
+    assert ModelType.XGBOOST == "XGBoost"
+
+    from contracts.constants import SUPPORTED_PREDICTION_MODELS
+    assert ModelType.LINEAR_REGRESSION in SUPPORTED_PREDICTION_MODELS
+    assert ModelType.RANDOM_FOREST in SUPPORTED_PREDICTION_MODELS
+    assert ModelType.HIST_GRADIENT_BOOSTING in SUPPORTED_PREDICTION_MODELS
+    assert ModelType.QIFCP in SUPPORTED_PREDICTION_MODELS
 
 
 def test_custom_exceptions_hierarchy() -> None:

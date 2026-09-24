@@ -166,6 +166,21 @@ To prevent semantic overloading between IMO and EU regulations, the platform int
 > [!WARNING] Deprecation Notice: `compliance_score`
 > The field `compliance_score` is deprecated and preserved strictly for backwards compatibility with legacy tests. It previously functioned as a polymorphic alias (`cii_ratio` for CII, `penalty_eur` for FuelEU). All downstream optimization engines (`FleetObjective`, `nsga2_pareto`, `ScenarioAnalysis`) and dashboards consume the explicit canonical fields `penalty_eur` and `cii_ratio` directly.
 
+### Canonical Prediction Contracts & Model Registry Alignment (`ModelType`)
+
+The central architecture contracts in [`contracts/constants.py`](contracts/constants.py) strictly align with the estimators implemented in [`src/prediction/model_registry.py`](src/prediction/model_registry.py) via `ModelType`:
+
+| `ModelType` Enum | Registry Identifier | Estimator Class | Implementation Status | Description |
+|:---|:---:|:---:|:---:|:---|
+| `ModelType.LINEAR_REGRESSION` | `linear_regression` | `LinearRegression` | ✅ Active | Ordinary Least Squares hydrodynamic baseline. |
+| `ModelType.RANDOM_FOREST` | `random_forest` | `RandomForestRegressor` | ✅ Active | Bagged ensemble of decision trees ($N=100$, max depth 15). |
+| `ModelType.HIST_GRADIENT_BOOSTING` | `hist_gradient_boosting` | `HistGradientBoostingRegressor` | ✅ Active | Scikit-learn native histogram-based gradient boosted decision tree regressor. |
+| `ModelType.QIFCP` | `qifcp` | `QIFCPRegressor` | ✅ Active | Quantum-Inspired Fuel Consumption Predictor with nested vessel-disjoint QPSO tuning. |
+| `ModelType.XGBOOST` *(Alias)* | `hist_gradient_boosting` | `HistGradientBoostingRegressor` | 🔄 Architectural Alias | Contract alias mapped to native histogram GBDT (eliminates unpinned external C++ binaries). |
+
+> [!NOTE] Architectural Clarification: XGBoost & Native GBDT Alignment
+> Early Phase 0 contract specifications referenced `ModelType.XGBOOST`. However, to ensure deterministic cross-platform execution (Windows, Linux, Docker, Render cloud containers) without unpinned native C++ dynamic library dependencies (`libxgboost`, OpenMP runtime mismatches), the implementation standardizes on `HistGradientBoostingRegressor` (`scikit-learn`). `HistGradientBoosting` implements the exact same histogram-binning and gradient-boosted decision tree algorithm as XGBoost/LightGBM. For architectural compatibility, `ModelType.XGBOOST` is preserved as a valid contract alias and transparently resolves to `hist_gradient_boosting` in `normalize_model_name()`.
+
 ---
 
 ## 4. Quick Start
@@ -223,7 +238,7 @@ Verify that all architectural contracts, physics derivations, statutory emission
 ```bash
 python -m pytest tests/ -v
 ```
-* **Produces:** 218/218 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves (including 279k DWT Bulk, 57.7k GT Ro-Ro Vehicle carrier, and 65k DWT LNG carrier effective capacity caps), strict statutory capacity unit validation (GT vs DWT), MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, decoupled statutory compliance schemas, FuelEU Article 23(2) consecutive-deficit penalty scaling, canonical Deb et al. (2002) NSGA-II crowding-distance environmental selection, and nested vessel-disjoint inner validation for QPSO-tuned QIFCP.
+* **Produces:** 218/218 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves (including 279k DWT Bulk, 57.7k GT Ro-Ro Vehicle carrier, and 65k DWT LNG carrier effective capacity caps), strict statutory capacity unit validation (GT vs DWT), MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, decoupled statutory compliance schemas, FuelEU Article 23(2) consecutive-deficit penalty scaling, canonical Deb et al. (2002) NSGA-II crowding-distance environmental selection, nested vessel-disjoint inner validation for QPSO-tuned QIFCP, and full ModelType central contract & ModelRegistry estimator alignment.
 
 ---
 

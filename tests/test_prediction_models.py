@@ -40,11 +40,20 @@ def test_artifact_filename_invalid_model_raises_error() -> None:
 
 def test_model_name_normalization() -> None:
     """Ensure alias strings normalize to canonical snake_case identifiers."""
+    from contracts.constants import ModelType
+
     assert normalize_model_name("LinearRegression") == "linear_regression"
+    assert normalize_model_name(ModelType.LINEAR_REGRESSION) == "linear_regression"
     assert normalize_model_name("RandomForestRegressor") == "random_forest"
+    assert normalize_model_name(ModelType.RANDOM_FOREST) == "random_forest"
     assert normalize_model_name("RF") == "random_forest"
     assert normalize_model_name("HistGradientBoostingRegressor") == "hist_gradient_boosting"
+    assert normalize_model_name(ModelType.HIST_GRADIENT_BOOSTING) == "hist_gradient_boosting"
     assert normalize_model_name("HGBT") == "hist_gradient_boosting"
+    assert normalize_model_name("XGBoost") == "hist_gradient_boosting"
+    assert normalize_model_name(ModelType.XGBOOST) == "hist_gradient_boosting"
+    assert normalize_model_name("QIFCP") == "qifcp"
+    assert normalize_model_name(ModelType.QIFCP) == "qifcp"
 
 
 def test_model_instantiation() -> None:

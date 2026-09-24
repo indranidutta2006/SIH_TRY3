@@ -32,8 +32,10 @@ class ModelType(StrEnum):
     """Enumeration of supported maritime fuel consumption prediction models."""
 
     LINEAR_REGRESSION = "LinearRegression"
-    XGBOOST = "XGBoost"
+    RANDOM_FOREST = "RandomForest"
+    HIST_GRADIENT_BOOSTING = "HistGradientBoosting"
     QIFCP = "QIFCP"
+    XGBOOST = "XGBoost"  # Contract alias for tree-based GBDT (standardized on HistGradientBoosting)
 
 
 SUPPORTED_FUELS: Final[tuple[FuelType, ...]] = (
@@ -53,6 +55,7 @@ SUPPORTED_OPTIMIZERS: Final[tuple[OptimizerType, ...]] = (
 
 SUPPORTED_PREDICTION_MODELS: Final[tuple[ModelType, ...]] = (
     ModelType.LINEAR_REGRESSION,
-    ModelType.XGBOOST,
+    ModelType.RANDOM_FOREST,
+    ModelType.HIST_GRADIENT_BOOSTING,
     ModelType.QIFCP,
 )

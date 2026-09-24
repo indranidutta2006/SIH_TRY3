@@ -28,16 +28,17 @@ MODEL_FILENAME_MAP: Final[dict[str, str]] = {
 }
 
 
-def normalize_model_name(name: str) -> str:
-    """Normalize model identifier strings into canonical lowercase snake_case format.
+def normalize_model_name(name: Any) -> str:
+    """Normalize model identifier strings or ModelType enum into canonical lowercase snake_case format.
 
     Args:
-        name: Input model identifier (e.g. 'LinearRegression', 'random_forest').
+        name: Input model identifier (e.g. 'LinearRegression', 'random_forest', ModelType.HIST_GRADIENT_BOOSTING).
 
     Returns:
         Canonical snake_case model identifier.
     """
-    cleaned = name.strip().lower().replace("-", "_").replace(" ", "_")
+    raw_str = getattr(name, "value", name)
+    cleaned = str(raw_str).strip().lower().replace("-", "_").replace(" ", "_")
     mapping = {
         "linearregression": "linear_regression",
         "linear_regression": "linear_regression",
@@ -51,6 +52,10 @@ def normalize_model_name(name: str) -> str:
         "histgradientboosting": "hist_gradient_boosting",
         "hgbt": "hist_gradient_boosting",
         "hist_gbdt": "hist_gradient_boosting",
+        "gradient_boosting": "hist_gradient_boosting",
+        "gradientboosting": "hist_gradient_boosting",
+        "xgboost": "hist_gradient_boosting",
+        "xgb": "hist_gradient_boosting",
         "qifcp": "qifcp",
         "quantum_inspired": "qifcp",
         "quantum": "qifcp",
