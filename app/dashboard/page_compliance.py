@@ -94,7 +94,7 @@ def render_compliance_page() -> None:
                 color = "green" if fe_res.fueleu_pass else "red"
                 st.markdown(f"### Status: :{color}[{status_text}]")
             with pcol2:
-                penalty_eur = fe_res.compliance_score if not fe_res.fueleu_pass else 0.0
+                penalty_eur = fe_res.penalty_eur
                 st.metric("FuelEU Penalty (€)", f"€{penalty_eur:,.2f}")
             with pcol3:
                 st.metric("Compliance Status", fe_res.compliance_status)

@@ -195,24 +195,39 @@ class ComplianceEngine(ABC):
     @abstractmethod
     def evaluate_cii(
         self,
-        co2_emissions: float,
-        cargo_tons: float,
-        distance_nm: float,
-        year: int,
+        co2_emissions: float | None = None,
+        cargo_tons: float | None = None,
+        distance_nm: float | None = None,
+        year: int = 2024,
+        *,
+        vessel_type: str | None = None,
+        vessel_dwt: float | None = None,
+        annual_distance_nm: float | None = None,
+        annual_co2_tons: float | None = None,
+        **kwargs: Any,
     ) -> ComplianceResult:
         """Calculate IMO Carbon Intensity Indicator (CII) and operational rating (A through E).
 
+        Accepts standard physical metrics (co2_emissions, cargo_tons, distance_nm)
+        or statutory reporting aliases (vessel_type, vessel_dwt, annual_distance_nm, annual_co2_tons).
+
         Args:
-            co2_emissions: Annual operational CO2 emissions in metric tons.
-            cargo_tons: Vessel deadweight tonnage or gross capacity.
+            co2_emissions: Annual operational direct CO2 emissions in metric tons.
+            cargo_tons: Vessel capacity / deadweight tonnage.
             distance_nm: Total distance navigated in nautical miles.
             year: Regulatory compliance reporting calendar year.
+            vessel_type: Optional vessel classification category (e.g. Bulk Carrier, Container, Tanker).
+            vessel_dwt: Deadweight tonnage capacity alias for cargo_tons.
+            annual_distance_nm: Annual distance alias for distance_nm.
+            annual_co2_tons: Annual direct CO2 emissions alias for co2_emissions.
+            **kwargs: Additional contextual metadata.
 
         Returns:
-            ComplianceResult detailing the categorical letter rating and compliance status.
+            ComplianceResult detailing rating, attained/required CII, and compliance status.
 
         Raises:
-            ComplianceError: If required vessel rating baselines are undefined.
+            DataValidationError: If required metrics are missing or physically invalid.
+            ComplianceError: If reporting year is invalid (< 2020).
         """
         pass
 

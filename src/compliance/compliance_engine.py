@@ -6,7 +6,7 @@ operational rating curves (A to E) and EU FuelEU Maritime statutory GHG deficit 
 """
 
 import logging
-from typing import Final
+from typing import Any, Final, Optional
 
 from contracts.exceptions import ComplianceError, DataValidationError
 from contracts.interfaces import ComplianceEngine
@@ -51,40 +51,71 @@ class MaritimeComplianceEngine(ComplianceEngine):
 
     def evaluate_cii(
         self,
-        co2_emissions: float,
-        cargo_tons: float,
-        distance_nm: float,
-        year: int,
+        co2_emissions: Optional[float] = None,
+        cargo_tons: Optional[float] = None,
+        distance_nm: Optional[float] = None,
+        year: int = 2024,
+        *,
+        vessel_type: Optional[str] = None,
+        vessel_dwt: Optional[float] = None,
+        annual_distance_nm: Optional[float] = None,
+        annual_co2_tons: Optional[float] = None,
+        **kwargs: Any,
     ) -> ComplianceResult:
         """Calculate IMO Carbon Intensity Indicator (CII) and operational letter rating.
+
+        Supports standard physical metrics (co2_emissions, cargo_tons, distance_nm)
+        and dashboard/statutory reporting aliases (annual_co2_tons, vessel_dwt, annual_distance_nm, vessel_type).
 
         Args:
             co2_emissions: Total operational direct CO2 emissions in metric tons.
             cargo_tons: Vessel deadweight capacity in metric tons.
             distance_nm: Total distance navigated in nautical miles.
             year: Compliance reporting calendar year (>= 2020).
+            vessel_type: Optional vessel classification (e.g. 'Bulk Carrier', 'Container', 'Tanker').
+            vessel_dwt: Alias for cargo_tons (metric tons DWT).
+            annual_distance_nm: Alias for distance_nm.
+            annual_co2_tons: Alias for co2_emissions.
+            **kwargs: Additional contextual metadata.
 
         Returns:
-            ComplianceResult detailing letter rating (A-E) and ratio score.
+            ComplianceResult detailing letter rating (A-E), attained/required CII, ratio, and status.
 
         Raises:
-            DataValidationError: If inputs are negative or zero.
-            ComplianceError: If required baselines cannot be resolved.
+            DataValidationError: If inputs are negative, zero, or missing.
+            ComplianceError: If reporting year is invalid (< 2020).
         """
-        if co2_emissions < 0.0:
+        resolved_co2 = annual_co2_tons if annual_co2_tons is not None else co2_emissions
+        resolved_dwt = vessel_dwt if vessel_dwt is not None else cargo_tons
+        resolved_dist = annual_distance_nm if annual_distance_nm is not None else distance_nm
+
+        if resolved_co2 is None:
             raise DataValidationError(
-                f"CO2 emissions cannot be negative: {co2_emissions}",
-                details={"co2_emissions": co2_emissions},
+                "Direct CO2 emissions must be provided (co2_emissions or annual_co2_tons)."
             )
-        if cargo_tons <= 0.0:
+        if resolved_dwt is None:
             raise DataValidationError(
-                f"Cargo tons/capacity must be positive: {cargo_tons}",
-                details={"cargo_tons": cargo_tons},
+                "Vessel capacity / deadweight must be provided (cargo_tons or vessel_dwt)."
             )
-        if distance_nm <= 0.0:
+        if resolved_dist is None:
             raise DataValidationError(
-                f"Distance must be positive: {distance_nm}",
-                details={"distance_nm": distance_nm},
+                "Navigated distance must be provided (distance_nm or annual_distance_nm)."
+            )
+
+        if resolved_co2 < 0.0:
+            raise DataValidationError(
+                f"CO2 emissions cannot be negative: {resolved_co2}",
+                details={"co2_emissions": resolved_co2},
+            )
+        if resolved_dwt <= 0.0:
+            raise DataValidationError(
+                f"Cargo tons/capacity must be positive: {resolved_dwt}",
+                details={"cargo_tons": resolved_dwt},
+            )
+        if resolved_dist <= 0.0:
+            raise DataValidationError(
+                f"Distance must be positive: {resolved_dist}",
+                details={"distance_nm": resolved_dist},
             )
         if year < 2020:
             raise ComplianceError(
@@ -93,10 +124,26 @@ class MaritimeComplianceEngine(ComplianceEngine):
             )
 
         # Attained CII (gCO2 / (dwt * nm))
-        attained_cii = (co2_emissions * 1e6) / (cargo_tons * distance_nm)
+        attained_cii = (resolved_co2 * 1e6) / (resolved_dwt * resolved_dist)
 
-        # Statutory IMO Baseline CII (MEPC.337(76) bulk carrier reference curve: a=4745, c=0.622)
-        baseline_cii = 4745.0 * (cargo_tons ** -0.622)
+        # Statutory IMO Baseline CII (MEPC.337(76))
+        # Form: Baseline_CII = a * (DWT ** -c)
+        vessel_curves = {
+            "bulk carrier": (4745.0, 0.622),
+            "tanker": (5247.0, 0.610),
+            "container": (1984.0, 0.489),
+            "general cargo": (3196.0, 0.540),
+            "roro": (1686.0, 0.388),
+            "lng carrier": (9.827, 0.0),
+        }
+        curve_key = vessel_type.strip().lower() if vessel_type else ""
+        if curve_key in vessel_curves:
+            a, c = vessel_curves[curve_key]
+        else:
+            # Default to bulk carrier baseline reference curve (a=4745, c=0.622)
+            a, c = 4745.0, 0.622
+
+        baseline_cii = a * (resolved_dwt ** -c) if c != 0.0 else a
 
         # Statutory Annual Reduction Factor Z
         if year <= 2022:
@@ -129,10 +176,18 @@ class MaritimeComplianceEngine(ComplianceEngine):
             rating = "E"
 
         is_compliant = rating in ("A", "B", "C")
+        compliance_status = "COMPLIANT" if is_compliant else "NON_COMPLIANT"
 
         return ComplianceResult(
             cii_rating=rating,
+            attained_cii=round(attained_cii, 4),
+            required_cii=round(required_cii, 4),
+            cii_ratio=round(ratio, 4),
             fueleu_pass=is_compliant,
+            fueleu_target=0.0,
+            ghg_intensity=0.0,
+            penalty_eur=0.0,
+            compliance_status=compliance_status,
             compliance_score=round(ratio, 4),
         )
 
@@ -173,7 +228,14 @@ class MaritimeComplianceEngine(ComplianceEngine):
             # Full compliance — zero penalty
             return ComplianceResult(
                 cii_rating="N/A",
+                attained_cii=0.0,
+                required_cii=0.0,
+                cii_ratio=0.0,
                 fueleu_pass=True,
+                fueleu_target=round(target_limit, 4),
+                ghg_intensity=round(ghg_intensity, 4),
+                penalty_eur=0.0,
+                compliance_status="COMPLIANT",
                 compliance_score=0.0,
             )
 
@@ -185,6 +247,13 @@ class MaritimeComplianceEngine(ComplianceEngine):
 
         return ComplianceResult(
             cii_rating="N/A",
+            attained_cii=0.0,
+            required_cii=0.0,
+            cii_ratio=0.0,
             fueleu_pass=False,
+            fueleu_target=round(target_limit, 4),
+            ghg_intensity=round(ghg_intensity, 4),
+            penalty_eur=round(penalty_eur, 2),
+            compliance_status="NON_COMPLIANT",
             compliance_score=round(penalty_eur, 2),
         )

@@ -109,8 +109,15 @@ class ComplianceResult:
     """Regulatory assessment output (IMO CII letter rating and EU FuelEU status)."""
 
     cii_rating: str
-    fueleu_pass: bool
-    compliance_score: float
+    attained_cii: float = 0.0
+    required_cii: float = 0.0
+    cii_ratio: float = 0.0
+    fueleu_pass: bool = True
+    fueleu_target: float = 0.0
+    ghg_intensity: float = 0.0
+    penalty_eur: float = 0.0
+    compliance_status: str = "COMPLIANT"
+    compliance_score: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize dataclass to dictionary."""

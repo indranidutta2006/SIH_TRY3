@@ -81,3 +81,53 @@ def test_compliance_validation_errors() -> None:
 
     with pytest.raises(DataValidationError):
         engine.evaluate_fueleu(ghg_intensity=-5.0, energy_used_mj=1000.0, year=2025)
+
+
+def test_cii_dashboard_call_pattern() -> None:
+    """Verify evaluate_cii works with dashboard keyword arguments."""
+    engine = MaritimeComplianceEngine()
+    res = engine.evaluate_cii(
+        vessel_type="Bulk Carrier",
+        vessel_dwt=65000.0,
+        annual_distance_nm=45000.0,
+        annual_co2_tons=12500.0,
+        year=2025,
+    )
+    assert isinstance(res, ComplianceResult)
+    assert res.cii_rating in ("A", "B", "C", "D", "E")
+    assert res.attained_cii > 0.0
+    assert res.required_cii > 0.0
+    assert res.cii_ratio > 0.0
+    assert res.compliance_status in ("COMPLIANT", "NON_COMPLIANT")
+    assert res.penalty_eur == 0.0
+
+
+def test_compliance_result_canonical_schema_fields() -> None:
+    """Verify ComplianceResult contains all canonical attributes for both CII and FuelEU."""
+    engine = MaritimeComplianceEngine()
+    res_cii = engine.evaluate_cii(
+        co2_emissions=1000.0,
+        cargo_tons=50000.0,
+        distance_nm=3000.0,
+        year=2024,
+    )
+    assert hasattr(res_cii, "cii_rating")
+    assert hasattr(res_cii, "attained_cii")
+    assert hasattr(res_cii, "required_cii")
+    assert hasattr(res_cii, "cii_ratio")
+    assert hasattr(res_cii, "fueleu_pass")
+    assert hasattr(res_cii, "fueleu_target")
+    assert hasattr(res_cii, "ghg_intensity")
+    assert hasattr(res_cii, "penalty_eur")
+    assert hasattr(res_cii, "compliance_status")
+    assert hasattr(res_cii, "compliance_score")
+
+    fe_res = engine.evaluate_fueleu(
+        ghg_intensity=95.0,
+        energy_used_mj=50000000.0,
+        year=2025,
+    )
+    assert fe_res.compliance_status == "NON_COMPLIANT"
+    assert fe_res.penalty_eur > 0.0
+    assert fe_res.fueleu_target > 0.0
+    assert fe_res.ghg_intensity == 95.0
