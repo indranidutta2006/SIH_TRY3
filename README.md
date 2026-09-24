@@ -116,6 +116,9 @@ from contracts import (
     PredictionResult,
     EmissionResult,
     ComplianceResult,
+    CIIResult,
+    FuelEUResult,
+    ComplianceAssessment,
     FleetAssignment,
     OptimizationResult,
     ScenarioResult,
@@ -129,8 +132,10 @@ from contracts import (
     FuelType,
     OptimizerType,
     ModelType,
+    DEFAULT_EUR_TO_USD_FX_RATE,
     DataValidationError,
     PredictionError,
+    ComplianceError,
     OptimizationError,
 )
 ```
@@ -180,6 +185,23 @@ The central architecture contracts in [`contracts/constants.py`](contracts/const
 
 > [!NOTE] Architectural Clarification: XGBoost & Native GBDT Alignment
 > Early Phase 0 contract specifications referenced `ModelType.XGBOOST`. However, to ensure deterministic cross-platform execution (Windows, Linux, Docker, Render cloud containers) without unpinned native C++ dynamic library dependencies (`libxgboost`, OpenMP runtime mismatches), the implementation standardizes on `HistGradientBoostingRegressor` (`scikit-learn`). `HistGradientBoosting` belongs to the same broad class of histogram-based gradient-boosted decision tree methods as XGBoost and LightGBM (inspired by LightGBM's binning paradigm). For architectural compatibility, `ModelType.XGBOOST` is preserved as a valid contract alias and transparently resolves to `hist_gradient_boosting` in `normalize_model_name()`.
+
+### Canonical Alternative Fuel & Electrification Contract (`ScenarioResult`)
+
+The multi-fuel scenario analysis and green fleet optimization modules output standardized results conforming to `ScenarioResult` in [`contracts/schemas.py`](contracts/schemas.py). The schema cleanly decouples bunker fuel expenditures ($USD) from statutory regulatory penalties (€EUR) while providing native electrical energy tracking for cold-ironing electrification:
+
+| Field | Type | Description |
+|:---|:---:|:---|
+| `scenario_name` | `str` | Descriptive identifier for the operational scenario (e.g., `"Methanol Transition"`). |
+| `fuel_type` | `str` | Evaluated marine fuel or power source (`Diesel`, `LNG`, `Methanol`, `Hydrogen`, `Ammonia`, `ShorePower`). |
+| `total_cost` | `float` | Unified financial cost in $USD ($\text{fuel\_cost\_usd} + \text{fueleu\_penalty\_usd}$). |
+| `total_emissions` | `float` | Aggregate lifecycle Well-to-Wake (WTW) $\text{CO}_2\text{e}$ emissions in metric tons. |
+| `fuel_consumption` | `float` | Direct combustion fuel mass in metric tons ($0.0\text{ t}$ for cold-ironing `ShorePower`). |
+| `energy_consumption_mwh` | `float` | Total energy consumed in megawatt-hours (MWh), providing direct thermodynamic comparability between grid electricity and chemical fuels. |
+| `fuel_cost_usd` | `float` | Direct bunker fuel or electricity expenditure in US Dollars ($USD). |
+| `fueleu_penalty_eur` | `float` | Statutory FuelEU Maritime penalty exposure in Euros (€EUR) under Regulation (EU) 2023/1805. |
+| `fueleu_penalty_usd` | `float` | Converted FuelEU Maritime penalty exposure in US Dollars ($USD) at the evaluation FX rate. |
+| `exchange_rate_eur_to_usd`| `float` | Configurable foreign exchange conversion multiplier (baseline `1.08` USD per EUR). |
 
 ---
 
@@ -546,4 +568,59 @@ $$\hat{y}_{\text{abs}} = \hat{y}_{\text{rate}} \times \text{hours\_at\_sea}$$
   python scripts/run_full_pipeline.py
   ```
   Runs exclusively on synthetic baseline voyages without external data dependencies.
+
+---
+
+## 8. Summary of Recent Architectural Hardening & Production Audits
+
+This section provides an explicit audit trace of all recent methodology, compliance, optimization, and presentation hardenings implemented across the repository:
+
+### 8.1 Machine Learning & Validation Rigor (P1 Methodology Hardening)
+1. **Nested Vessel-Disjoint Validation for QIFCP:**
+   - *Previous state:* QPSO hyperparameter search used ordinary positional array splitting (`X_train = X_arr[:split_idx]`).
+   - *Hardened state:* `QIFCPRegressor.tune_with_qpso(X, y, groups=vessel_ids)` enforces strict vessel-disjoint `GroupShuffleSplit` across inner validation folds:
+     $$\text{Outer Vessel-Disjoint Test Split} \longrightarrow \text{Training Partition} \longrightarrow \text{Inner Vessel-Disjoint Validation Fold} \longrightarrow \text{QPSO Parameter Search}$$
+     Guarantees that no vessel appearing in the inner validation fold is present in the inner training partition, preventing data leakage during phase-scale ($\gamma$) and L2 regularization ($\alpha_{\text{reg}}$) search.
+2. **Standardized Native GBDT Architecture (`HistGradientBoostingRegressor`):**
+   - Implemented using Scikit-Learn's native histogram-based gradient-boosted decision tree regressor (`hist_gradient_boosting`), eliminating unpinned external C++ dynamic library dependencies (`libxgboost`, OpenMP runtime incompatibilities) across Windows, Linux, and cloud containers.
+   - Belongs to the same broad class of histogram-based gradient-boosting tree methods as XGBoost and LightGBM (inspired by LightGBM's binning paradigm). `ModelType.XGBOOST` is preserved as a backward-compatible contract alias that resolves to `hist_gradient_boosting`.
+3. **Empirical Metrics vs. Nominal Confidence Scores:**
+   - The scalar field `confidence_score=0.95` is retained strictly as an immutable backward-compatible schema field.
+   - User-facing dashboards, leadership leaderboards, and evaluation benchmarks strictly present empirical validation metrics ($R^2$, RMSE, MAE, MAPE, NRMSE, fit times, and cross-source generalization spreads) rather than synthetic scalar confidence percentages.
+
+### 8.2 Green Fleet Optimization & Physics Dispatch Architecture
+4. **System-Wide Dual-Route Fuel Architecture Enforcement:**
+   - *Previous state:* `fleet_objective.py` routed all fuels (including Hydrogen, Ammonia, and ShorePower) through machine learning predictors, creating an inconsistency with `scenario_analysis.py`.
+   - *Hardened state:* Both `fleet_objective.py` (scalar PSO/QPSO) and `nsga2_pareto.py` (bi-objective NSGA-II) strictly enforce the system-wide fuel architecture:
+     - **Conventional / Transitional fuels (`Diesel`, `LNG`, `Methanol`):** Dispatched to ML models (`ProductionModelManager`) which possess empirical training distributions.
+     - **Novel zero-emission pathways (`Hydrogen`, `Ammonia`, `ShorePower`):** Dispatched exclusively to first-principles naval architecture physics (`MaritimeFuelPhysicsEngine`). Statistical models are never called for unobserved fuel pathways.
+5. **Dynamic Vessel and Weather Parameterization:**
+   - *Previous state:* Optimization routines evaluated every voyage assuming a generic Bulk Carrier with neutral weather ($w=1.0$) and calm sea state ($3$).
+   - *Hardened state:* Hierarchical context resolution (`voyage_specs` and `vessel_specs`) dynamically injects authentic vessel types (`vessel_type`), deadweight carrying capacities (`vessel_dwt`), cargo tonnages (`cargo_tons`), route weather resistance factors (`weather_factor`), and Douglas sea state scales (`sea_state`) into both ML inference and physical drag computations.
+6. **Canonical Deb et al. (2002) Crowding-Distance Environmental Selection:**
+   - *Previous state:* Truncation of overflowing Pareto fronts used naive array slicing (`front[:needed]`).
+   - *Hardened state:* `calculate_crowding_distance()` assigns infinite distance ($d_i = \infty$) to boundary extrema and accumulates normalized objective spread across intermediate neighbors. The solver sorts the boundary front in descending crowding distance, preserving Pareto frontier spread and boundary solutions.
+   - *Offspring Variation Nuance:* Paired with continuous differential-evolution variation (DE/rand/1/bin, $F=0.8, CR=0.7$), forming a hybrid **DE-NSGA-II / DEMO** architecture.
+7. **Dimensional Currency Consistency (`DEFAULT_EUR_TO_USD_FX_RATE`):**
+   - *Previous state:* FuelEU regulatory penalties (€EUR) were directly summed with bunker fuel costs ($USD) without unit conversion.
+   - *Hardened state:* Introduced explicit configurable exchange rate (`DEFAULT_EUR_TO_USD_FX_RATE = 1.08`) across `fleet_objective.py`, `nsga2_pareto.py`, and `scenario_analysis.py`. Financial objectives cleanly convert penalties to USD before computing total operational cost.
+
+### 8.3 Statutory Compliance Rigor & Scope Boundaries
+8. **Strict Statutory Capacity Metric Validation (`DataValidationError`):**
+   - Enforces IMO Resolution MEPC.353(78) Table 1 statutory capacity types. Supplying DWT for passenger/Ro-Ro vessels or GT for cargo/tanker/bulk carriers immediately raises `DataValidationError`.
+9. **Strict Statutory Vessel Category Validation (`ComplianceError`):**
+   - Replaced silent fallback to Bulk Carrier parameters with explicit `raise ComplianceError` for unmodeled vessel types in `resolve_cii_reference_line` and `resolve_cii_rating_boundaries`.
+10. **Statutory Capacity Boundary Enforcements (MEPC.353(78) G2):**
+    - LNG carriers below 65,000 DWT: Enforces statutory fixed effective capacity floor of $65{,}000\text{ DWT}$.
+    - Ro-Ro vehicle carriers: Enforces statutory capacity cap of $57{,}700\text{ GT}$.
+    - Bulk carriers: Enforces statutory capacity cap of $279{,}000\text{ DWT}$.
+11. **Defensible Operational Estimator Scope Notices:**
+    - IMO CII engine positioned strictly as an operational CII estimator (MEPC.353(78) G2, MEPC.354(78) G4, MEPC.400(83) Z-factors) without simulating optional MEPC.355(78) G5 voyage correction factors.
+    - FuelEU Maritime engine positioned strictly as a GHG-intensity compliance and penalty estimator (Articles 4 & 23, Annex IV, with Article 23(2) consecutive-deficit penalty scaling) without simulating RFNBO subtargets, OPS mandates, or pooling/banking mechanisms.
+
+### 8.4 Cold-Ironing Electrification & Scenario Transparency
+12. **Native Electrical Energy Reporting (`energy_consumption_mwh`):**
+    - `ScenarioResult` explicitly reports `energy_consumption_mwh` alongside `fuel_cost_usd`, `fueleu_penalty_eur`, `fueleu_penalty_usd`, and `exchange_rate_eur_to_usd`.
+    - Eliminates the misleading representation of "zero consumption" when cold-ironing shore power replaces bunker fuel, while enabling thermodynamic energy parity comparisons across all 6 alternative marine fuels.
+
 
