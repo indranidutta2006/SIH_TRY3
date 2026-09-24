@@ -540,5 +540,40 @@ def test_fueleu_consecutive_period_penalty_multiplier() -> None:
     assert res_comp.penalty_multiplier == 1.0
 
 
+@pytest.mark.parametrize(
+    "vessel_type, invalid_metric",
+    [
+        ("Ro-Ro Cargo Ship", "DWT"),
+        ("Ro-Ro Vehicle Carrier", "DWT"),
+        ("Ro-Ro Passenger Ship", "DWT"),
+        ("Cruise Passenger Ship", "DWT"),
+        ("Bulk Carrier", "GT"),
+        ("Tanker", "GT"),
+        ("Containership", "GT"),
+        ("LNG Carrier", "GT"),
+        ("General Cargo", "GT"),
+        ("Gas Carrier", "GT"),
+    ],
+)
+def test_cii_capacity_metric_mismatch_raises_validation_error(vessel_type: str, invalid_metric: str) -> None:
+    """Verify that supplying an incompatible capacity metric raises DataValidationError."""
+    engine = MaritimeComplianceEngine()
+
+    with pytest.raises(DataValidationError) as exc_info:
+        engine.resolve_cii_reference_line(vessel_type=vessel_type, capacity=50000.0, capacity_type=invalid_metric)
+    assert "Statutory capacity metric mismatch" in str(exc_info.value)
+
+    with pytest.raises(DataValidationError) as exc_info2:
+        engine.evaluate_cii(
+            vessel_type=vessel_type,
+            capacity=50000.0,
+            capacity_type=invalid_metric,
+            annual_distance_nm=40000.0,
+            annual_co2_tons=10000.0,
+            year=2025,
+        )
+    assert "Statutory capacity metric mismatch" in str(exc_info2.value)
+
+
 
 

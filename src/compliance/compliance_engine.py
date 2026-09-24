@@ -217,14 +217,17 @@ class MaritimeComplianceEngine(ComplianceEngine):
             a, c = 4745.0, 0.622
             eff_cap = min(capacity, 279000.0)
 
-        # Notify if user provided capacity_type contradicts statutory standard
+        # Strictly validate supplied capacity_type against statutory metric
         if capacity_type and capacity_type.strip().upper() != metric:
-            self.logger.warning(
-                "Statutory reference line for '%s' under IMO MEPC.353(78) uses %s, "
-                "but capacity_type='%s' was specified.",
-                vessel_type,
-                metric,
-                capacity_type,
+            raise DataValidationError(
+                f"Statutory capacity metric mismatch for vessel type '{vessel_type}' under IMO Resolution MEPC.353(78): "
+                f"governing statutory metric is '{metric}', but '{capacity_type.strip().upper()}' was supplied. "
+                f"GT and DWT are distinct physical quantities and cannot be interchanged.",
+                details={
+                    "vessel_type": vessel_type,
+                    "statutory_metric": metric,
+                    "provided_capacity_type": capacity_type.strip().upper(),
+                },
             )
 
         return a, c, eff_cap, metric

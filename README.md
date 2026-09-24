@@ -223,7 +223,7 @@ Verify that all architectural contracts, physics derivations, statutory emission
 ```bash
 python -m pytest tests/ -v
 ```
-* **Produces:** 199/199 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves (including 279k DWT Bulk, 57.7k GT Ro-Ro Vehicle carrier, and 65k DWT LNG carrier effective capacity caps), MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, decoupled statutory compliance schemas, and FuelEU Article 23(2) consecutive-deficit penalty scaling.
+* **Produces:** 209/209 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves (including 279k DWT Bulk, 57.7k GT Ro-Ro Vehicle carrier, and 65k DWT LNG carrier effective capacity caps), strict statutory capacity unit validation (GT vs DWT), MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, decoupled statutory compliance schemas, and FuelEU Article 23(2) consecutive-deficit penalty scaling.
 
 ---
 
@@ -307,6 +307,7 @@ Implemented in `src/compliance/compliance_engine.py` conforming to [`contracts.i
 | **2030** | **21.500%** (`0.21500`) | **IMO Resolution MEPC.400(83)** |
 
 - **Statutory Lookup & Regulatory Range Enforcement:** Implemented via immutable lookup table `CII_Z_FACTORS`. Both `get_cii_z_factor(year)` and `evaluate_cii(..., year=year)` strictly reject calendar years outside the statutory regulatory range ($[2023, 2030]$) by raising `ComplianceError`, preventing erroneous extrapolations or arbitrary linear drift.
+- **Strict Statutory Capacity Metric Enforcement (`DataValidationError`):** Gross Tonnage (GT) and Deadweight Tonnage (DWT) measure fundamentally distinct physical quantities (internal enclosed volume vs cargo deadweight carrying capacity) and cannot be legally interchanged. The engine strictly validates supplied capacity units against Table 1 of IMO Resolution MEPC.353(78): Ro-Ro and passenger vessels mandate **GT**, while bulk, tanker, container, general cargo, and gas vessels mandate **DWT**. Supplying an incompatible capacity metric (such as DWT for a Ro-Ro cargo ship or GT for a bulk carrier) immediately raises `DataValidationError`.
 - **Ship-Type-Specific Letter Rating Boundaries (IMO Resolution MEPC.354(78) G4):** Superseding simplified universal thresholds (`0.83, 0.94, 1.06, 1.19`), the engine resolves statutory rating boundary vectors $(d_1, d_2, d_3, d_4)$ conforming to Table 1 of Resolution MEPC.354(78). Operational rating (A–E) is evaluated against the statutory ratio $r = \text{CII}_{\text{attained}} / \text{CII}_{\text{required}}$:
   - **Grade A (Superior):** $r \le \exp(d_1)$
   - **Grade B (Minor Superior):** $\exp(d_1) < r \le \exp(d_2)$

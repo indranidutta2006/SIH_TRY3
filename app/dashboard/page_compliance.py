@@ -2,6 +2,7 @@
 
 import streamlit as st
 
+from contracts.exceptions import DataValidationError
 from src.compliance.compliance_engine import MaritimeComplianceEngine
 
 
@@ -48,6 +49,13 @@ def render_compliance_page() -> None:
                 help="Ro-Ro and Passenger vessels use Gross Tonnage (GT). Cargo, bulk, tankers, and LNG carriers use DWT.",
             )
             cap_code = "GT" if "GT" in cap_type_choice else "DWT"
+            statutory_required_metric = "GT" if is_gt_vessel else "DWT"
+            if cap_code != statutory_required_metric:
+                st.warning(
+                    f"⚠️ **Incompatible Capacity Unit:** IMO Resolution MEPC.353(78) mandates **{statutory_required_metric}** "
+                    f"for '{v_type}'. Submitting with {cap_code} will be rejected as a statutory mismatch."
+                )
+
             cap_val = st.number_input(
                 f"Vessel Capacity ({cap_code})",
                 min_value=1000.0,
@@ -63,16 +71,20 @@ def render_compliance_page() -> None:
             year = st.selectbox("Compliance Assessment Year", [2023, 2024, 2025, 2026, 2027, 2030], index=2, key="cii_year")
 
         if st.button("Evaluate IMO CII Rating", use_container_width=True):
-            res = compliance_engine.evaluate_cii(
-                vessel_type=v_type,
-                capacity=cap_val,
-                capacity_type=cap_code,
-                vessel_dwt=cap_val if cap_code == "DWT" else None,
-                vessel_gt=cap_val if cap_code == "GT" else None,
-                annual_distance_nm=dist,
-                annual_co2_tons=co2,
-                year=year,
-            )
+            try:
+                res = compliance_engine.evaluate_cii(
+                    vessel_type=v_type,
+                    capacity=cap_val,
+                    capacity_type=cap_code,
+                    vessel_dwt=cap_val if cap_code == "DWT" else None,
+                    vessel_gt=cap_val if cap_code == "GT" else None,
+                    annual_distance_nm=dist,
+                    annual_co2_tons=co2,
+                    year=year,
+                )
+            except DataValidationError as e:
+                st.error(f"❌ Statutory Validation Error: {e.message}")
+                return
 
             grade_color = {
                 "A": "green",
