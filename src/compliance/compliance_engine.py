@@ -1,8 +1,14 @@
-"""Maritime statutory compliance engine for IMO CII and EU FuelEU Maritime regulations.
+"""Maritime compliance evaluation and operational estimator for IMO CII and EU FuelEU Maritime.
 
 Problem ID: SIH26138 - Quantum-Inspired Fuel Consumption Prediction & Green Fleet Optimization.
 Fulfills contracts.interfaces.ComplianceEngine, evaluating Carbon Intensity Indicator (CII)
-operational rating curves (A to E) and EU FuelEU Maritime statutory GHG deficit penalties.
+operational rating curves (A to E) under IMO MEPC.353(78) (G2), MEPC.354(78) (G4), and MEPC.400(83),
+alongside EU FuelEU Maritime statutory GHG deficit penalties under Regulation (EU) 2023/1805.
+
+Scope Notice:
+This engine functions as an operational estimator. It does not claim full statutory flag-state
+certification as it calculates standard uncorrected operational intensity without simulating
+optional voyage adjustments or correction factors under IMO Resolution MEPC.355(78) (G5).
 """
 
 import logging

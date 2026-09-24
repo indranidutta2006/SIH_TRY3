@@ -212,7 +212,9 @@ class PredictionInferenceEngine(PredictionEngine):
                 PredictionResult(
                     model_name=self.model_name,
                     predicted_fuel_consumption=round(bounded_pred, 4),
-                    confidence_score=0.95,  # Baseline nominal confidence
+                    # Nominal schema placeholder preserved for PredictionResult contract compatibility.
+                    # Statistical confidence is evaluated via empirical R2, RMSE, MAE, MAPE, and NRMSE metrics.
+                    confidence_score=0.95,
                     runtime_seconds=round(per_record_runtime, 6),
                 )
             )

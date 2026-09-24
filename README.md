@@ -1,7 +1,7 @@
 # Quantum-Inspired Fuel Consumption Prediction & Green Fleet Optimization
 
 **Problem ID:** SIH26138  
-**Phase:** Phase 0 (Architecture Contract & Project Foundation)  
+**Phase:** Production Implementation & Validated Benchmark Platform (Deliverables D1–D10 Complete)  
 **Target Runtime:** Python 3.12+
 
 ---
@@ -14,7 +14,7 @@ The objective of the platform is twofold:
 1. **Accurately Predict Marine Fuel Consumption:** Capture nonlinear hydrodynamic resistance, adverse weather dynamics, and cargo payload constraints using classical regression (Linear Regression, Random Forest, HistGradientBoosting) and Quantum-Inspired Fuel Consumption Prediction (`QIFCP`) algorithms.
 2. **Optimize Green Fleet Operations:** Allocate vessels to cargo orders and schedule routes to minimize total Well-to-Wake (WtW) greenhouse gas emissions, fuel expenditures, and operational delays while ensuring statutory compliance with International Maritime Organization (IMO) Carbon Intensity Indicator (CII) ratings and estimating European Union FuelEU Maritime GHG intensity limits and financial penalty exposures.
 
-This repository contains the **Phase 0 architectural foundation**. It explicitly defines the schemas, abstract contracts, centralized configurations, exception hierarchies, and logging facilities required for subsequent development phases.
+This repository contains the **complete production implementation and architectural foundation**. It integrates all mathematical models, quantum metaheuristic and hybrid evolutionary optimizers, machine learning pipelines, statutory compliance estimators, and the executive Streamlit dashboard required by Problem ID SIH26138.
 
 ---
 
@@ -66,14 +66,14 @@ The system is decoupled into eight functional layers communicating strictly via 
 
 | Module | Location | Primary Responsibility |
 | :--- | :--- | :--- |
-| **Data Layer** | `app/prediction/`, `data/` | Ingestion, sanitization, schema validation, and storage of historical voyage records. |
-| **Prediction Layer** | `app/prediction/` | Model training, inference, and benchmarking across Linear Regression, Random Forest, HistGradientBoosting, and QIFCP models. |
-| **Fuel Physics Layer** | `app/physics/` | Hydrodynamic drag equations, admiralty coefficients, and propulsion energy conversion. |
-| **Emissions Layer** | `app/emissions/` | Tank-to-Wake (combustion) and Well-to-Wake (lifecycle) GHG quantification for diverse marine fuels. |
-| **Compliance Layer** | `app/compliance/` | IMO CII rating computation (grades A to E) and EU FuelEU Maritime penalty evaluation. |
-| **Scheduler Layer** | `app/scheduler/` | Timetable generation, laycan matching, port draft constraints, and cargo allocation. |
-| **Optimization Layer**| `app/optimization/` | Heuristic and quantum-inspired search (PSO, QPSO, NSGA-II) for pareto-optimal trade-offs. |
-| **Dashboard Layer** | `app/dashboard/` | Interactive visualization, tradeoff frontier plots, and what-if scenario simulators. |
+| **Data Layer** | `src/ingestion/`, `data/` | Ingestion, sanitization, schema validation, and storage of historical voyage records. |
+| **Prediction Layer** | `src/prediction/` | Model training, inference, and benchmarking across Linear Regression, Random Forest, HistGradientBoosting, and QIFCP models. |
+| **Fuel Physics Layer** | `src/physics/` | Hydrodynamic drag equations, admiralty coefficients, and propulsion energy conversion. |
+| **Emissions Layer** | `src/prediction/emission_engine.py` | Tank-to-Wake (combustion) and Well-to-Wake (lifecycle) GHG quantification for diverse marine fuels. |
+| **Compliance Layer** | `src/compliance/` | IMO CII rating computation (grades A to E) and EU FuelEU Maritime penalty evaluation. |
+| **Scheduler Layer** | `src/scheduler/` | Timetable generation, laycan matching, port draft constraints, and cargo allocation. |
+| **Optimization Layer**| `src/optimization/` | Heuristic and quantum-inspired search (PSO, QPSO, NSGA-II) for pareto-optimal trade-offs. |
+| **Dashboard Layer** | `app/dashboard/`, `app.py` | Interactive visualization, tradeoff frontier plots, and what-if scenario simulators. |
 
 ---
 
@@ -190,8 +190,8 @@ A judge or evaluator can reproduce the entire platform from a fresh `git clone` 
 ### Step 1: Environment Setup & Installation
 Clone the repository and install required production dependencies within a clean virtual environment:
 ```bash
-git clone https://github.com/indranidutta2006/SIH26138.git
-cd SIH26138
+git clone https://github.com/indranidutta2006/SIH_TRY3.git
+cd SIH_TRY3
 python -m venv venv
 # Windows:
 .\venv\Scripts\activate
@@ -347,6 +347,9 @@ Implemented in `src/compliance/compliance_engine.py` conforming to [`contracts.i
 | **Refrigerated Cargo** | All sizes | 0.78 | 0.91 | 1.07 | 1.20 |
 | **Combination Carrier** | All sizes | 0.87 | 0.96 | 1.06 | 1.14 |
 
+> [!NOTE] Defensible Regulatory Scope Notice: IMO CII Operational Estimator
+> This module functions specifically as an **IMO Carbon Intensity Indicator (CII) Rating and Attained Metric Estimator** conforming to the geometric foundations of IMO Resolution MEPC.353(78) (G2 reference curves), MEPC.354(78) (G4 rating boundaries), and MEPC.400(83) (annual reduction trajectories). It does not claim full statutory flag-state certification as it intentionally evaluates standard uncorrected operational intensity without simulating the optional voyage adjustments and correction factors specified under **IMO Resolution MEPC.355(78) (G5)** (such as ice-class navigation allowances, refrigerated container electrical loads, cargo heating, shuttle tanker dynamic positioning, or severe weather search-and-rescue voyage exclusions).
+
 ### 5.3 EU FuelEU Maritime GHG-Intensity Compliance & Penalty Estimator (Regulation (EU) 2023/1805)
 Implemented in `src/compliance/compliance_engine.py` conforming to Article 4, Article 23, and Annex IV:
 $$\text{Base Penalty (EUR)} = \frac{|\text{Compliance Balance (gCO}_2\text{eq)}|}{\text{GHGIE}_{\text{actual}} \times 41000\text{ MJ/t}} \times 2400\text{ EUR/t}$$
@@ -371,6 +374,9 @@ where:
   In `QIFCPRegressor.tune_with_qpso(X, y, groups=vessel_ids)`, the inner validation partition is constructed using `GroupShuffleSplit` over vessel identities. This ensures that no vessel present in the inner validation fold appears in the inner training fold while QPSO searches for optimal phase scaling ($\gamma$) and L2 regularization ($\alpha_{\text{reg}}$).
 - **QuantumKernelPredictor (`models/fuel_predictor.py`):** PennyLane simulation (`default.qubit`) utilizing `AngleEmbedding` on 4 normalized hydrodynamic features (`speed_kn`, `load_factor`, `wave_ht_m`, `wind_bft`) combined with a 2-repetition `ZZFeatureMap` entangling circuit. The resulting quantum state transition kernel matrix is fed into `KernelRidge(alpha=0.1)`, achieving $R^2 > 0.88$ on cross-class synthetic voyages.
   > *Quantum principle used:* Interference between feature-encoded states produces a similarity metric unavailable to classical RBF kernels.
+
+> [!NOTE] Empirical Validation Metrics vs. Nominal Confidence Scores
+> In compliance with rigorous statistical standards, model evaluation on the executive dashboard and benchmark reports is grounded exclusively in verifiable empirical metrics ($R^2$, RMSE, MAE, MAPE, NRMSE, fit times, and cross-source generalization spreads). Downstream schemas retain `confidence_score` solely as an immutable contract compatibility field, intentionally excluding synthetic scalar confidence percentages from user-facing presentations in favor of defensible statistical metrics.
 
 > [!NOTE] Alternative Fuel Baseline Assumptions
 > In this baseline implementation, alternative power pathways (**Hydrogen**, **Ammonia**, and **ShorePower**) reflect certified green renewable supply chains (e.g., green hydrogen from water electrolysis powered by renewables, green ammonia synthesized with zero-carbon energy, and zero-emission shore grid connections).
