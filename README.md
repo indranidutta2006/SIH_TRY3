@@ -215,8 +215,10 @@ Clone the repository and install required production dependencies within a clean
 git clone https://github.com/indranidutta2006/SIH_TRY3.git
 cd SIH_TRY3
 python -m venv venv
-# Windows:
-.\venv\Scripts\activate
+# Windows (PowerShell):
+.\venv\Scripts\Activate.ps1
+# Windows (Command Prompt):
+.\venv\Scripts\activate.bat
 # Linux/macOS:
 source venv/bin/activate
 pip install -r requirements.txt
