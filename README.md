@@ -11,7 +11,7 @@
 The **Quantum-Inspired Fuel Consumption Prediction & Green Fleet Optimization** system is an enterprise-grade platform designed to assist commercial vessel operators, charterers, and maritime authorities in decarbonizing maritime logistics.
 
 The objective of the platform is twofold:
-1. **Accurately Predict Marine Fuel Consumption:** Capture nonlinear hydrodynamic resistance, adverse weather dynamics, and cargo payload constraints using classical regression (Linear Regression, XGBoost) and Quantum-Inspired Fuel Consumption Prediction (`QIFCP`) algorithms.
+1. **Accurately Predict Marine Fuel Consumption:** Capture nonlinear hydrodynamic resistance, adverse weather dynamics, and cargo payload constraints using classical regression (Linear Regression, Random Forest, HistGradientBoosting) and Quantum-Inspired Fuel Consumption Prediction (`QIFCP`) algorithms.
 2. **Optimize Green Fleet Operations:** Allocate vessels to cargo orders and schedule routes to minimize total Well-to-Wake (WtW) greenhouse gas emissions, fuel expenditures, and operational delays while guaranteeing full compliance with the International Maritime Organization (IMO) Carbon Intensity Indicator (CII) ratings and European Union FuelEU Maritime standards.
 
 This repository contains the **Phase 0 architectural foundation**. It explicitly defines the schemas, abstract contracts, centralized configurations, exception hierarchies, and logging facilities required for subsequent development phases.
@@ -67,13 +67,30 @@ The system is decoupled into eight functional layers communicating strictly via 
 | Module | Location | Primary Responsibility |
 | :--- | :--- | :--- |
 | **Data Layer** | `app/prediction/`, `data/` | Ingestion, sanitization, schema validation, and storage of historical voyage records. |
-| **Prediction Layer** | `app/prediction/` | Model training, inference, and benchmarking across Linear, XGBoost, and QIFCP models. |
+| **Prediction Layer** | `app/prediction/` | Model training, inference, and benchmarking across Linear Regression, Random Forest, HistGradientBoosting, and QIFCP models. |
 | **Fuel Physics Layer** | `app/physics/` | Hydrodynamic drag equations, admiralty coefficients, and propulsion energy conversion. |
 | **Emissions Layer** | `app/emissions/` | Tank-to-Wake (combustion) and Well-to-Wake (lifecycle) GHG quantification for diverse marine fuels. |
 | **Compliance Layer** | `app/compliance/` | IMO CII rating computation (grades A to E) and EU FuelEU Maritime penalty evaluation. |
 | **Scheduler Layer** | `app/scheduler/` | Timetable generation, laycan matching, port draft constraints, and cargo allocation. |
 | **Optimization Layer**| `app/optimization/` | Heuristic and quantum-inspired search (PSO, QPSO, NSGA-II) for pareto-optimal trade-offs. |
 | **Dashboard Layer** | `app/dashboard/` | Interactive visualization, tradeoff frontier plots, and what-if scenario simulators. |
+
+---
+
+## Deliverables
+
+| # | Deliverable | Status | Output Path |
+|---|-------------|--------|-------------|
+| D1 | Mathematical Model | ✅ Complete | `contracts/schemas.py`, `src/physics/` |
+| D2 | Fuel Consumption Prediction Module (QIFCP) | ✅ Complete | `src/prediction/qifcp.py` |
+| D3 | Quantum Metaheuristic Optimizer (QPSO) | ✅ Complete | `src/optimization/qpso.py` |
+| D4 | Alternative Fuel Scenario Analyser | ✅ Complete | `src/optimization/scenario_analysis.py` |
+| D5 | Multi-Objective Optimization (NSGA-II Pareto) | ✅ Complete | `src/optimization/nsga2_pareto.py` |
+| D6 | Constraint Handler (FuelEU / IMO CII) | ✅ Complete | `src/compliance/compliance_engine.py` |
+| D7 | Benchmarking Suite | ✅ Complete | `scripts/benchmark_*.py`, `outputs/reports/` |
+| D8 | Case Studies | ✅ Synthetic; real data pending | `outputs/reports/full_pipeline_run.json` |
+| D9 | Integrated Software Platform (Streamlit) | ✅ Complete | `app.py` |
+| D10 | Documentation & User Guide | ⚠️ Partial | `README.md` |
 
 ---
 
@@ -117,54 +134,89 @@ from contracts import (
 
 ---
 
-## 4. Setup and Verification
+## 4. Quick Start
 
-### Prerequisites
-- Python 3.12 or higher
-- Git
+A judge or evaluator can reproduce the entire platform from a fresh `git clone` to the running interactive dashboard by following these five sequential steps:
 
-### Installation
-
-1. Clone or navigate to the repository root:
-   ```bash
-   cd c:/HACKATHONS/SIH_TRY3
-   ```
-
-2. Create and activate a virtual environment:
-   ```bash
-   python -m venv venv
-   # Windows:
-   .\venv\Scripts\activate
-   # Linux/macOS:
-   source venv/bin/activate
-   ```
-
-3. Install required dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-### Running Phase 0 Verification
-
-Execute the standalone health check script:
+### Step 1: Environment Setup & Installation
+Clone the repository and install required production dependencies within a clean virtual environment:
 ```bash
-python run_demo.py
+git clone https://github.com/indranidutta2006/SIH26138.git
+cd SIH26138
+python -m venv venv
+# Windows:
+.\venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
+pip install -r requirements.txt
 ```
+* **Produces:** Isolated Python 3.12+ execution environment equipped with all scientific, machine learning, quantum optimization, and dashboard visualization dependencies.
 
-Expected output:
-```text
-YYYY-MM-DD HH:MM:SS | INFO     | maritime_system:configure_logging:... - Logging initialized at level 'INFO'. Output file: .../outputs/logs/phase0_verification.log
-YYYY-MM-DD HH:MM:SS | INFO     | maritime_system:main:... - Initializing Phase 0 Repository Health Verification
-YYYY-MM-DD HH:MM:SS | INFO     | maritime_system:main:... - All architectural interfaces and schemas successfully verified.
-System initialized successfully
-```
+---
 
-### Running Unit Tests
-
-Verify all contract invariants via pytest:
+### Step 2: Generate the Synthetic Voyage Dataset
+Synthesize the canonical 10,000-record historical maritime voyage dataset:
 ```bash
-pytest -v
+python scripts/make_mock_dataset.py --rows 10000 --output data/raw/voyages_sample.csv
 ```
+* **Produces:** `data/raw/voyages_sample.csv` (10,000 typed, physically validated voyage records containing hydrodynamic resistance, adverse weather factors, and cargo payload constraints).
+
+---
+
+### Step 3: Run the Full End-to-End Pipeline
+Execute the full multi-stage analytical and training pipeline:
+```bash
+python scripts/run_full_pipeline.py
+```
+> [!TIP]
+> To train on heterogeneous real-world data (THETIS-MRV + FuelCast sensor telemetry blended 50/50 with synthetic records under rate formulation), add `--use-real-data`:
+> ```bash
+> python scripts/run_full_pipeline.py --use-real-data
+> ```
+
+* **Produces:**
+  - Trained baseline model binaries (`artifacts/models/linear_regression.pkl`, `artifacts/models/random_forest.pkl`, `artifacts/models/hist_gradient_boosting.pkl`)
+  - Model registry metrics manifest (`artifacts/metrics/baseline_metrics.json`)
+  - Prediction benchmark leaderboard (`outputs/reports/prediction_benchmark.json`)
+  - Swarm optimization scalability benchmarks (`outputs/reports/optimization_benchmark.json`)
+  - 6-Fuel macro decarbonization scenario comparisons (`outputs/reports/scenario_comparison.json`)
+  - Full execution pipeline run manifest (`outputs/reports/full_pipeline_run.json`)
+
+---
+
+### Step 4: Verify System Integrity via Test Suite
+Verify that all architectural contracts, physics derivations, statutory emissions rules, and zero-leakage guards pass:
+```bash
+python -m pytest tests/ -v
+```
+* **Produces:** 172/172 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, and algorithm correctness.
+
+---
+
+### Step 5: Launch the Executive Dashboard
+Start the interactive Streamlit presentation application:
+```bash
+streamlit run app.py
+```
+* **Produces:** Live web dashboard served at `http://localhost:8501` featuring:
+  1. **Fleet Telemetry & Explorer:** Distribution histograms, correlation heatmaps, and raw voyage inspection.
+  2. **Fuel Prediction & QIFCP:** 4-model accuracy leaderboard, normalized per-source error breakdowns, and live what-if voyage inference sandbox.
+  3. **Swarm Optimization (QPSO):** Scalability comparisons across Small, Medium, and Large fleet tiers with interactive bi-objective Pareto frontier trade-offs.
+  4. **Statutory Compliance (IMO/EU):** Automated vessel-level IMO CII ratings (A–E) and FuelEU Maritime penalty audits.
+  5. **Scenario Analysis & Alternative Fuels:** Full Well-to-Wake (WTW) lifecycle emissions, operational costs, and balanced multicriteria rankings across 6 alternative marine fuels.
+
+---
+
+### Pipeline Execution Stages & Output Artifacts
+
+| Stage | Name | Pipeline Responsibility | Primary Output Artifacts |
+|:---:|---|---|---|
+| **1** | **Data Ingestion & Validation** | Ingests, type-checks, and validates voyage records against schema boundaries | `data/raw/voyages_sample.csv`, `outputs/logs/dataset_generator.log` |
+| **2** | **Prediction Layer & QIFCP** | Extracts 29 hydrodynamic features, trains baselines, and tunes QIFCP via QPSO | `artifacts/models/*.pkl`, `artifacts/metrics/baseline_metrics.json`, `outputs/reports/prediction_benchmark.json` |
+| **3** | **Emissions Compliance** | Computes Tank-to-Wake (TTW) & Well-to-Wake (WTW) GHG against IMO CII & FuelEU limits | Audited in-memory via `ComplianceEngine` |
+| **4** | **Fleet Scheduler** | Validates laycan windows, draft constraints, and cargo capacity matching | Audited in-memory via `FleetScheduler` |
+| **5** | **Optimization Swarm & Pareto** | Executes equal-budget QPSO vs. PSO across fleet tiers and solves bi-objective Pareto front | `outputs/reports/optimization_benchmark.json` |
+| **6** | **Scenario Analysis** | Evaluates fleet-wide transitions across Diesel, LNG, Methanol, Hydrogen, Ammonia, and ShorePower | `outputs/reports/scenario_comparison.json`, `outputs/reports/full_pipeline_run.json` |
 
 ---
 

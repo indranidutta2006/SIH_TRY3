@@ -413,8 +413,18 @@ The strong physical relationships allow predictive engines to converge smoothly 
 
 def main() -> int:
     """CLI entrypoint for dataset audit."""
+    import argparse
+    parser = argparse.ArgumentParser(description="Audit dataset sanity and quality.")
+    parser.add_argument(
+        "--input",
+        type=str,
+        default=None,
+        help="Path to CSV file to audit (defaults to config sample_voyages_file)",
+    )
+    args = parser.parse_args()
+
     default_cfg = config.get_default_config()
-    csv_file = default_cfg.data_paths.sample_voyages_file
+    csv_file = Path(args.input) if args.input else default_cfg.data_paths.sample_voyages_file
     figures_dir = default_cfg.output_paths.figures_dir
     reports_dir = default_cfg.output_paths.reports_dir
 

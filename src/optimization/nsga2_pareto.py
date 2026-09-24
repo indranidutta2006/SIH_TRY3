@@ -147,29 +147,24 @@ class ParetoFleetOptimizer:
         self.logger = logger
         self.engines = get_cached_engines()
 
-    def solve_medium_pareto(
+    def optimize(
         self,
-        population_size: int = 20,
-        generations: int = 15,
-        seed: int = 42,
+        assignments: list[Any],
+        context: dict[str, Any],
+        population_size: int = 30,
+        max_generations: int = 50,
     ) -> dict[str, Any]:
-        """Solve bi-objective trade-off for medium fleet tier (20 vessels / 50 cargos)."""
-        rng = np.random.default_rng(seed)
-        _, _, constraints, assignments = generate_fleet_problem(
-            n_vessels=20, n_cargos=50, seed=seed
-        )
-        assigned_voyages = [a for a in assignments if a.assigned]
+        """Execute NSGA-II bi-objective optimization on given assignments and context."""
+        assigned_voyages = [a for a in assignments if getattr(a, "assigned", True)]
         n_voyages = len(assigned_voyages)
-        dim = 2 * n_voyages
+        if n_voyages == 0:
+            return {"pareto_front": [], "runtime_seconds": 0.0}
 
+        dim = 2 * n_voyages
         lb = np.array([10.0, 0.0] * n_voyages, dtype=float)
         ub = np.array([20.0, 5.0] * n_voyages, dtype=float)
 
-        context = {
-            "voyage_specs": constraints["cargos"],
-            "compliance_year": 2025,
-        }
-
+        rng = np.random.default_rng(self.random_state)
         start_time = time.perf_counter()
 
         # 1. Initialize random population
@@ -180,7 +175,7 @@ class ParetoFleetOptimizer:
             objs[i] = evaluate_bi_objective(pop[i], assignments, context, self.engines)
 
         # 2. Evolutionary generations
-        for gen in range(generations):
+        for gen in range(max_generations):
             # Create offspring via differential mutation & crossover
             offspring = np.zeros_like(pop)
             for i in range(population_size):
@@ -229,12 +224,9 @@ class ParetoFleetOptimizer:
         sorted_points = pareto_points[sort_order]
 
         return {
-            "tier": "medium",
-            "vessels": 20,
-            "cargos": 50,
             "assigned_voyages": n_voyages,
             "runtime_seconds": round(runtime, 4),
-            "generations": generations,
+            "generations": max_generations,
             "population_size": population_size,
             "pareto_front_size": len(pareto_indices),
             "pareto_front": [
@@ -242,3 +234,45 @@ class ParetoFleetOptimizer:
                 for pt in sorted_points
             ],
         }
+
+    def solve_medium_pareto(
+        self,
+        population_size: int = 20,
+        generations: int = 15,
+        seed: int = 42,
+    ) -> dict[str, Any]:
+        """Solve bi-objective trade-off for medium fleet tier (20 vessels / 50 cargos)."""
+        _, _, constraints, assignments = generate_fleet_problem(
+            n_vessels=20, n_cargos=50, seed=seed
+        )
+        context = {
+            "voyage_specs": constraints["cargos"],
+            "compliance_year": 2025,
+        }
+        res = self.optimize(
+            assignments=assignments,
+            context=context,
+            population_size=population_size,
+            max_generations=generations,
+        )
+        res["tier"] = "medium"
+        res["vessels"] = 20
+        res["cargos"] = 50
+        return res
+
+
+def run_nsga2_pareto(
+    assignments: list[Any],
+    context: dict[str, Any],
+    population_size: int = 30,
+    max_generations: int = 50,
+    random_state: int = 42,
+) -> dict[str, Any]:
+    """Convenience wrapper around ParetoFleetOptimizer for scripted use."""
+    optimizer = ParetoFleetOptimizer(random_state=random_state)
+    return optimizer.optimize(
+        assignments=assignments,
+        context=context,
+        population_size=population_size,
+        max_generations=max_generations,
+    )

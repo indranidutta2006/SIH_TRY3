@@ -83,6 +83,29 @@ def _parse_optional_float(value: Any) -> float | None:
     raise ValueError(f"Cannot parse '{value}' as optional float.")
 
 
+def _parse_optional_int(value: Any) -> int | None:
+    """Parse optional integer field handling empty or NaN representations.
+
+    Args:
+        value: Input value to parse.
+
+    Returns:
+        Integer value or None if field is missing or empty.
+    """
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        val = value.strip().lower()
+        if val in {"", "none", "nan", "null", "n/a"}:
+            return None
+        return int(float(val))
+    raise ValueError(f"Cannot parse '{value}' as optional integer.")
+
+
 class CSVDatasetLoader(DatasetLoader):
     """CSV dataset loader implementing the contracts.interfaces.DatasetLoader interface."""
 
@@ -155,8 +178,12 @@ class CSVDatasetLoader(DatasetLoader):
                             speed_knots=float(row["speed_knots"]),
                             hours_at_sea=float(row["hours_at_sea"]),
                             fuel_type=str(row["fuel_type"]).strip(),
-                            weather_factor=float(row["weather_factor"]),
-                            sea_state=int(row["sea_state"]),
+                            weather_factor=_parse_optional_float(
+                                row.get("weather_factor")
+                            ),
+                            sea_state=_parse_optional_int(
+                                row.get("sea_state")
+                            ),
                             data_source=str(row["data_source"]).strip(),
                             is_synthetic=_parse_bool(row["is_synthetic"]),
                             fuel_consumption=_parse_optional_float(

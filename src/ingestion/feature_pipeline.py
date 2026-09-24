@@ -149,14 +149,30 @@ class FeatureEngineeringPipeline:
         df["power_proxy"] = (displacement_est ** (2.0 / 3.0)) * (speed_safe ** 3.0)
 
         # 4. Kinematics & Speed Consistency Checks
+        # Derived uniformly across all sources: implied_hours = distance_nm / speed_knots
+        speed_safe_div = np.maximum(speed_safe, 1e-4)
+        implied_hours = dist_safe / speed_safe_div
+        df["implied_hours"] = implied_hours
+
         hours_safe = np.maximum(df["hours_at_sea"].to_numpy(dtype=float), 1e-4)
         implied_speed = dist_safe / hours_safe
         df["implied_speed"] = implied_speed
         df["speed_discrepancy"] = implied_speed - speed_safe
 
-        # 5. Environmental & Severity Interactions
-        weather_safe = np.maximum(df["weather_factor"].to_numpy(dtype=float), 1.0)
-        sea_state_safe = np.maximum(df["sea_state"].to_numpy(dtype=float), 0.0)
+        # Operational duration category (source_group)
+        df["source_group"] = np.where(
+            implied_hours < 100.0,
+            "short",
+            np.where(implied_hours <= 400.0, "medium", "long"),
+        )
+
+        # 5. Environmental & Severity Interactions (safely handle nulls)
+        w_arr = np.nan_to_num(df["weather_factor"].to_numpy(dtype=float), nan=1.0)
+        s_arr = np.nan_to_num(df["sea_state"].to_numpy(dtype=float), nan=0.0)
+        weather_safe = np.maximum(w_arr, 1.0)
+        sea_state_safe = np.maximum(s_arr, 0.0)
+        df["weather_factor"] = weather_safe
+        df["sea_state"] = sea_state_safe.astype(int)
         df["weather_speed_interaction"] = speed_safe * weather_safe
         df["weather_sea_interaction"] = weather_safe * (sea_state_safe + 1.0)
 
@@ -182,6 +198,13 @@ class FeatureEngineeringPipeline:
         for f_type in self.allowed_fuel_types:
             col_name = f"fuel_type_{f_type.lower().replace(' ', '_')}"
             encoded_df[col_name] = (encoded_df["fuel_type"] == f_type).astype(int)
+
+        # One-hot source groups (duration buckets)
+        if "source_group" in encoded_df.columns:
+            for grp in ["short", "medium", "long"]:
+                col_name = f"source_group_{grp}"
+                encoded_df[col_name] = (encoded_df["source_group"] == grp).astype(int)
+            encoded_df = encoded_df.drop(columns=["source_group"], errors="ignore")
 
         # Drop original raw categorical strings
         return encoded_df.drop(columns=["vessel_type", "fuel_type"], errors="ignore")
@@ -226,9 +249,10 @@ class FeatureEngineeringPipeline:
         # Engineer maritime physical features
         featured_df = self.create_features(clean_df)
 
-        # Drop targets and identifiers from feature matrix X
+        # Drop targets, identifiers, and raw hours_at_sea from feature matrix X
+        # (hours_at_sea is replaced by implied_hours and source_group to eliminate proxy leakage)
         drop_cols = set(IDENTIFIER_COLUMNS).union(
-            {"fuel_consumption", "co2_emissions"}
+            {"fuel_consumption", "co2_emissions", "hours_at_sea"}
         )
         x_df = featured_df.drop(columns=[col for col in drop_cols if col in featured_df.columns])
 
@@ -267,9 +291,9 @@ class FeatureEngineeringPipeline:
         # Engineer maritime physical features
         featured_df = self.create_features(raw_df)
 
-        # Drop targets, leakage columns, and identifiers if present in telemetry
+        # Drop targets, leakage columns, identifiers, and raw hours_at_sea
         drop_cols = set(IDENTIFIER_COLUMNS).union(
-            {"fuel_consumption", "co2_emissions"}
+            {"fuel_consumption", "co2_emissions", "hours_at_sea"}
         )
         x_df = featured_df.drop(columns=[col for col in drop_cols if col in featured_df.columns])
 

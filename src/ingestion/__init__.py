@@ -6,6 +6,10 @@ Phase 1B operational pipeline converting raw voyage telemetry into model-ready d
 
 from src.ingestion.dataset_loader import CSVDatasetLoader
 from src.ingestion.feature_pipeline import FeatureEngineeringPipeline
+from src.ingestion.real_data_adapter import (
+    RealDataAdapter,
+    blend_real_and_synthetic_datasets,
+)
 from src.ingestion.validators import ValidationEngine, ValidationResult
 
 __all__ = [
@@ -13,4 +17,7 @@ __all__ = [
     "ValidationEngine",
     "ValidationResult",
     "FeatureEngineeringPipeline",
+    "RealDataAdapter",
+    "blend_real_and_synthetic_datasets",
 ]
+

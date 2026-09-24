@@ -17,6 +17,8 @@ htmlcov/
 # Generated runtime data and models
 # Rebuilt automatically during Render build via scripts/build_for_deploy.sh
 data/raw/*.csv
+data/raw/*.xlsx
+data/raw/*.parquet
 data/processed/*.csv
 data/maritime_dataset.csv
 artifacts/models/*.pkl

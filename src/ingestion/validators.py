@@ -119,12 +119,12 @@ class ValidationEngine:
                 f"Voyage {record.voyage_id}: hours_at_sea ({record.hours_at_sea}) must be > 0."
             )
 
-        # 5. Environmental Factors
-        if record.weather_factor < 1.0:
+        # 5. Environmental Factors (nullable for real telemetry like THETIS-MRV)
+        if record.weather_factor is not None and record.weather_factor < 1.0:
             errors.append(
                 f"Voyage {record.voyage_id}: weather_factor ({record.weather_factor}) must be >= 1.0."
             )
-        if record.sea_state < 0:
+        if record.sea_state is not None and record.sea_state < 0:
             errors.append(
                 f"Voyage {record.voyage_id}: sea_state ({record.sea_state}) must be >= 0."
             )
