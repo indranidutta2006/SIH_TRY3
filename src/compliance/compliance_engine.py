@@ -21,10 +21,10 @@ FUELEU_STATUTORY_PENALTY_RATE_EUR: Final[float] = 2400.0  # EUR/ton VLSFO equiva
 
 # IMO Resolution MEPC.400(83) statutory annual reduction factor Z (adopted 11 April 2025)
 CII_Z_FACTORS: Final[dict[int, float]] = {
-    2023: 0.050,
-    2024: 0.070,
-    2025: 0.090,
-    2026: 0.110,
+    2023: 0.05000,
+    2024: 0.07000,
+    2025: 0.09000,
+    2026: 0.11000,
     2027: 0.13625,
     2028: 0.16250,
     2029: 0.18875,
@@ -40,14 +40,24 @@ class MaritimeComplianceEngine(ComplianceEngine):
         self.logger = logger
 
     def get_cii_z_factor(self, year: int) -> float:
-        """Retrieve statutory IMO CII reduction factor Z conforming to MEPC.400(83)."""
-        if year <= 2022:
-            return 0.0
-        if year in CII_Z_FACTORS:
-            return CII_Z_FACTORS[year]
-        if year > 2030:
-            return CII_Z_FACTORS[2030]
-        return 0.0
+        """Retrieve statutory IMO CII reduction factor Z conforming to MEPC.400(83).
+
+        Args:
+            year: Compliance assessment reporting year (supported range: 2023–2030).
+
+        Returns:
+            Statutory reduction factor Z as a float.
+
+        Raises:
+            ComplianceError: If reporting year is outside statutory range (2023–2030).
+        """
+        if year not in CII_Z_FACTORS:
+            raise ComplianceError(
+                f"Statutory IMO CII reduction factor Z is only defined for years 2023–2030 "
+                f"under IMO Resolution MEPC.400(83), got: {year}.",
+                details={"year": year, "supported_years": list(CII_Z_FACTORS.keys())},
+            )
+        return CII_Z_FACTORS[year]
 
     def get_fueleu_target(self, year: int) -> float:
         """Retrieve statutory FuelEU Maritime maximum GHG intensity target for given year."""
@@ -93,7 +103,7 @@ class MaritimeComplianceEngine(ComplianceEngine):
             co2_emissions: Total operational direct CO2 emissions in metric tons.
             cargo_tons: Vessel deadweight capacity in metric tons.
             distance_nm: Total distance navigated in nautical miles.
-            year: Compliance reporting calendar year (>= 2020).
+            year: Compliance reporting calendar year (2023–2030).
             vessel_type: Optional vessel classification (e.g. 'Bulk Carrier', 'Container', 'Tanker').
             vessel_dwt: Alias for cargo_tons (metric tons DWT).
             annual_distance_nm: Alias for distance_nm.
@@ -105,7 +115,7 @@ class MaritimeComplianceEngine(ComplianceEngine):
 
         Raises:
             DataValidationError: If inputs are negative, zero, or missing.
-            ComplianceError: If reporting year is invalid (< 2020).
+            ComplianceError: If reporting year is outside statutory range (2023–2030).
         """
         resolved_co2 = annual_co2_tons if annual_co2_tons is not None else co2_emissions
         resolved_dwt = vessel_dwt if vessel_dwt is not None else cargo_tons
@@ -139,10 +149,11 @@ class MaritimeComplianceEngine(ComplianceEngine):
                 f"Distance must be positive: {resolved_dist}",
                 details={"distance_nm": resolved_dist},
             )
-        if year < 2020:
+        if year not in CII_Z_FACTORS:
             raise ComplianceError(
-                f"CII reporting year must be >= 2020, got: {year}",
-                details={"year": year},
+                f"CII reporting year {year} is outside the supported statutory regulatory range (2023–2030) "
+                f"under IMO Resolution MEPC.400(83).",
+                details={"year": year, "supported_years": list(CII_Z_FACTORS.keys())},
             )
 
         # Attained CII (gCO2 / (dwt * nm))

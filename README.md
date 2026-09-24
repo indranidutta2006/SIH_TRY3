@@ -260,15 +260,16 @@ Implemented in `src/compliance/compliance_engine.py` conforming to [`contracts.i
 
 | Year | Statutory $Z$ Factor | Governing Instrument |
 |:---:|:---:|:---|
-| **2023** | 5.0% | IMO Resolution MEPC.337(76) |
-| **2024** | 7.0% | IMO Resolution MEPC.337(76) |
-| **2025** | 9.0% | IMO Resolution MEPC.337(76) |
-| **2026** | 11.0% | IMO Resolution MEPC.337(76) |
-| **2027** | **13.625%** | **IMO Resolution MEPC.400(83)** |
-| **2028** | **16.250%** | **IMO Resolution MEPC.400(83)** |
-| **2029** | **18.875%** | **IMO Resolution MEPC.400(83)** |
-| **2030** | **21.500%** | **IMO Resolution MEPC.400(83)** |
+| **2023** | 5.000% (`0.05000`) | IMO Resolution MEPC.337(76) |
+| **2024** | 7.000% (`0.07000`) | IMO Resolution MEPC.337(76) |
+| **2025** | 9.000% (`0.09000`) | IMO Resolution MEPC.337(76) |
+| **2026** | 11.000% (`0.11000`) | IMO Resolution MEPC.337(76) |
+| **2027** | **13.625%** (`0.13625`) | **IMO Resolution MEPC.400(83)** |
+| **2028** | **16.250%** (`0.16250`) | **IMO Resolution MEPC.400(83)** |
+| **2029** | **18.875%** (`0.18875`) | **IMO Resolution MEPC.400(83)** |
+| **2030** | **21.500%** (`0.21500`) | **IMO Resolution MEPC.400(83)** |
 
+- **Statutory Lookup & Regulatory Range Enforcement:** Implemented via immutable lookup table `CII_Z_FACTORS`. Any compliance evaluation for calendar years outside the statutory regulatory range ($[2023, 2030]$) strictly raises `ComplianceError`, preventing erroneous extrapolations or arbitrary linear drift.
 - **Letter Rating Bands (A–E):** Based on ratio $r = \text{CII}_{\text{attained}} / \text{CII}_{\text{required}}$:
   $r \le 0.83 \implies \text{A}$, $r \le 0.94 \implies \text{B}$, $r \le 1.06 \implies \text{C}$, $r \le 1.19 \implies \text{D}$, else $\text{E}$.
 

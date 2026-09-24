@@ -227,7 +227,7 @@ class ComplianceEngine(ABC):
 
         Raises:
             DataValidationError: If required metrics are missing or physically invalid.
-            ComplianceError: If reporting year is invalid (< 2020).
+            ComplianceError: If reporting year is outside statutory range (2023–2030).
         """
         pass
 

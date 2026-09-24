@@ -195,3 +195,20 @@ def test_cii_future_years_2027_through_2030() -> None:
         expected_ratio = round(res.attained_cii / res.required_cii, 4)
         assert res.cii_ratio == pytest.approx(expected_ratio, abs=1e-3)
 
+
+@pytest.mark.parametrize("invalid_year", [2015, 2020, 2022, 2031, 2035])
+def test_cii_unsupported_years_raise_compliance_error(invalid_year: int) -> None:
+    """Verify that reporting years outside the statutory MEPC.400(83) range (2023–2030) are rejected."""
+    engine = MaritimeComplianceEngine()
+    with pytest.raises(ComplianceError):
+        engine.get_cii_z_factor(invalid_year)
+
+    with pytest.raises(ComplianceError):
+        engine.evaluate_cii(
+            co2_emissions=1000.0,
+            cargo_tons=50000.0,
+            distance_nm=3000.0,
+            year=invalid_year,
+        )
+
+
