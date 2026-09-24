@@ -212,7 +212,7 @@ Verify that all architectural contracts, physics derivations, statutory emission
 ```bash
 python -m pytest tests/ -v
 ```
-* **Produces:** 183/183 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, MEPC.400(83) compliance targets, and algorithm correctness.
+* **Produces:** 188/188 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, statutory MEPC.400(83) compliance targets, and algorithm correctness.
 
 ---
 
@@ -269,7 +269,7 @@ Implemented in `src/compliance/compliance_engine.py` conforming to [`contracts.i
 | **2029** | **18.875%** (`0.18875`) | **IMO Resolution MEPC.400(83)** |
 | **2030** | **21.500%** (`0.21500`) | **IMO Resolution MEPC.400(83)** |
 
-- **Statutory Lookup & Regulatory Range Enforcement:** Implemented via immutable lookup table `CII_Z_FACTORS`. Any compliance evaluation for calendar years outside the statutory regulatory range ($[2023, 2030]$) strictly raises `ComplianceError`, preventing erroneous extrapolations or arbitrary linear drift.
+- **Statutory Lookup & Regulatory Range Enforcement:** Implemented via immutable lookup table `CII_Z_FACTORS`. Both `get_cii_z_factor(year)` and `evaluate_cii(..., year=year)` strictly reject calendar years outside the statutory regulatory range ($[2023, 2030]$) by raising `ComplianceError`, preventing erroneous extrapolations or arbitrary linear drift.
 - **Letter Rating Bands (A–E):** Based on ratio $r = \text{CII}_{\text{attained}} / \text{CII}_{\text{required}}$:
   $r \le 0.83 \implies \text{A}$, $r \le 0.94 \implies \text{B}$, $r \le 1.06 \implies \text{C}$, $r \le 1.19 \implies \text{D}$, else $\text{E}$.
 
