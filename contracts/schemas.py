@@ -146,7 +146,14 @@ class CIIResult:
 
 @dataclass(frozen=True, slots=True)
 class FuelEUResult:
-    """Decoupled statutory EU FuelEU Maritime compliance and penalty assessment.
+    """Decoupled EU FuelEU Maritime GHG-intensity compliance and penalty estimation.
+
+    Estimates statutory compliance against Article 4 Well-to-Wake GHG intensity targets
+    and Annex IV / Article 23 financial penalties, including the Article 23(2) consecutive-period
+    multiplier [1 + (n - 1) / 10].
+
+    Note: This is a GHG-intensity compliance and penalty estimator; it does not evaluate
+    Article 5 RFNBO subtargets, Article 6 Onshore Power Supply (OPS) mandates, or pooling/banking.
 
     Attributes:
         fueleu_pass: Boolean pass/fail against statutory GHG intensity limit.
@@ -154,6 +161,8 @@ class FuelEUResult:
         ghg_intensity: Attained Well-to-Wake GHG intensity (gCO2eq/MJ).
         penalty_eur: Statutory financial penalty in EUR under EU Regulation (EU) 2023/1805 Article 23.
         compliance_status: Standardized compliance status ('COMPLIANT' or 'NON_COMPLIANT').
+        consecutive_deficit_periods: Number of consecutive reporting periods with a compliance deficit.
+        penalty_multiplier: Article 23(2) multiplier applied: 1 + (n - 1) / 10.
     """
 
     fueleu_pass: bool
@@ -161,6 +170,8 @@ class FuelEUResult:
     ghg_intensity: float
     penalty_eur: float
     compliance_status: str
+    consecutive_deficit_periods: int = 1
+    penalty_multiplier: float = 1.0
 
     @property
     def is_compliant(self) -> bool:
@@ -213,6 +224,8 @@ class ComplianceResult:
         compliance_score: DEPRECATED legacy compatibility-only field.
             Warning: Polymorphic across regulations (holds cii_ratio for CII, penalty_eur for FuelEU).
             All internal calculations and downstream optimizers consume `penalty_eur` or `cii_ratio` directly.
+        consecutive_deficit_periods: Consecutive deficit periods under FuelEU Article 23(2).
+        penalty_multiplier: Article 23(2) deficit multiplier applied to FuelEU penalties.
     """
 
     cii_rating: str
@@ -229,6 +242,8 @@ class ComplianceResult:
     reference_line_a: float = 0.0  # IMO G2 curve coefficient a
     reference_line_c: float = 0.0  # IMO G2 curve exponent c
     rating_boundaries: tuple[float, float, float, float] = (0.86, 0.94, 1.06, 1.18)  # IMO MEPC.354(78) G4 boundaries
+    consecutive_deficit_periods: int = 1
+    penalty_multiplier: float = 1.0
 
     @property
     def cii_result(self) -> CIIResult:
@@ -254,6 +269,8 @@ class ComplianceResult:
             ghg_intensity=self.ghg_intensity,
             penalty_eur=self.penalty_eur,
             compliance_status=self.compliance_status,
+            consecutive_deficit_periods=self.consecutive_deficit_periods,
+            penalty_multiplier=self.penalty_multiplier,
         )
 
     def to_dict(self) -> dict[str, Any]:

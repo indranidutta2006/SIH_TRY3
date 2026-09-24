@@ -282,16 +282,25 @@ class ComplianceEngine(ABC):
         ghg_intensity: float,
         energy_used_mj: float,
         year: int,
+        consecutive_deficit_periods: int = 1,
     ) -> ComplianceResult:
-        """Evaluate penalty and compliance status against European Union FuelEU Maritime targets.
+        """Estimate GHG-intensity compliance and financial penalty under EU FuelEU Maritime.
+
+        Estimates Article 4 Well-to-Wake GHG intensity targets and Annex IV / Article 23
+        statutory penalties, including the Article 23(2) consecutive-deficit multiplier
+        [1 + (n - 1) / 10]. Note: This is a GHG-intensity compliance and penalty estimator;
+        it does not evaluate Article 5 RFNBO subtargets, Article 6 OPS port mandates,
+        or pooling/banking flexibilities.
 
         Args:
             ghg_intensity: Attained GHG intensity per energy unit (gCO2eq/MJ).
             energy_used_mj: Total energy consumed on covered voyages in megajoules.
             year: Compliance reporting calendar year.
+            consecutive_deficit_periods: Number of consecutive reporting periods (n >= 1)
+                with a compliance deficit (Article 23(2) multiplier: 1 + (n - 1) / 10).
 
         Returns:
-            ComplianceResult specifying compliance status and regulatory score.
+            ComplianceResult specifying compliance status and penalty estimate.
 
         Raises:
             ComplianceError: If compliance limits for the year cannot be resolved.
@@ -330,12 +339,14 @@ class ComplianceEngine(ABC):
         ghg_intensity: float,
         energy_used_mj: float,
         year: int,
+        consecutive_deficit_periods: int = 1,
     ) -> FuelEUResult:
-        """Evaluate EU FuelEU Maritime returning dedicated FuelEUResult."""
+        """Estimate EU FuelEU Maritime GHG-intensity compliance returning dedicated FuelEUResult."""
         res = self.evaluate_fueleu(
             ghg_intensity=ghg_intensity,
             energy_used_mj=energy_used_mj,
             year=year,
+            consecutive_deficit_periods=consecutive_deficit_periods,
         )
         return res.fueleu_result
 

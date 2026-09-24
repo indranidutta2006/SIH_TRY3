@@ -463,13 +463,22 @@ class MaritimeComplianceEngine(ComplianceEngine):
         ghg_intensity: float,
         energy_used_mj: float,
         year: int,
+        consecutive_deficit_periods: int = 1,
     ) -> ComplianceResult:
-        """Evaluate penalty and compliance status against European Union FuelEU Maritime targets.
+        """Estimate GHG-intensity compliance and financial penalty under EU FuelEU Maritime.
+
+        Estimates Article 4 Well-to-Wake GHG intensity targets and Annex IV / Article 23
+        statutory penalties, including the Article 23(2) consecutive-deficit multiplier
+        [1 + (n - 1) / 10]. Note: This is a GHG-intensity compliance and penalty estimator;
+        it does not evaluate Article 5 RFNBO subtargets, Article 6 OPS port mandates,
+        or pooling/banking flexibilities.
 
         Args:
             ghg_intensity: Attained Well-to-Wake GHG intensity (gCO2eq/MJ).
             energy_used_mj: Total energy consumed on covered voyages in megajoules.
             year: Compliance reporting calendar year.
+            consecutive_deficit_periods: Number of consecutive reporting periods (n >= 1)
+                with a compliance deficit (Article 23(2) multiplier: 1 + (n - 1) / 10).
 
         Returns:
             ComplianceResult specifying pass/fail status and financial penalty in EUR.
@@ -490,9 +499,11 @@ class MaritimeComplianceEngine(ComplianceEngine):
             )
 
         target_limit = self.get_fueleu_target(year)
+        n = max(1, int(consecutive_deficit_periods))
+        multiplier = 1.0 + (n - 1) / 10.0
 
         if ghg_intensity <= target_limit or energy_used_mj == 0.0:
-            # Full compliance — zero penalty
+            # GHG intensity compliant — zero deficit penalty
             return ComplianceResult(
                 cii_rating="N/A",
                 attained_cii=0.0,
@@ -504,13 +515,16 @@ class MaritimeComplianceEngine(ComplianceEngine):
                 penalty_eur=0.0,
                 compliance_status="COMPLIANT",
                 compliance_score=0.0,
+                consecutive_deficit_periods=n,
+                penalty_multiplier=1.0,
             )
 
-        # Statutory FuelEU Deficit & Financial Penalty (Article 23)
+        # Statutory FuelEU Deficit & Financial Penalty (Article 23 & Annex IV)
         ghg_deficit_g = (ghg_intensity - target_limit) * energy_used_mj
         # Tons of VLSFO equivalent energy deficit
         equivalent_fuel_deficit_tons = ghg_deficit_g / (ghg_intensity * VLSFO_ENERGY_DENSITY_MJ_PER_TON)
-        penalty_eur = equivalent_fuel_deficit_tons * FUELEU_STATUTORY_PENALTY_RATE_EUR
+        base_penalty_eur = equivalent_fuel_deficit_tons * FUELEU_STATUTORY_PENALTY_RATE_EUR
+        penalty_eur = base_penalty_eur * multiplier
 
         return ComplianceResult(
             cii_rating="N/A",
@@ -523,6 +537,8 @@ class MaritimeComplianceEngine(ComplianceEngine):
             penalty_eur=round(penalty_eur, 2),
             compliance_status="NON_COMPLIANT",
             compliance_score=round(penalty_eur, 2),
+            consecutive_deficit_periods=n,
+            penalty_multiplier=round(multiplier, 2),
         )
 
     def assess_cii(
@@ -557,12 +573,14 @@ class MaritimeComplianceEngine(ComplianceEngine):
         ghg_intensity: float,
         energy_used_mj: float,
         year: int,
+        consecutive_deficit_periods: int = 1,
     ) -> FuelEUResult:
-        """Evaluate EU FuelEU Maritime returning a clean, decoupled FuelEUResult."""
+        """Estimate EU FuelEU Maritime GHG-intensity compliance returning clean FuelEUResult."""
         res = self.evaluate_fueleu(
             ghg_intensity=ghg_intensity,
             energy_used_mj=energy_used_mj,
             year=year,
+            consecutive_deficit_periods=consecutive_deficit_periods,
         )
         return res.fueleu_result
 

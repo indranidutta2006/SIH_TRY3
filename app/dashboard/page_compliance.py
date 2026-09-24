@@ -102,8 +102,13 @@ def render_compliance_page() -> None:
             )
 
     with tab_fueleu:
-        st.subheader("EU FuelEU Maritime GHG Intensity & Penalty Accounting (Regulation (EU) 2023/1805)")
-        fcol1, fcol2 = st.columns(2)
+        st.subheader("EU FuelEU Maritime GHG-Intensity Compliance & Penalty Estimator (Regulation (EU) 2023/1805)")
+        st.caption(
+            "ℹ️ **Estimator Scope:** Evaluates Article 4 Well-to-Wake GHG intensity targets and Annex IV / Article 23 "
+            "statutory penalties, including the Article 23(2) consecutive-deficit multiplier $[1 + (n - 1) / 10]$. "
+            "Does not simulate Article 5 RFNBO quotas, Article 6 Onshore Power Supply (OPS) port mandates, or pooling/banking flexibilities."
+        )
+        fcol1, fcol2, fcol3 = st.columns(3)
         with fcol1:
             fe_year = st.selectbox("Assessment Year", [2025, 2030, 2035, 2040, 2045, 2050], index=0, key="fe_year")
             ghg_intensity = st.number_input(
@@ -124,12 +129,23 @@ def render_compliance_page() -> None:
                 step=1000000.0,
                 key="fe_energy",
             )
+        with fcol3:
+            fe_consecutive = st.number_input(
+                "Consecutive Deficit Periods (n)",
+                min_value=1,
+                max_value=10,
+                value=1,
+                step=1,
+                key="fe_consecutive",
+                help="Article 23(2) statutory multiplier: 1 + (n - 1) / 10 applied when deficit persists across consecutive years.",
+            )
 
         if st.button("Calculate FuelEU Compliance & Penalties", use_container_width=True):
             fe_res = compliance_engine.evaluate_fueleu(
                 ghg_intensity=ghg_intensity,
                 energy_used_mj=energy_mj,
                 year=fe_year,
+                consecutive_deficit_periods=fe_consecutive,
             )
 
             pcol1, pcol2, pcol3 = st.columns(3)
@@ -139,6 +155,12 @@ def render_compliance_page() -> None:
                 st.markdown(f"### Status: :{color}[{status_text}]")
             with pcol2:
                 penalty_eur = fe_res.penalty_eur
-                st.metric("FuelEU Penalty (€)", f"€{penalty_eur:,.2f}")
+                st.metric("Estimated Penalty (€)", f"€{penalty_eur:,.2f}")
             with pcol3:
                 st.metric("Compliance Status", fe_res.compliance_status)
+
+            if fe_res.penalty_multiplier > 1.0:
+                st.caption(
+                    f"⚠️ Article 23(2) Consecutive Deficit Multiplier Active: "
+                    f"**{fe_res.penalty_multiplier:.1f}×** applied for {fe_res.consecutive_deficit_periods} consecutive reporting periods."
+                )

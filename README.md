@@ -12,7 +12,7 @@ The **Quantum-Inspired Fuel Consumption Prediction & Green Fleet Optimization** 
 
 The objective of the platform is twofold:
 1. **Accurately Predict Marine Fuel Consumption:** Capture nonlinear hydrodynamic resistance, adverse weather dynamics, and cargo payload constraints using classical regression (Linear Regression, Random Forest, HistGradientBoosting) and Quantum-Inspired Fuel Consumption Prediction (`QIFCP`) algorithms.
-2. **Optimize Green Fleet Operations:** Allocate vessels to cargo orders and schedule routes to minimize total Well-to-Wake (WtW) greenhouse gas emissions, fuel expenditures, and operational delays while guaranteeing full compliance with the International Maritime Organization (IMO) Carbon Intensity Indicator (CII) ratings and European Union FuelEU Maritime standards.
+2. **Optimize Green Fleet Operations:** Allocate vessels to cargo orders and schedule routes to minimize total Well-to-Wake (WtW) greenhouse gas emissions, fuel expenditures, and operational delays while ensuring statutory compliance with International Maritime Organization (IMO) Carbon Intensity Indicator (CII) ratings and estimating European Union FuelEU Maritime GHG intensity limits and financial penalty exposures.
 
 This repository contains the **Phase 0 architectural foundation**. It explicitly defines the schemas, abstract contracts, centralized configurations, exception hierarchies, and logging facilities required for subsequent development phases.
 
@@ -223,7 +223,7 @@ Verify that all architectural contracts, physics derivations, statutory emission
 ```bash
 python -m pytest tests/ -v
 ```
-* **Produces:** 198/198 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves, MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, and decoupled statutory compliance schemas.
+* **Produces:** 199/199 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves, MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, decoupled statutory compliance schemas, and FuelEU Article 23(2) consecutive-deficit penalty scaling.
 
 ---
 
@@ -330,13 +330,22 @@ Implemented in `src/compliance/compliance_engine.py` conforming to [`contracts.i
 | **Refrigerated Cargo** | All sizes | 0.78 | 0.91 | 1.07 | 1.20 |
 | **Combination Carrier** | All sizes | 0.87 | 0.96 | 1.06 | 1.14 |
 
-### 5.3 EU FuelEU Maritime Statutory Penalties (Regulation (EU) 2023/1805)
-Implemented in `src/compliance/compliance_engine.py` following Article 23 & Annex IV:
-$$\text{Penalty (EUR)} = \frac{|\text{Compliance Balance (gCO}_2\text{eq)}|}{\text{GHGIE}_{\text{actual}} \times 41000\text{ MJ/t}} \times 2400\text{ EUR/t}$$
+### 5.3 EU FuelEU Maritime GHG-Intensity Compliance & Penalty Estimator (Regulation (EU) 2023/1805)
+Implemented in `src/compliance/compliance_engine.py` conforming to Article 4, Article 23, and Annex IV:
+$$\text{Base Penalty (EUR)} = \frac{|\text{Compliance Balance (gCO}_2\text{eq)}|}{\text{GHGIE}_{\text{actual}} \times 41000\text{ MJ/t}} \times 2400\text{ EUR/t}$$
+$$\text{Total Penalty (EUR)} = \text{Base Penalty} \times \left(1 + \frac{n - 1}{10}\right)$$
 where:
 - $\text{Compliance Balance} = (\text{GHGIE}_{\text{target}} - \text{GHGIE}_{\text{actual}}) \times \text{Energy Consumed (MJ)}$
-- Reference baseline: $91.16\text{ gCO}_2\text{eq/MJ}$ with phased reductions ($2025 = -2\%, 2030 = -6\%, 2035 = -14.5\%, 2040 = -31\%, 2045 = -62\%, 2050 = -80\%$).
+- Reference baseline: $91.16\text{ gCO}_2\text{eq/MJ}$ with phased statutory reductions ($2025 = -2\%, 2030 = -6\%, 2035 = -14.5\%, 2040 = -31\%, 2045 = -62\%, 2050 = -80\%$).
+- **Consecutive Deficit Multiplier (Article 23(2)):** When a vessel incurs a compliance deficit across $n \ge 2$ consecutive reporting periods, penalties scale by $1 + \frac{n-1}{10}$ ($1.1\times$ for $n=2$, $1.2\times$ for $n=3$, etc.).
 - Downstream optimization routines directly consume canonical `comp.penalty_eur`.
+
+> [!NOTE] Defensible Regulatory Scope Notice
+> This component functions specifically as a **FuelEU GHG-intensity compliance and penalty estimator**. It evaluates operational Well-to-Wake GHG intensity targets (Article 4) and financial penalty exposure (Article 23 & Annex IV). It does not claim full statutory compliance certification as it intentionally does not simulate:
+> 1. Renewable Fuels of Non-Biological Origin (**RFNBO**) subtargets (Article 5)
+> 2. Onshore Power Supply (**OPS**) zero-emission berth requirements for container and passenger ships (Article 6)
+> 3. Fleet compliance **pooling** mechanisms (Article 21) or surplus **banking/borrowing** (Article 20)
+> 4. Port-call geographic exemptions (outermost regions, islands, or ice-class provisions).
 
 ### 5.4 Quantum-Inspired & Quantum Kernel Modeling
 - **QIFCP (`src/prediction/qifcp.py`):** Quantum-inspired hydrodynamic neural regressor tuned with Quantum-behaved Particle Swarm Optimization (`QPSO`).

@@ -471,5 +471,34 @@ def test_compliance_assessment_container() -> None:
     assert "cii" in d and "fueleu" in d
 
 
+def test_fueleu_consecutive_period_penalty_multiplier() -> None:
+    """Verify Article 23(2) consecutive deficit multiplier 1 + (n - 1) / 10."""
+    engine = MaritimeComplianceEngine()
+    ghg = 95.0  # Above 2025 limit of 89.3368
+    energy_mj = 50_000_000.0
+
+    # Period 1 (n=1): Base penalty (multiplier 1.0)
+    res_n1 = engine.evaluate_fueleu(ghg_intensity=ghg, energy_used_mj=energy_mj, year=2025, consecutive_deficit_periods=1)
+    assert res_n1.fueleu_pass is False
+    assert res_n1.penalty_multiplier == 1.0
+    base_penalty = res_n1.penalty_eur
+
+    # Period 2 (n=2): Multiplier 1 + 1/10 = 1.1 (+10%)
+    res_n2 = engine.evaluate_fueleu(ghg_intensity=ghg, energy_used_mj=energy_mj, year=2025, consecutive_deficit_periods=2)
+    assert res_n2.penalty_multiplier == 1.1
+    assert res_n2.penalty_eur == pytest.approx(base_penalty * 1.1, rel=1e-3)
+
+    # Period 3 (n=3): Multiplier 1 + 2/10 = 1.2 (+20%)
+    res_n3 = engine.evaluate_fueleu(ghg_intensity=ghg, energy_used_mj=energy_mj, year=2025, consecutive_deficit_periods=3)
+    assert res_n3.penalty_multiplier == 1.2
+    assert res_n3.penalty_eur == pytest.approx(base_penalty * 1.2, rel=1e-3)
+
+    # Compliant vessel: Zero penalty regardless of consecutive counter
+    res_comp = engine.evaluate_fueleu(ghg_intensity=60.0, energy_used_mj=energy_mj, year=2025, consecutive_deficit_periods=3)
+    assert res_comp.fueleu_pass is True
+    assert res_comp.penalty_eur == 0.0
+    assert res_comp.penalty_multiplier == 1.0
+
+
 
 
