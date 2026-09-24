@@ -148,10 +148,19 @@ def run_full_pipeline(
     # -------------------------------------------------------------------------
     logger.info("\n>>> [STAGE 2/6] Prediction Layer: Model Training & QIFCP Benchmarking")
     t0 = time.perf_counter()
-    logger.info("Training baseline models using dataset '%s'...", active_training_dataset)
-    train_all_models(dataset_path=active_training_dataset, artifacts_dir="artifacts", random_state=seed)
-
     target_mode = "rate" if real_data_enabled else "absolute"
+    logger.info(
+        "Training baseline models using dataset '%s' (target_mode=%s)...",
+        active_training_dataset,
+        target_mode,
+    )
+    train_all_models(
+        dataset_path=active_training_dataset,
+        artifacts_dir="artifacts",
+        random_state=seed,
+        target_mode=target_mode,
+    )
+
     logger.info(
         "Benchmarking models and tuning QIFCP via QPSO (Objective 1, target_mode=%s)...",
         target_mode,

@@ -214,3 +214,51 @@ def test_train_all_models_convenience_function(
     assert (artifacts_dir / "models" / "random_forest.pkl").exists()
     assert (artifacts_dir / "models" / "hist_gradient_boosting.pkl").exists()
     assert (artifacts_dir / "metrics" / "baseline_metrics.json").exists()
+
+
+def test_train_all_models_rate_mode(
+    tmp_path: Path, mini_dataset_records: list[VoyageRecord]
+) -> None:
+    """Verify train_all_models with target_mode='rate' persists rate metadata and reconstructs absolute fuel."""
+    import csv
+    from dataclasses import asdict
+
+    csv_path = tmp_path / "mini_voyages_rate.csv"
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(asdict(mini_dataset_records[0]).keys()))
+        writer.writeheader()
+        for rec in mini_dataset_records:
+            writer.writerow(asdict(rec))
+
+    artifacts_dir = tmp_path / "artifacts_rate"
+    comparison = train_all_models(
+        dataset_path=csv_path,
+        artifacts_dir=artifacts_dir,
+        test_size=0.2,
+        random_state=42,
+        target_mode="rate",
+    )
+
+    assert isinstance(comparison, ModelComparisonResult)
+    metrics_file = artifacts_dir / "metrics" / "baseline_metrics.json"
+    assert metrics_file.exists()
+    metrics_data = json.loads(metrics_file.read_text(encoding="utf-8"))
+    assert metrics_data["training_config"]["target_mode"] == "rate"
+
+    # Test loading and predicting via PredictionInferenceEngine
+    best_model_path = artifacts_dir / "models" / f"{comparison.best_model_name}.pkl"
+    engine = PredictionInferenceEngine.load_from_artifact(best_model_path)
+    assert engine.target_mode == "rate"
+
+    predictions = engine.predict(mini_dataset_records[:5])
+    assert len(predictions) == 5
+    for p in predictions:
+        assert p.predicted_fuel_consumption > 0.0
+        assert p.confidence_score == 0.95
+
+
+def test_train_all_models_invalid_target_mode(tmp_path: Path) -> None:
+    """Verify train_all_models rejects invalid target_mode."""
+    with pytest.raises(ValueError, match="target_mode must be 'absolute' or 'rate'"):
+        train_all_models(dataset_path=tmp_path / "nonexistent.csv", target_mode="unsupported")
+
