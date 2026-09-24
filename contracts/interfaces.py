@@ -202,6 +202,9 @@ class ComplianceEngine(ABC):
         *,
         vessel_type: str | None = None,
         vessel_dwt: float | None = None,
+        vessel_gt: float | None = None,
+        capacity: float | None = None,
+        capacity_type: str | None = None,
         annual_distance_nm: float | None = None,
         annual_co2_tons: float | None = None,
         **kwargs: Any,
@@ -209,15 +212,18 @@ class ComplianceEngine(ABC):
         """Calculate IMO Carbon Intensity Indicator (CII) and operational rating (A through E).
 
         Accepts standard physical metrics (co2_emissions, cargo_tons, distance_nm)
-        or statutory reporting aliases (vessel_type, vessel_dwt, annual_distance_nm, annual_co2_tons).
+        or statutory reporting aliases (vessel_type, vessel_dwt, vessel_gt, capacity, capacity_type, annual_distance_nm, annual_co2_tons).
 
         Args:
             co2_emissions: Annual operational direct CO2 emissions in metric tons.
             cargo_tons: Vessel capacity / deadweight tonnage.
             distance_nm: Total distance navigated in nautical miles.
             year: Regulatory compliance reporting calendar year.
-            vessel_type: Optional vessel classification category (e.g. Bulk Carrier, Container, Tanker).
+            vessel_type: Optional vessel classification category (e.g. Bulk Carrier, Container, Tanker, Ro-Ro).
             vessel_dwt: Deadweight tonnage capacity alias for cargo_tons.
+            vessel_gt: Gross tonnage capacity for Ro-Ro / passenger categories.
+            capacity: Generic vessel capacity value.
+            capacity_type: Unit basis of capacity ('DWT' or 'GT').
             annual_distance_nm: Annual distance alias for distance_nm.
             annual_co2_tons: Annual direct CO2 emissions alias for co2_emissions.
             **kwargs: Additional contextual metadata.
@@ -228,6 +234,25 @@ class ComplianceEngine(ABC):
         Raises:
             DataValidationError: If required metrics are missing or physically invalid.
             ComplianceError: If reporting year is outside statutory range (2023–2030).
+        """
+        pass
+
+    @abstractmethod
+    def resolve_cii_reference_line(
+        self,
+        vessel_type: str,
+        capacity: float,
+        capacity_type: str | None = None,
+    ) -> tuple[float, float, float, str]:
+        """Resolve IMO Resolution MEPC.353(78) (G2) reference line parameters.
+
+        Args:
+            vessel_type: Vessel classification category.
+            capacity: Vessel capacity numeric value (DWT or GT).
+            capacity_type: Optional explicit capacity unit ('DWT' or 'GT').
+
+        Returns:
+            Tuple of (a, c, effective_capacity, statutory_capacity_metric).
         """
         pass
 

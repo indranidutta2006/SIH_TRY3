@@ -133,6 +133,9 @@ class ComplianceResult:
     penalty_eur: float = 0.0
     compliance_status: str = "COMPLIANT"
     compliance_score: float = 0.0  # DEPRECATED: use cii_ratio or penalty_eur
+    capacity_metric: str = "DWT"  # Statutory capacity basis ('DWT' or 'GT' under MEPC.353(78) G2)
+    reference_line_a: float = 0.0  # IMO G2 curve coefficient a
+    reference_line_c: float = 0.0  # IMO G2 curve exponent c
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize dataclass to dictionary."""

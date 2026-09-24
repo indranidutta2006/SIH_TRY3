@@ -151,6 +151,9 @@ The compliance subsystem evaluates fleet voyages against statutory **IMO Carbon 
 | `penalty_eur` | `float` | Statutory financial penalty in Euros (€) under Regulation (EU) 2023/1805 Article 23. |
 | `compliance_status` | `str` | Standardized status string (`COMPLIANT` or `NON_COMPLIANT`). |
 | `compliance_score` | `float` | *(Deprecated)* Legacy compatibility field. Use `cii_ratio` or `penalty_eur`. |
+| `capacity_metric` | `str` | Statutory capacity metric basis (`DWT` or `GT`) under IMO Resolution MEPC.353(78) G2. |
+| `reference_line_a` | `float` | Statutory reference curve regression parameter $a$ under IMO MEPC.353(78). |
+| `reference_line_c` | `float` | Statutory reference curve regression exponent $c$ under IMO MEPC.353(78). |
 
 > [!WARNING] Deprecation Notice: `compliance_score`
 > The field `compliance_score` is deprecated and preserved strictly for backwards compatibility with legacy tests. It previously functioned as a polymorphic alias (`cii_ratio` for CII, `penalty_eur` for FuelEU). All downstream optimization engines (`FleetObjective`, `nsga2_pareto`, `ScenarioAnalysis`) and dashboards consume the explicit canonical fields `penalty_eur` and `cii_ratio`.
@@ -212,7 +215,7 @@ Verify that all architectural contracts, physics derivations, statutory emission
 ```bash
 python -m pytest tests/ -v
 ```
-* **Produces:** 188/188 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, statutory MEPC.400(83) compliance targets, and algorithm correctness.
+* **Produces:** 193/193 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves, and MEPC.400(83) compliance targets.
 
 ---
 
@@ -225,7 +228,7 @@ streamlit run app.py
   1. **Fleet Telemetry & Explorer:** Distribution histograms, correlation heatmaps, and raw voyage inspection.
   2. **Fuel Prediction & QIFCP:** 4-model accuracy leaderboard, normalized per-source error breakdowns, and live what-if voyage inference sandbox.
   3. **Swarm Optimization (QPSO):** Scalability comparisons across Small, Medium, and Large fleet tiers with interactive bi-objective Pareto frontier trade-offs.
-  4. **Statutory Compliance (IMO/EU):** Automated vessel-level IMO CII ratings (A–E) and FuelEU Maritime penalty audits.
+  4. **Statutory Compliance (IMO/EU):** Automated vessel-level IMO CII ratings (A–E) across all MEPC.353(78) G2 reference curves (with dynamic DWT/GT capacity metrics) and FuelEU Maritime penalty audits.
   5. **Scenario Analysis & Alternative Fuels:** Full Well-to-Wake (WTW) lifecycle emissions, operational costs, and balanced multicriteria rankings across 6 alternative marine fuels.
 
 ---
@@ -252,10 +255,35 @@ Implemented in `src/prediction/emission_engine.py` conforming to [`contracts.int
 - **Tank-to-Wake (TTW):** Direct operational combustion emissions ($\text{CO}_2$, $\text{CH}_4$, $\text{N}_2\text{O}$, and $\text{CO}_2\text{e}$) calculated using statutory IMO MEPC factors and IPCC AR5 100-year Global Warming Potentials ($\text{GWP}_{\text{CH}_4} = 28.0, \text{GWP}_{\text{N}_2\text{O}} = 265.0$).
 - **Well-to-Wake (WTW):** Total lifecycle climate footprint ($\text{WTW} = \text{TTW} + \text{WTT}$), capturing upstream fuel production, refining, liquefaction, transport, and bunkering. Direct combustion $\text{CO}_2$ is maintained separately from $\text{CO}_2\text{e}$ to avoid mixing physical combustion units with overall lifecycle climate impact.
 
-### 5.2 IMO Carbon Intensity Indicator (CII) & Resolution MEPC.400(83)
+### 5.2 IMO Carbon Intensity Indicator (CII), Resolution MEPC.353(78) (G2) & MEPC.400(83)
 Implemented in `src/compliance/compliance_engine.py` conforming to [`contracts.interfaces.ComplianceEngine`](contracts/interfaces.py):
-- **Attained CII:** Calculated per voyage or annually as $\text{CII}_{\text{attained}} = \frac{\text{CO}_2 \times 10^6}{\text{DWT} \times \text{Distance}}$.
-- **Baseline Reference Curve:** $\text{CII}_{\text{ref}} = a \cdot \text{DWT}^{-c}$ with coefficients defined under IMO Resolution MEPC.337(76) across Bulk Carriers ($a=4745, c=0.622$), Tankers ($a=5247, c=0.610$), Containers ($a=1984, c=0.489$), General Cargo ($a=3196, c=0.540$), and RoRo ($a=1686, c=0.388$).
+- **Attained CII:** Calculated per voyage or annually as:
+  $$\text{CII}_{\text{attained}} = \frac{\text{CO}_2 \times 10^6}{\text{Capacity} \times \text{Distance}}$$
+  where $\text{Capacity}$ is evaluated strictly in **Gross Tonnage (GT)** for Ro-Ro and passenger vessels, and **Deadweight Tonnage (DWT)** for cargo, container, tanker, gas, and bulk vessels.
+- **Granular Baseline Reference Lines (IMO Resolution MEPC.353(78) G2):** Superseding the single-curve baseline in MEPC.337(76), the engine implements the full multi-branch statutory lookup:
+  $$\text{Vessel Type} + \text{Capacity Metric} + \text{Capacity Value} \longrightarrow (a, c, \text{Effective Capacity})$$
+  $$\text{CII}_{\text{ref}} = a \cdot \text{Capacity}^{-c} \quad (\text{or } a \text{ if } c = 0)$$
+
+| Vessel Category | Capacity Sub-tier | Capacity Metric | Parameter $a$ | Exponent $c$ |
+|:---|:---|:---:|:---:|:---:|
+| **General Cargo Ship** | $\ge 20,000$ DWT | DWT | 31,948.0 | 0.7920 |
+| **General Cargo Ship** | $< 20,000$ DWT | DWT | 588.0 | 0.3885 |
+| **LNG Carrier** | $\ge 100,000$ DWT | DWT | 9.827 | 0.0000 |
+| **LNG Carrier** | $65,000 \le \text{DWT} < 100,000$ | DWT | $1.4479 \times 10^{14}$ | 2.6730 |
+| **LNG Carrier** | $< 65,000$ DWT | DWT | $1.4779 \times 10^{14}$ | 2.6730 |
+| **Ro-Ro Vehicle Carrier** | $\ge 30,000$ GT | **GT** | 3,627.0 | 0.5900 |
+| **Ro-Ro Vehicle Carrier** | $< 30,000$ GT | **GT** | 330.0 | 0.3290 |
+| **Ro-Ro Cargo Ship** | All sizes | **GT** | 1,967.0 | 0.4850 |
+| **Ro-Ro Passenger Ship** | All sizes | **GT** | 2,023.0 | 0.4600 |
+| **Cruise Passenger Ship** | All sizes | **GT** | 930.0 | 0.3830 |
+| **Bulk Carrier** | All sizes (cap at 279,000 DWT) | DWT | 4,745.0 | 0.6220 |
+| **Tanker** | All sizes | DWT | 5,247.0 | 0.6100 |
+| **Containership** | All sizes | DWT | 1,984.0 | 0.4890 |
+| **Gas Carrier** | $\ge 65,000$ DWT | DWT | $1.4405 \times 10^{11}$ | 2.0710 |
+| **Gas Carrier** | $< 65,000$ DWT | DWT | 8,104.0 | 0.6390 |
+| **Refrigerated Cargo** | All sizes | DWT | 4,600.0 | 0.5570 |
+| **Combination Carrier**| All sizes | DWT | 5,119.0 | 0.6220 |
+
 - **Statutory Reduction Factor $Z$ (MEPC.400(83)):** On 11 April 2025, IMO MEPC 83 adopted updated annual reduction trajectories:
 
 | Year | Statutory $Z$ Factor | Governing Instrument |

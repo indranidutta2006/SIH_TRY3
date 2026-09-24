@@ -212,3 +212,103 @@ def test_cii_unsupported_years_raise_compliance_error(invalid_year: int) -> None
         )
 
 
+def test_cii_general_cargo_mepc353_78_split() -> None:
+    """Verify General Cargo split curve at 20,000 DWT under Resolution MEPC.353(78)."""
+    engine = MaritimeComplianceEngine()
+
+    # Large general cargo (>= 20,000 DWT): a=31948, c=0.792
+    a_lg, c_lg, eff_lg, metric_lg = engine.resolve_cii_reference_line("General Cargo", 25000.0)
+    assert a_lg == 31948.0
+    assert c_lg == 0.792
+    assert metric_lg == "DWT"
+
+    # Small general cargo (< 20,000 DWT): a=588, c=0.3885
+    a_sm, c_sm, eff_sm, metric_sm = engine.resolve_cii_reference_line("General Cargo", 15000.0)
+    assert a_sm == 588.0
+    assert c_sm == 0.3885
+    assert metric_sm == "DWT"
+
+
+def test_cii_lng_carrier_mepc353_78_split() -> None:
+    """Verify LNG Carrier tiered curves under Resolution MEPC.353(78)."""
+    engine = MaritimeComplianceEngine()
+
+    # Large LNG carrier (>= 100,000 DWT): a=9.827, c=0.0
+    a_lg, c_lg, _, metric_lg = engine.resolve_cii_reference_line("LNG Carrier", 120000.0)
+    assert a_lg == 9.827
+    assert c_lg == 0.0
+    assert metric_lg == "DWT"
+
+    # Medium LNG carrier (65,000 - 100,000 DWT): a=1.4479e14, c=2.673
+    a_md, c_md, _, metric_md = engine.resolve_cii_reference_line("LNG Carrier", 80000.0)
+    assert a_md == pytest.approx(1.4479e14, rel=1e-5)
+    assert c_md == 2.673
+    assert metric_md == "DWT"
+
+    # Small LNG carrier (< 65,000 DWT): a=1.4779e14, c=2.673
+    a_sm, c_sm, _, metric_sm = engine.resolve_cii_reference_line("LNG Carrier", 50000.0)
+    assert a_sm == pytest.approx(1.4779e14, rel=1e-5)
+    assert c_sm == 2.673
+    assert metric_sm == "DWT"
+
+
+def test_cii_roro_mepc353_78_gt_metric() -> None:
+    """Verify Ro-Ro categories use Gross Tonnage (GT) and correct statutory curves."""
+    engine = MaritimeComplianceEngine()
+
+    # Ro-Ro Vehicle Carrier >= 30,000 GT: a=3627, c=0.590, metric=GT
+    a_vc_lg, c_vc_lg, _, m_vc_lg = engine.resolve_cii_reference_line("Ro-Ro Vehicle Carrier", 45000.0)
+    assert a_vc_lg == 3627.0
+    assert c_vc_lg == 0.590
+    assert m_vc_lg == "GT"
+
+    # Ro-Ro Vehicle Carrier < 30,000 GT: a=330, c=0.329, metric=GT
+    a_vc_sm, c_vc_sm, _, m_vc_sm = engine.resolve_cii_reference_line("Ro-Ro Vehicle Carrier", 20000.0)
+    assert a_vc_sm == 330.0
+    assert c_vc_sm == 0.329
+    assert m_vc_sm == "GT"
+
+    # Ro-Ro Cargo Ship: a=1967, c=0.485, metric=GT
+    a_ro, c_ro, _, m_ro = engine.resolve_cii_reference_line("Ro-Ro Cargo Ship", 25000.0)
+    assert a_ro == 1967.0
+    assert c_ro == 0.485
+    assert m_ro == "GT"
+
+    # Ro-Ro Passenger Ship: a=2023, c=0.460, metric=GT
+    a_pax, c_pax, _, m_pax = engine.resolve_cii_reference_line("Ro-Ro Passenger Ship", 35000.0)
+    assert a_pax == 2023.0
+    assert c_pax == 0.460
+    assert m_pax == "GT"
+
+
+def test_cii_bulk_carrier_capacity_cap_at_279k() -> None:
+    """Verify Bulk Carrier calculation capacity is capped at 279,000 DWT per MEPC.353(78)."""
+    engine = MaritimeComplianceEngine()
+    a, c, eff_cap, metric = engine.resolve_cii_reference_line("Bulk Carrier", 350000.0)
+    assert eff_cap == 279000.0
+    assert a == 4745.0
+    assert c == 0.622
+    assert metric == "DWT"
+
+
+def test_cii_evaluate_with_gt_capacity() -> None:
+    """Verify evaluate_cii correctly handles GT capacity basis for Ro-Ro ships."""
+    engine = MaritimeComplianceEngine()
+    res = engine.evaluate_cii(
+        vessel_type="Ro-Ro Cargo Ship",
+        capacity=30000.0,
+        capacity_type="GT",
+        annual_distance_nm=40000.0,
+        annual_co2_tons=8000.0,
+        year=2025,
+    )
+    assert res.capacity_metric == "GT"
+    assert res.reference_line_a == 1967.0
+    assert res.reference_line_c == 0.485
+
+    # Attained CII = (8000 * 1e6) / (30000 * 40000) = 6.6667 gCO2 / GT*nm
+    expected_attained = (8000.0 * 1e6) / (30000.0 * 40000.0)
+    assert res.attained_cii == pytest.approx(expected_attained, abs=1e-3)
+
+
+

@@ -20,11 +20,43 @@ def render_compliance_page() -> None:
     tab_cii, tab_fueleu = st.tabs(["🏛️ IMO Carbon Intensity Indicator (CII)", "🇪🇺 EU FuelEU Maritime Statutory Penalties"])
 
     with tab_cii:
-        st.subheader("IMO CII Letter Rating Calculator (MEPC.337(76))")
+        st.subheader("IMO CII Letter Rating Calculator (MEPC.353(78) G2 & MEPC.400(83))")
         col1, col2 = st.columns(2)
         with col1:
-            v_type = st.selectbox("Vessel Category", ["Bulk Carrier", "Container", "Tanker", "RoRo", "LNG Carrier"], key="cii_type")
-            dwt = st.number_input("Vessel DWT", min_value=1000.0, max_value=400000.0, value=65000.0, step=1000.0, key="cii_dwt")
+            v_type = st.selectbox(
+                "Vessel Category",
+                [
+                    "Bulk Carrier",
+                    "Container",
+                    "Tanker",
+                    "General Cargo",
+                    "LNG Carrier",
+                    "Ro-Ro Cargo Ship",
+                    "Ro-Ro Vehicle Carrier",
+                    "Ro-Ro Passenger Ship",
+                    "Gas Carrier",
+                ],
+                key="cii_type",
+            )
+            is_gt_vessel = any(k in v_type.lower() for k in ["ro-ro", "roro", "passenger", "vehicle"])
+            cap_type_choice = st.radio(
+                "Statutory Capacity Metric (MEPC.353(78) G2)",
+                ["DWT (Deadweight Tonnage)", "GT (Gross Tonnage)"],
+                index=1 if is_gt_vessel else 0,
+                horizontal=True,
+                key=f"cap_type_{v_type}",
+                help="Ro-Ro and Passenger vessels use Gross Tonnage (GT). Cargo, bulk, tankers, and LNG carriers use DWT.",
+            )
+            cap_code = "GT" if "GT" in cap_type_choice else "DWT"
+            cap_val = st.number_input(
+                f"Vessel Capacity ({cap_code})",
+                min_value=1000.0,
+                max_value=400000.0,
+                value=65000.0,
+                step=1000.0,
+                key="cii_capacity",
+                help=f"Operational capacity in {cap_code} as required under IMO Resolution MEPC.353(78).",
+            )
             dist = st.number_input("Annual Distance (nm)", min_value=500.0, max_value=150000.0, value=45000.0, step=500.0, key="cii_dist")
         with col2:
             co2 = st.number_input("Annual CO₂ Emissions (metric tons)", min_value=10.0, max_value=500000.0, value=12500.0, step=50.0, key="cii_co2")
@@ -33,7 +65,10 @@ def render_compliance_page() -> None:
         if st.button("Evaluate IMO CII Rating", use_container_width=True):
             res = compliance_engine.evaluate_cii(
                 vessel_type=v_type,
-                vessel_dwt=dwt,
+                capacity=cap_val,
+                capacity_type=cap_code,
+                vessel_dwt=cap_val if cap_code == "DWT" else None,
+                vessel_gt=cap_val if cap_code == "GT" else None,
                 annual_distance_nm=dist,
                 annual_co2_tons=co2,
                 year=year,
@@ -51,11 +86,15 @@ def render_compliance_page() -> None:
             with rcol1:
                 st.markdown(f"### Rating: :{grade_color}[Grade {res.cii_rating}]")
             with rcol2:
-                st.metric("Attained CII", f"{res.attained_cii:.2f} gCO₂/dwt·nm")
+                metric_unit = res.capacity_metric.lower()
+                st.metric("Attained CII", f"{res.attained_cii:.2f} gCO₂/{metric_unit}·nm")
             with rcol3:
-                st.metric("Required Target CII", f"{res.required_cii:.2f} gCO₂/dwt·nm")
+                st.metric("Required Target CII", f"{res.required_cii:.2f} gCO₂/{metric_unit}·nm")
 
-            st.caption(f"CII Ratio (Attained / Required): {res.cii_ratio:.3f} | Compliance Status: {res.compliance_status}")
+            st.caption(
+                f"IMO MEPC.353(78) G2 Reference Branch: a={res.reference_line_a}, c={res.reference_line_c} | "
+                f"Statutory Metric: {res.capacity_metric} | CII Ratio: {res.cii_ratio:.3f} | Compliance Status: {res.compliance_status}"
+            )
 
     with tab_fueleu:
         st.subheader("EU FuelEU Maritime GHG Intensity & Penalty Accounting (Regulation (EU) 2023/1805)")

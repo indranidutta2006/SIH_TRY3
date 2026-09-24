@@ -81,6 +81,145 @@ class MaritimeComplianceEngine(ComplianceEngine):
         else:
             return round(FUELEU_REFERENCE_GHG_INTENSITY * 0.20, 4)  # -80%
 
+    def resolve_cii_reference_line(
+        self,
+        vessel_type: str,
+        capacity: float,
+        capacity_type: Optional[str] = None,
+    ) -> tuple[float, float, float, str]:
+        """Resolve IMO Resolution MEPC.353(78) (G2) reference line parameters.
+
+        Form: CII_ref = a * (Capacity ** -c)
+        Where Capacity is DWT or GT depending on the statutory category.
+
+        Statutory branches conforming to Table 1 of Resolution MEPC.353(78):
+        1. Bulk carrier:
+           - Capped at 279,000 DWT: a=4745.0, c=0.622, capacity_metric="DWT"
+        2. Tanker:
+           - a=5247.0, c=0.610, capacity_metric="DWT"
+        3. Containership / Container:
+           - a=1984.0, c=0.489, capacity_metric="DWT"
+        4. General cargo ship:
+           - >= 20,000 DWT: a=31948.0, c=0.792, capacity_metric="DWT"
+           - < 20,000 DWT: a=588.0, c=0.3885, capacity_metric="DWT"
+        5. LNG carrier:
+           - >= 100,000 DWT: a=9.827, c=0.0 (CII_ref = 9.827), capacity_metric="DWT"
+           - 65,000 to < 100,000 DWT: a=1.4479e14, c=2.673, capacity_metric="DWT"
+           - < 65,000 DWT: a=1.4779e14, c=2.673, capacity_metric="DWT"
+        6. Ro-ro cargo ship (vehicle carrier):
+           - >= 30,000 GT: a=3627.0, c=0.590, capacity_metric="GT"
+           - < 30,000 GT: a=330.0, c=0.329, capacity_metric="GT"
+        7. Ro-ro cargo ship:
+           - All sizes: a=1967.0, c=0.485, capacity_metric="GT"
+        8. Ro-ro passenger ship:
+           - All sizes: a=2023.0, c=0.460, capacity_metric="GT"
+        9. Cruise passenger ship:
+           - All sizes: a=930.0, c=0.383, capacity_metric="GT"
+        10. Gas carrier:
+           - >= 65,000 DWT: a=1.4405e11, c=2.071, capacity_metric="DWT"
+           - < 65,000 DWT: a=8104.0, c=0.639, capacity_metric="DWT"
+        11. Refrigerated cargo carrier:
+           - All sizes: a=4600.0, c=0.557, capacity_metric="DWT"
+        12. Combination carrier:
+           - All sizes: a=5119.0, c=0.622, capacity_metric="DWT"
+
+        Returns:
+            Tuple of (a, c, effective_capacity, statutory_capacity_metric).
+        """
+        v_norm = (vessel_type or "").strip().lower()
+
+        # 1. Ro-Ro categories (Statutory capacity is Gross Tonnage - GT)
+        if "vehicle" in v_norm or "car carrier" in v_norm:
+            metric = "GT"
+            if capacity >= 30000.0:
+                a, c = 3627.0, 0.590
+            else:
+                a, c = 330.0, 0.329
+            eff_cap = capacity
+        elif "passenger" in v_norm and ("ro" in v_norm or "ferry" in v_norm):
+            metric = "GT"
+            a, c = 2023.0, 0.460
+            eff_cap = capacity
+        elif "roro" in v_norm or "ro-ro" in v_norm:
+            metric = "GT"
+            a, c = 1967.0, 0.485
+            eff_cap = capacity
+        elif "cruise" in v_norm:
+            metric = "GT"
+            a, c = 930.0, 0.383
+            eff_cap = capacity
+
+        # 2. General Cargo Ship (Statutory capacity is DWT with threshold at 20,000 DWT)
+        elif "general cargo" in v_norm:
+            metric = "DWT"
+            if capacity >= 20000.0:
+                a, c = 31948.0, 0.792
+            else:
+                a, c = 588.0, 0.3885
+            eff_cap = capacity
+
+        # 3. LNG Carrier (Statutory capacity is DWT with multi-tier curves)
+        elif "lng" in v_norm:
+            metric = "DWT"
+            if capacity >= 100000.0:
+                a, c = 9.827, 0.0
+            elif capacity >= 65000.0:
+                a, c = 1.4479e14, 2.673
+            else:
+                a, c = 1.4779e14, 2.673
+            eff_cap = capacity
+
+        # 4. Gas Carrier
+        elif "gas" in v_norm:
+            metric = "DWT"
+            if capacity >= 65000.0:
+                a, c = 1.4405e11, 2.071
+            else:
+                a, c = 8104.0, 0.639
+            eff_cap = capacity
+
+        # 5. Container Ship
+        elif "container" in v_norm:
+            metric = "DWT"
+            a, c = 1984.0, 0.489
+            eff_cap = capacity
+
+        # 6. Tanker
+        elif "tanker" in v_norm:
+            metric = "DWT"
+            a, c = 5247.0, 0.610
+            eff_cap = capacity
+
+        # 7. Refrigerated Cargo
+        elif "refrigerated" in v_norm:
+            metric = "DWT"
+            a, c = 4600.0, 0.557
+            eff_cap = capacity
+
+        # 8. Combination Carrier
+        elif "combination" in v_norm:
+            metric = "DWT"
+            a, c = 5119.0, 0.622
+            eff_cap = capacity
+
+        # 9. Bulk Carrier & Default Fallback
+        else:
+            metric = "DWT"
+            a, c = 4745.0, 0.622
+            eff_cap = min(capacity, 279000.0)
+
+        # Notify if user provided capacity_type contradicts statutory standard
+        if capacity_type and capacity_type.strip().upper() != metric:
+            self.logger.warning(
+                "Statutory reference line for '%s' under IMO MEPC.353(78) uses %s, "
+                "but capacity_type='%s' was specified.",
+                vessel_type,
+                metric,
+                capacity_type,
+            )
+
+        return a, c, eff_cap, metric
+
     def evaluate_cii(
         self,
         co2_emissions: Optional[float] = None,
@@ -90,6 +229,9 @@ class MaritimeComplianceEngine(ComplianceEngine):
         *,
         vessel_type: Optional[str] = None,
         vessel_dwt: Optional[float] = None,
+        vessel_gt: Optional[float] = None,
+        capacity: Optional[float] = None,
+        capacity_type: Optional[str] = None,
         annual_distance_nm: Optional[float] = None,
         annual_co2_tons: Optional[float] = None,
         **kwargs: Any,
@@ -97,37 +239,51 @@ class MaritimeComplianceEngine(ComplianceEngine):
         """Calculate IMO Carbon Intensity Indicator (CII) and operational letter rating.
 
         Supports standard physical metrics (co2_emissions, cargo_tons, distance_nm)
-        and dashboard/statutory reporting aliases (annual_co2_tons, vessel_dwt, annual_distance_nm, vessel_type).
+        and dashboard/statutory reporting aliases (vessel_type, capacity, capacity_type, vessel_dwt, vessel_gt).
 
         Args:
             co2_emissions: Total operational direct CO2 emissions in metric tons.
-            cargo_tons: Vessel deadweight capacity in metric tons.
+            cargo_tons: Vessel deadweight capacity in metric tons (legacy alias for capacity).
             distance_nm: Total distance navigated in nautical miles.
             year: Compliance reporting calendar year (2023–2030).
-            vessel_type: Optional vessel classification (e.g. 'Bulk Carrier', 'Container', 'Tanker').
+            vessel_type: Optional vessel classification (e.g. 'Bulk Carrier', 'General Cargo', 'Ro-Ro').
             vessel_dwt: Alias for cargo_tons (metric tons DWT).
+            vessel_gt: Gross tonnage for Ro-Ro / passenger categories.
+            capacity: Generic vessel capacity value.
+            capacity_type: Unit basis of capacity ('DWT' or 'GT').
             annual_distance_nm: Alias for distance_nm.
             annual_co2_tons: Alias for co2_emissions.
             **kwargs: Additional contextual metadata.
 
         Returns:
-            ComplianceResult detailing letter rating (A-E), attained/required CII, ratio, and status.
+            ComplianceResult detailing letter rating (A-E), attained/required CII, ratio, status, and G2 parameters.
 
         Raises:
             DataValidationError: If inputs are negative, zero, or missing.
             ComplianceError: If reporting year is outside statutory range (2023–2030).
         """
         resolved_co2 = annual_co2_tons if annual_co2_tons is not None else co2_emissions
-        resolved_dwt = vessel_dwt if vessel_dwt is not None else cargo_tons
         resolved_dist = annual_distance_nm if annual_distance_nm is not None else distance_nm
+
+        # Resolve capacity value
+        resolved_cap = capacity
+        if resolved_cap is None:
+            resolved_cap = vessel_gt if vessel_gt is not None else (vessel_dwt if vessel_dwt is not None else cargo_tons)
+
+        resolved_cap_type = capacity_type
+        if resolved_cap_type is None:
+            if vessel_gt is not None:
+                resolved_cap_type = "GT"
+            elif vessel_dwt is not None or cargo_tons is not None:
+                resolved_cap_type = "DWT"
 
         if resolved_co2 is None:
             raise DataValidationError(
                 "Direct CO2 emissions must be provided (co2_emissions or annual_co2_tons)."
             )
-        if resolved_dwt is None:
+        if resolved_cap is None:
             raise DataValidationError(
-                "Vessel capacity / deadweight must be provided (cargo_tons or vessel_dwt)."
+                "Vessel capacity must be provided (capacity, vessel_dwt, vessel_gt, or cargo_tons)."
             )
         if resolved_dist is None:
             raise DataValidationError(
@@ -139,10 +295,10 @@ class MaritimeComplianceEngine(ComplianceEngine):
                 f"CO2 emissions cannot be negative: {resolved_co2}",
                 details={"co2_emissions": resolved_co2},
             )
-        if resolved_dwt <= 0.0:
+        if resolved_cap <= 0.0:
             raise DataValidationError(
-                f"Cargo tons/capacity must be positive: {resolved_dwt}",
-                details={"cargo_tons": resolved_dwt},
+                f"Vessel capacity must be positive: {resolved_cap}",
+                details={"capacity": resolved_cap},
             )
         if resolved_dist <= 0.0:
             raise DataValidationError(
@@ -156,27 +312,19 @@ class MaritimeComplianceEngine(ComplianceEngine):
                 details={"year": year, "supported_years": list(CII_Z_FACTORS.keys())},
             )
 
-        # Attained CII (gCO2 / (dwt * nm))
-        attained_cii = (resolved_co2 * 1e6) / (resolved_dwt * resolved_dist)
+        # Resolve IMO Resolution MEPC.353(78) G2 Reference Line Branch
+        vtype = vessel_type or "Bulk Carrier"
+        a, c, eff_cap, statutory_metric = self.resolve_cii_reference_line(
+            vessel_type=vtype,
+            capacity=resolved_cap,
+            capacity_type=resolved_cap_type,
+        )
 
-        # Statutory IMO Baseline CII (MEPC.337(76))
-        # Form: Baseline_CII = a * (DWT ** -c)
-        vessel_curves = {
-            "bulk carrier": (4745.0, 0.622),
-            "tanker": (5247.0, 0.610),
-            "container": (1984.0, 0.489),
-            "general cargo": (3196.0, 0.540),
-            "roro": (1686.0, 0.388),
-            "lng carrier": (9.827, 0.0),
-        }
-        curve_key = vessel_type.strip().lower() if vessel_type else ""
-        if curve_key in vessel_curves:
-            a, c = vessel_curves[curve_key]
-        else:
-            # Default to bulk carrier baseline reference curve (a=4745, c=0.622)
-            a, c = 4745.0, 0.622
+        # Baseline Reference CII (MEPC.353(78))
+        baseline_cii = a * (eff_cap ** -c) if c != 0.0 else a
 
-        baseline_cii = a * (resolved_dwt ** -c) if c != 0.0 else a
+        # Attained CII (gCO2 / (capacity * nm)) on the statutory capacity basis
+        attained_cii = (resolved_co2 * 1e6) / (resolved_cap * resolved_dist)
 
         # Statutory Annual Reduction Factor Z (IMO Resolution MEPC.400(83))
         z_factor = self.get_cii_z_factor(year)
@@ -210,6 +358,9 @@ class MaritimeComplianceEngine(ComplianceEngine):
             penalty_eur=0.0,
             compliance_status=compliance_status,
             compliance_score=round(ratio, 4),
+            capacity_metric=statutory_metric,
+            reference_line_a=round(a, 4),
+            reference_line_c=round(c, 4),
         )
 
     def evaluate_fueleu(
