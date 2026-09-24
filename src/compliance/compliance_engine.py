@@ -217,11 +217,20 @@ class MaritimeComplianceEngine(ComplianceEngine):
             a, c = 5119.0, 0.622
             eff_cap = capacity
 
-        # 9. Bulk Carrier & Default Fallback
-        else:
+        # 9. Bulk Carrier
+        elif "bulk" in v_norm:
             metric = "DWT"
             a, c = 4745.0, 0.622
             eff_cap = min(capacity, 279000.0)
+
+        else:
+            raise ComplianceError(
+                f"Unsupported CII vessel type '{vessel_type}' under IMO Resolution MEPC.353(78). "
+                f"Supported categories: Bulk Carrier, Tanker, Containership, General Cargo Ship, "
+                f"LNG Carrier, Gas Carrier, Ro-Ro Cargo / Vehicle Carrier, Ro-Ro Passenger Ship, "
+                f"Cruise Passenger Ship, Refrigerated Cargo, Combination Carrier.",
+                details={"vessel_type": vessel_type, "capacity": capacity},
+            )
 
         # Strictly validate supplied capacity_type against statutory metric
         if capacity_type and capacity_type.strip().upper() != metric:
@@ -322,8 +331,14 @@ class MaritimeComplianceEngine(ComplianceEngine):
         elif "combination" in v_norm:
             return 0.87, 0.96, 1.06, 1.14
 
-        # Fallback default (bulk carrier standard)
-        return 0.86, 0.94, 1.06, 1.18
+        else:
+            raise ComplianceError(
+                f"Unsupported CII vessel type '{vessel_type}' under IMO Resolution MEPC.354(78). "
+                f"Supported categories: Bulk Carrier, Tanker, Containership, General Cargo Ship, "
+                f"LNG Carrier, Gas Carrier, Ro-Ro Cargo / Vehicle Carrier, Ro-Ro Passenger Ship, "
+                f"Cruise Passenger Ship, Refrigerated Cargo, Combination Carrier.",
+                details={"vessel_type": vessel_type, "capacity": capacity},
+            )
 
     def evaluate_cii(
         self,
@@ -418,7 +433,7 @@ class MaritimeComplianceEngine(ComplianceEngine):
             )
 
         # Resolve IMO Resolution MEPC.353(78) G2 Reference Line Branch
-        vtype = vessel_type or "Bulk Carrier"
+        vtype = vessel_type if vessel_type is not None else "Bulk Carrier"
         a, c, eff_cap, statutory_metric = self.resolve_cii_reference_line(
             vessel_type=vtype,
             capacity=resolved_cap,

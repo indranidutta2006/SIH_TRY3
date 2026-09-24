@@ -575,5 +575,83 @@ def test_cii_capacity_metric_mismatch_raises_validation_error(vessel_type: str, 
     assert "Statutory capacity metric mismatch" in str(exc_info2.value)
 
 
+@pytest.mark.parametrize(
+    "unsupported_type",
+    [
+        "Oil Service Vessel",
+        "Tugboat",
+        "Fishing Vessel",
+        "Barge",
+        "Offshore Supply Vessel",
+        "Yacht",
+        "",
+    ],
+)
+def test_cii_unsupported_vessel_type_raises_compliance_error(unsupported_type: str) -> None:
+    """Verify that unsupported vessel categories raise ComplianceError instead of falling back to Bulk Carrier."""
+    engine = MaritimeComplianceEngine()
+
+    with pytest.raises(ComplianceError) as exc_info:
+        engine.resolve_cii_reference_line(vessel_type=unsupported_type, capacity=50000.0)
+    assert "Unsupported CII vessel type" in str(exc_info.value)
+    assert exc_info.value.details.get("vessel_type") == unsupported_type
+
+    with pytest.raises(ComplianceError) as exc_info_bound:
+        engine.resolve_cii_rating_boundaries(vessel_type=unsupported_type, capacity=50000.0)
+    assert "Unsupported CII vessel type" in str(exc_info_bound.value)
+
+    with pytest.raises(ComplianceError) as exc_info_eval:
+        engine.evaluate_cii(
+            vessel_type=unsupported_type,
+            capacity=50000.0,
+            annual_distance_nm=40000.0,
+            annual_co2_tons=10000.0,
+            year=2025,
+        )
+    assert "Unsupported CII vessel type" in str(exc_info_eval.value)
+
+    with pytest.raises(ComplianceError) as exc_info_assess:
+        engine.assess_cii(
+            vessel_type=unsupported_type,
+            vessel_dwt=50000.0,
+            annual_distance_nm=40000.0,
+            annual_co2_tons=10000.0,
+            year=2025,
+        )
+    assert "Unsupported CII vessel type" in str(exc_info_assess.value)
+
+
+@pytest.mark.parametrize(
+    "supported_type,capacity,expected_metric",
+    [
+        ("Bulk Carrier", 70000.0, "DWT"),
+        ("Tanker", 60000.0, "DWT"),
+        ("Containership", 50000.0, "DWT"),
+        ("General Cargo Ship", 25000.0, "DWT"),
+        ("LNG Carrier", 80000.0, "DWT"),
+        ("Gas Carrier", 40000.0, "DWT"),
+        ("Ro-Ro Cargo (Vehicle Carrier)", 45000.0, "GT"),
+        ("Ro-Ro Cargo Ship", 30000.0, "GT"),
+        ("Ro-Ro Passenger Ship", 35000.0, "GT"),
+        ("Cruise Passenger Ship", 80000.0, "GT"),
+        ("Refrigerated Cargo", 20000.0, "DWT"),
+        ("Combination Carrier", 50000.0, "DWT"),
+    ],
+)
+def test_all_supported_vessel_types_resolve_without_error(
+    supported_type: str, capacity: float, expected_metric: str
+) -> None:
+    """Verify that all 12 statutory vessel categories resolve cleanly under MEPC.353(78) and MEPC.354(78)."""
+    engine = MaritimeComplianceEngine()
+    a, c, eff_cap, metric = engine.resolve_cii_reference_line(vessel_type=supported_type, capacity=capacity)
+    assert metric == expected_metric
+    assert a > 0.0
+    assert c >= 0.0
+    assert eff_cap > 0.0
+
+    d1, d2, d3, d4 = engine.resolve_cii_rating_boundaries(vessel_type=supported_type, capacity=capacity)
+    assert d1 < d2 < d3 < d4
+
+
 
 

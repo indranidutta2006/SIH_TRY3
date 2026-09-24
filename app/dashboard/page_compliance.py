@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-from contracts.exceptions import DataValidationError
+from contracts.exceptions import ComplianceError, DataValidationError
 from src.compliance.compliance_engine import MaritimeComplianceEngine
 
 
@@ -82,8 +82,8 @@ def render_compliance_page() -> None:
                     annual_co2_tons=co2,
                     year=year,
                 )
-            except DataValidationError as e:
-                st.error(f"❌ Statutory Validation Error: {e.message}")
+            except (DataValidationError, ComplianceError) as e:
+                st.error(f"❌ Statutory Error: {e.message}")
                 return
 
             grade_color = {
