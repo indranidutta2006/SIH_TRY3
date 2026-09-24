@@ -85,7 +85,7 @@ The system is decoupled into eight functional layers communicating strictly via 
 | D2 | Fuel Consumption Prediction Module (QIFCP & QKP) | ✅ Complete | `src/prediction/qifcp.py`, `models/fuel_predictor.py` |
 | D3 | Quantum Metaheuristic Optimizer (QPSO) | ✅ Complete | `src/optimization/qpso.py` |
 | D4 | Alternative Fuel Scenario Analyser | ✅ Complete | `src/optimization/scenario_analysis.py` |
-| D5 | Multi-Objective Optimization (NSGA-II Pareto) | ✅ Complete | `src/optimization/nsga2_pareto.py` |
+| D5 | Multi-Objective Optimization (DE-NSGA-II Pareto) | ✅ Complete | `src/optimization/nsga2_pareto.py` |
 | D6 | Constraint Handler (FuelEU / IMO CII MEPC.400(83)) | ✅ Complete | `src/compliance/compliance_engine.py` |
 | D7 | Benchmarking Suite | ✅ Complete | `scripts/benchmark_*.py`, `outputs/reports/` |
 | D8 | Case Studies & Data Pipelines | ✅ Complete (Synthetic & Real Data) | `data/pipeline.py`, `outputs/reports/full_pipeline_run.json` |
@@ -382,7 +382,7 @@ where:
 > 
 > The architecture explicitly provides configurable `wtt_factors` in `MaritimeEmissionEngine`, allowing operators to model grey, blue, or green fuel pathways dynamically.
 
-### 5.5 Multi-Objective Green Fleet Optimization & Canonical NSGA-II Pareto Solver
+### 5.5 Multi-Objective Green Fleet Optimization & Hybrid DE-NSGA-II Pareto Solver
 Implemented in `src/optimization/nsga2_pareto.py` (`ParetoFleetOptimizer`):
 - **Bi-Objective Tradeoff Formulation:** Solves for Pareto-optimal decision vectors $x = [v_1, f_1, v_2, f_2, \dots, v_n, f_n]$ across scheduled fleet voyages ($v_i \in [10, 20]\text{ knots}$, $f_i \in \{\text{Diesel, LNG, Methanol, Hydrogen, Ammonia, ShorePower}\}$):
   $$f_1(x) = \text{Total Fuel Cost (USD)} + \text{FuelEU Penalties (EUR)}$$
@@ -393,6 +393,8 @@ Implemented in `src/optimization/nsga2_pareto.py` (`ParetoFleetOptimizer`):
   $$d_i = \sum_{m=1}^{M} \frac{f_m(i+1) - f_m(i-1)}{f_m^{\max} - f_m^{\min}}$$
   where boundary solutions with extreme minimal and maximal values along each objective are explicitly assigned infinite distance ($d_i = \infty$).
   The front is sorted in descending order of crowding distance, and the top $N - |P_{t+1}|$ individuals are selected. This canonical survival mechanism guarantees the preservation of extreme boundary solutions (minimum cost and minimum emissions configurations) and maximizes the diversity and uniform spread of solutions along the Pareto frontier.
+- **Offspring Generation Nuance (DE-NSGA-II / DEMO Architecture):**
+  While the environmental survival mechanism strictly implements Deb et al. (2002) non-dominated sorting and crowding distance, offspring generation uses continuous **differential-evolution variation** (DE/rand/1/bin mutation: $v = x_{r1} + F(x_{r2} - x_{r3})$ with differential weight $F=0.8$, combined with binomial crossover at $CR=0.7$) rather than textbook genetic algorithm simulated binary crossover (SBX) and polynomial mutation. In multi-objective evolutionary computation literature, this hybrid paradigm is formally designated as **DE-NSGA-II** or **DEMO** (Differential Evolution for Multiobjective Optimization), leveraging DE's continuous step adaptation while preserving NSGA-II's elitist frontier geometry.
 
 ---
 

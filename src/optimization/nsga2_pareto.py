@@ -1,12 +1,13 @@
-"""Multi-Objective NSGA-II Pareto solver for green fleet tradeoff analysis.
+"""Multi-Objective Pareto solver with NSGA-II environmental selection and differential-evolution variation.
 
 Problem ID: SIH26138 - Quantum-Inspired Fuel Consumption Prediction & Green Fleet Optimization.
 Solves the bi-objective optimization problem:
   f1(x) = Total Fuel Cost (USD)
   f2(x) = Total Lifecycle CO2e Emissions (metric tons)
 over the scheduled fleet decision vector on the medium problem size tier.
-Features pure-Python fast non-dominated sorting and canonical Deb et al. (2002)
-crowding-distance environmental selection.
+Combines differential-evolution variation (DE/rand/1/bin continuous search) with
+canonical Deb et al. (2002) fast non-dominated sorting and crowding-distance
+environmental selection (hybrid DE-NSGA-II / DEMO architecture).
 """
 
 from collections.abc import Sequence
@@ -187,7 +188,7 @@ def calculate_crowding_distance(objectives: np.ndarray) -> np.ndarray:
 
 
 class ParetoFleetOptimizer:
-    """Multi-objective evolutionary optimization solver extracting Pareto frontiers."""
+    """Multi-objective fleet optimization solver using NSGA-II environmental selection with DE variation."""
 
     def __init__(self, random_state: int = 42) -> None:
         """Initialize Pareto optimizer."""
@@ -202,7 +203,7 @@ class ParetoFleetOptimizer:
         population_size: int = 30,
         max_generations: int = 50,
     ) -> dict[str, Any]:
-        """Execute NSGA-II bi-objective optimization on given assignments and context."""
+        """Execute bi-objective optimization using NSGA-II environmental selection with DE variation."""
         assigned_voyages = [a for a in assignments if getattr(a, "assigned", True)]
         n_voyages = len(assigned_voyages)
         if n_voyages == 0:
@@ -224,7 +225,7 @@ class ParetoFleetOptimizer:
 
         # 2. Evolutionary generations
         for gen in range(max_generations):
-            # Create offspring via differential mutation & crossover
+            # Create offspring via differential-evolution variation (DE/rand/1/bin mutation & binomial crossover)
             offspring = np.zeros_like(pop)
             for i in range(population_size):
                 idxs = rng.choice(population_size, size=3, replace=False)
