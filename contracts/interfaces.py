@@ -12,9 +12,12 @@ from pathlib import Path
 from typing import Any
 
 from contracts.schemas import (
+    CIIResult,
+    ComplianceAssessment,
     ComplianceResult,
     EmissionResult,
     FleetAssignment,
+    FuelEUResult,
     OptimizationResult,
     PredictionResult,
     ScenarioResult,
@@ -294,6 +297,57 @@ class ComplianceEngine(ABC):
             ComplianceError: If compliance limits for the year cannot be resolved.
         """
         pass
+
+    def assess_cii(
+        self,
+        co2_emissions: float | None = None,
+        cargo_tons: float | None = None,
+        distance_nm: float | None = None,
+        year: int | None = None,
+        *,
+        vessel_type: str | None = None,
+        vessel_dwt: float | None = None,
+        annual_distance_nm: float | None = None,
+        annual_co2_tons: float | None = None,
+        capacity_type: str | None = None,
+    ) -> CIIResult:
+        """Evaluate IMO Carbon Intensity Indicator returning dedicated CIIResult."""
+        res = self.evaluate_cii(
+            co2_emissions=co2_emissions,
+            cargo_tons=cargo_tons,
+            distance_nm=distance_nm,
+            year=year,
+            vessel_type=vessel_type,
+            vessel_dwt=vessel_dwt,
+            annual_distance_nm=annual_distance_nm,
+            annual_co2_tons=annual_co2_tons,
+            capacity_type=capacity_type,
+        )
+        return res.cii_result
+
+    def assess_fueleu(
+        self,
+        ghg_intensity: float,
+        energy_used_mj: float,
+        year: int,
+    ) -> FuelEUResult:
+        """Evaluate EU FuelEU Maritime returning dedicated FuelEUResult."""
+        res = self.evaluate_fueleu(
+            ghg_intensity=ghg_intensity,
+            energy_used_mj=energy_used_mj,
+            year=year,
+        )
+        return res.fueleu_result
+
+    def assess_compliance(
+        self,
+        cii_params: dict[str, Any] | None = None,
+        fueleu_params: dict[str, Any] | None = None,
+    ) -> ComplianceAssessment:
+        """Evaluate multi-regulatory assessment returning unified ComplianceAssessment container."""
+        cii_res = self.assess_cii(**cii_params) if cii_params else None
+        fueleu_res = self.assess_fueleu(**fueleu_params) if fueleu_params else None
+        return ComplianceAssessment(cii=cii_res, fueleu=fueleu_res)
 
 
 class SchedulerEngine(ABC):

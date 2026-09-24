@@ -33,9 +33,12 @@ from contracts.interfaces import (
     SchedulerEngine,
 )
 from contracts.schemas import (
+    CIIResult,
+    ComplianceAssessment,
     ComplianceResult,
     EmissionResult,
     FleetAssignment,
+    FuelEUResult,
     OptimizationResult,
     PredictionResult,
     ScenarioResult,
@@ -74,6 +77,9 @@ __all__ = [
     "PredictionResult",
     "EmissionResult",
     "ComplianceResult",
+    "CIIResult",
+    "FuelEUResult",
+    "ComplianceAssessment",
     "FleetAssignment",
     "OptimizationResult",
     "ScenarioResult",

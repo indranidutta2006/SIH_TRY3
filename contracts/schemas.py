@@ -7,7 +7,7 @@ and optimization components.
 
 from dataclasses import asdict, dataclass
 import json
-from typing import Any, Self
+from typing import Any, Optional, Self
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,29 +105,121 @@ class EmissionResult:
 
 
 @dataclass(frozen=True, slots=True)
+class CIIResult:
+    """Decoupled statutory IMO Carbon Intensity Indicator (CII) assessment output.
+
+    Attributes:
+        cii_rating: Operational letter rating ('A' through 'E').
+        attained_cii: Attained operational CII in gCO2 / (Capacity_unit * nm).
+        required_cii: Target required CII under IMO MEPC.337(76) & MEPC.400(83).
+        cii_ratio: Attained-to-Required CII ratio (< 1.0 indicates outperforming statutory target).
+        compliance_status: Standardized compliance status ('COMPLIANT' for A/B/C, 'NON_COMPLIANT' for D/E).
+        capacity_metric: Statutory capacity basis ('DWT' or 'GT' under MEPC.353(78) G2).
+        reference_line_a: IMO G2 reference line parameter a.
+        reference_line_c: IMO G2 reference line parameter c.
+        rating_boundaries: IMO MEPC.354(78) G4 boundary vector (exp(d1), exp(d2), exp(d3), exp(d4)).
+    """
+
+    cii_rating: str
+    attained_cii: float
+    required_cii: float
+    cii_ratio: float
+    compliance_status: str
+    capacity_metric: str = "DWT"
+    reference_line_a: float = 0.0
+    reference_line_c: float = 0.0
+    rating_boundaries: tuple[float, float, float, float] = (0.86, 0.94, 1.06, 1.18)
+
+    @property
+    def is_compliant(self) -> bool:
+        """Return True if rating is Grade A, B, or C."""
+        return self.cii_rating in ("A", "B", "C")
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        return asdict(self)
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+
+@dataclass(frozen=True, slots=True)
+class FuelEUResult:
+    """Decoupled statutory EU FuelEU Maritime compliance and penalty assessment.
+
+    Attributes:
+        fueleu_pass: Boolean pass/fail against statutory GHG intensity limit.
+        fueleu_target: Statutory maximum Well-to-Wake GHG intensity (gCO2eq/MJ) for assessment year.
+        ghg_intensity: Attained Well-to-Wake GHG intensity (gCO2eq/MJ).
+        penalty_eur: Statutory financial penalty in EUR under EU Regulation (EU) 2023/1805 Article 23.
+        compliance_status: Standardized compliance status ('COMPLIANT' or 'NON_COMPLIANT').
+    """
+
+    fueleu_pass: bool
+    fueleu_target: float
+    ghg_intensity: float
+    penalty_eur: float
+    compliance_status: str
+
+    @property
+    def is_compliant(self) -> bool:
+        """Return True if FuelEU intensity is within statutory limits."""
+        return self.fueleu_pass
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        return asdict(self)
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+
+@dataclass(frozen=True, slots=True)
+class ComplianceAssessment:
+    """Unified container for multi-regulatory vessel compliance assessments."""
+
+    cii: Optional[CIIResult] = None
+    fueleu: Optional[FuelEUResult] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        return {
+            "cii": self.cii.to_dict() if self.cii is not None else None,
+            "fueleu": self.fueleu.to_dict() if self.fueleu is not None else None,
+        }
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+
+@dataclass(frozen=True, slots=True)
 class ComplianceResult:
     """Regulatory assessment output (IMO CII letter rating and EU FuelEU status).
 
     Canonical Schema Attributes:
         cii_rating: Operational letter rating ('A' through 'E' for CII, 'N/A' for FuelEU).
-        attained_cii: Attained operational CII in gCO2 / (DWT * nm).
+        attained_cii: Attained operational CII in gCO2 / (Capacity_unit * nm).
         required_cii: Target required CII under IMO MEPC.337(76) & MEPC.400(83).
         cii_ratio: Attained-to-Required CII ratio (< 1.0 indicates outperforming statutory target).
         fueleu_pass: Boolean pass/fail against EU FuelEU Maritime statutory GHG intensity limit.
+            Note: None when evaluating standalone IMO CII, as FuelEU is not evaluated during CII assessment.
         fueleu_target: Statutory maximum Well-to-Wake GHG intensity (gCO2eq/MJ) for assessment year.
         ghg_intensity: Attained Well-to-Wake GHG intensity (gCO2eq/MJ).
         penalty_eur: Statutory financial penalty in EUR under EU Regulation (EU) 2023/1805 Article 23.
         compliance_status: Standardized compliance status ('COMPLIANT' or 'NON_COMPLIANT').
         compliance_score: DEPRECATED legacy compatibility-only field.
             Warning: Polymorphic across regulations (holds cii_ratio for CII, penalty_eur for FuelEU).
-            All internal calculations and downstream optimizers must consume `penalty_eur` or `cii_ratio`.
+            All internal calculations and downstream optimizers consume `penalty_eur` or `cii_ratio` directly.
     """
 
     cii_rating: str
     attained_cii: float = 0.0
     required_cii: float = 0.0
     cii_ratio: float = 0.0
-    fueleu_pass: bool = True
+    fueleu_pass: Optional[bool] = None
     fueleu_target: float = 0.0
     ghg_intensity: float = 0.0
     penalty_eur: float = 0.0
@@ -137,6 +229,32 @@ class ComplianceResult:
     reference_line_a: float = 0.0  # IMO G2 curve coefficient a
     reference_line_c: float = 0.0  # IMO G2 curve exponent c
     rating_boundaries: tuple[float, float, float, float] = (0.86, 0.94, 1.06, 1.18)  # IMO MEPC.354(78) G4 boundaries
+
+    @property
+    def cii_result(self) -> CIIResult:
+        """Extract dedicated CIIResult view."""
+        return CIIResult(
+            cii_rating=self.cii_rating,
+            attained_cii=self.attained_cii,
+            required_cii=self.required_cii,
+            cii_ratio=self.cii_ratio,
+            compliance_status=self.compliance_status,
+            capacity_metric=self.capacity_metric,
+            reference_line_a=self.reference_line_a,
+            reference_line_c=self.reference_line_c,
+            rating_boundaries=self.rating_boundaries,
+        )
+
+    @property
+    def fueleu_result(self) -> FuelEUResult:
+        """Extract dedicated FuelEUResult view."""
+        return FuelEUResult(
+            fueleu_pass=bool(self.fueleu_pass) if self.fueleu_pass is not None else False,
+            fueleu_target=self.fueleu_target,
+            ghg_intensity=self.ghg_intensity,
+            penalty_eur=self.penalty_eur,
+            compliance_status=self.compliance_status,
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize dataclass to dictionary."""

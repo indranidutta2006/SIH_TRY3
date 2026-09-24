@@ -8,7 +8,12 @@ import pytest
 
 from contracts.exceptions import ComplianceError, DataValidationError
 from contracts.interfaces import ComplianceEngine
-from contracts.schemas import ComplianceResult
+from contracts.schemas import (
+    CIIResult,
+    ComplianceAssessment,
+    ComplianceResult,
+    FuelEUResult,
+)
 from src.compliance import CII_Z_FACTORS, MaritimeComplianceEngine
 
 
@@ -28,17 +33,20 @@ def test_cii_rating_bands() -> None:
     # Superior performance -> Grade A (attained ratio ~0.51 <= 0.83)
     res_a = engine.evaluate_cii(co2_emissions=800.0, cargo_tons=dwt, distance_nm=distance, year=year)
     assert res_a.cii_rating == "A"
-    assert res_a.fueleu_pass is True
+    assert res_a.compliance_status == "COMPLIANT"
+    assert res_a.fueleu_pass is None  # FuelEU is not evaluated during CII assessment
 
     # Moderate baseline performance -> Grade C (attained ratio ~0.98 in [0.94, 1.06])
     res_c = engine.evaluate_cii(co2_emissions=1550.0, cargo_tons=dwt, distance_nm=distance, year=year)
     assert res_c.cii_rating == "C"
-    assert res_c.fueleu_pass is True
+    assert res_c.compliance_status == "COMPLIANT"
+    assert res_c.fueleu_pass is None
 
     # Highly polluting -> Grade E (attained ratio ~1.9 > 1.19)
     res_e = engine.evaluate_cii(co2_emissions=3000.0, cargo_tons=dwt, distance_nm=distance, year=year)
     assert res_e.cii_rating == "E"
-    assert res_e.fueleu_pass is False
+    assert res_e.compliance_status == "NON_COMPLIANT"
+    assert res_e.fueleu_pass is None  # CII failure does NOT falsely imply FuelEU failure
 
 
 def test_fueleu_pass_on_compliant_ghg_intensity() -> None:
@@ -381,6 +389,86 @@ def test_cii_rating_classification_ship_type_differences() -> None:
     )
     assert res_lng.cii_ratio == pytest.approx(0.88, abs=0.01)
     assert res_lng.cii_rating == "A"  # Would have been B under old universal 0.83!
+
+
+def test_cii_does_not_overload_fueleu_pass() -> None:
+    """Verify evaluating CII leaves fueleu_pass as None and does not conflate regulations."""
+    engine = MaritimeComplianceEngine()
+    # Grade E non-compliant vessel under CII
+    res_e = engine.evaluate_cii(
+        co2_emissions=3000.0,
+        cargo_tons=80000.0,
+        distance_nm=5000.0,
+        year=2025,
+    )
+    assert res_e.cii_rating == "E"
+    assert res_e.compliance_status == "NON_COMPLIANT"
+    # Essential semantic guarantee: CII failure must NOT mark FuelEU as failed!
+    assert res_e.fueleu_pass is None
+    # Concrete canonical metric is cii_ratio
+    assert res_e.cii_ratio > 1.0
+
+
+def test_decoupled_cii_and_fueleu_result_objects() -> None:
+    """Verify assess_cii and assess_fueleu return dedicated, decoupled result objects."""
+    engine = MaritimeComplianceEngine()
+
+    # Dedicated CII assessment
+    cii_res = engine.assess_cii(
+        vessel_type="Bulk Carrier",
+        vessel_dwt=75000.0,
+        annual_distance_nm=40000.0,
+        annual_co2_tons=10000.0,
+        year=2025,
+    )
+    assert isinstance(cii_res, CIIResult)
+    assert cii_res.cii_rating in ("A", "B", "C", "D", "E")
+    assert cii_res.attained_cii > 0.0
+    assert cii_res.required_cii > 0.0
+    assert cii_res.cii_ratio > 0.0
+    assert isinstance(cii_res.is_compliant, bool)
+    assert not hasattr(cii_res, "penalty_eur")
+    assert not hasattr(cii_res, "fueleu_pass")
+
+    # Dedicated FuelEU assessment
+    fe_res = engine.assess_fueleu(
+        ghg_intensity=95.0,
+        energy_used_mj=50_000_000.0,
+        year=2025,
+    )
+    assert isinstance(fe_res, FuelEUResult)
+    assert fe_res.fueleu_pass is False
+    assert fe_res.penalty_eur > 0.0
+    assert fe_res.is_compliant is False
+    assert not hasattr(fe_res, "cii_rating")
+    assert not hasattr(fe_res, "attained_cii")
+
+
+def test_compliance_assessment_container() -> None:
+    """Verify ComplianceAssessment aggregates decoupled CII and FuelEU results cleanly."""
+    engine = MaritimeComplianceEngine()
+
+    assessment = engine.assess_compliance(
+        cii_params={
+            "vessel_type": "Containership",
+            "vessel_dwt": 50000.0,
+            "annual_distance_nm": 60000.0,
+            "annual_co2_tons": 18000.0,
+            "year": 2025,
+        },
+        fueleu_params={
+            "ghg_intensity": 70.0,
+            "energy_used_mj": 80_000_000.0,
+            "year": 2025,
+        },
+    )
+    assert isinstance(assessment, ComplianceAssessment)
+    assert isinstance(assessment.cii, CIIResult)
+    assert isinstance(assessment.fueleu, FuelEUResult)
+    assert assessment.fueleu.fueleu_pass is True
+    assert assessment.fueleu.penalty_eur == 0.0
+    d = assessment.to_dict()
+    assert "cii" in d and "fueleu" in d
 
 
 

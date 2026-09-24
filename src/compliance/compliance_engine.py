@@ -10,7 +10,12 @@ from typing import Any, Final, Optional
 
 from contracts.exceptions import ComplianceError, DataValidationError
 from contracts.interfaces import ComplianceEngine
-from contracts.schemas import ComplianceResult
+from contracts.schemas import (
+    CIIResult,
+    ComplianceAssessment,
+    ComplianceResult,
+    FuelEUResult,
+)
 
 logger = logging.getLogger("maritime_system")
 
@@ -441,7 +446,7 @@ class MaritimeComplianceEngine(ComplianceEngine):
             attained_cii=round(attained_cii, 4),
             required_cii=round(required_cii, 4),
             cii_ratio=round(ratio, 4),
-            fueleu_pass=is_compliant,
+            fueleu_pass=None,  # FuelEU is not evaluated during CII assessment
             fueleu_target=0.0,
             ghg_intensity=0.0,
             penalty_eur=0.0,
@@ -519,3 +524,54 @@ class MaritimeComplianceEngine(ComplianceEngine):
             compliance_status="NON_COMPLIANT",
             compliance_score=round(penalty_eur, 2),
         )
+
+    def assess_cii(
+        self,
+        co2_emissions: Optional[float] = None,
+        cargo_tons: Optional[float] = None,
+        distance_nm: Optional[float] = None,
+        year: Optional[int] = None,
+        *,
+        vessel_type: Optional[str] = None,
+        vessel_dwt: Optional[float] = None,
+        annual_distance_nm: Optional[float] = None,
+        annual_co2_tons: Optional[float] = None,
+        capacity_type: Optional[str] = None,
+    ) -> CIIResult:
+        """Evaluate IMO Carbon Intensity Indicator returning a clean, decoupled CIIResult."""
+        res = self.evaluate_cii(
+            co2_emissions=co2_emissions,
+            cargo_tons=cargo_tons,
+            distance_nm=distance_nm,
+            year=year,
+            vessel_type=vessel_type,
+            vessel_dwt=vessel_dwt,
+            annual_distance_nm=annual_distance_nm,
+            annual_co2_tons=annual_co2_tons,
+            capacity_type=capacity_type,
+        )
+        return res.cii_result
+
+    def assess_fueleu(
+        self,
+        ghg_intensity: float,
+        energy_used_mj: float,
+        year: int,
+    ) -> FuelEUResult:
+        """Evaluate EU FuelEU Maritime returning a clean, decoupled FuelEUResult."""
+        res = self.evaluate_fueleu(
+            ghg_intensity=ghg_intensity,
+            energy_used_mj=energy_used_mj,
+            year=year,
+        )
+        return res.fueleu_result
+
+    def assess_compliance(
+        self,
+        cii_params: Optional[dict[str, Any]] = None,
+        fueleu_params: Optional[dict[str, Any]] = None,
+    ) -> ComplianceAssessment:
+        """Evaluate both or either regulations returning a unified ComplianceAssessment container."""
+        cii_res = self.assess_cii(**cii_params) if cii_params else None
+        fueleu_res = self.assess_fueleu(**fueleu_params) if fueleu_params else None
+        return ComplianceAssessment(cii=cii_res, fueleu=fueleu_res)

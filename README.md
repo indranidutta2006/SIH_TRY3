@@ -137,27 +137,34 @@ from contracts import (
 
 ### Canonical Compliance Contract (`ComplianceResult`)
 
-The compliance subsystem evaluates fleet voyages against statutory **IMO Carbon Intensity Indicator (CII)** ratings and **EU FuelEU Maritime** greenhouse gas intensity caps. The canonical dataclass contract is:
+The compliance subsystem evaluates fleet voyages against statutory **IMO Carbon Intensity Indicator (CII)** ratings and **EU FuelEU Maritime** greenhouse gas intensity caps. The canonical dataclass contracts decouple independent statutory regimes while maintaining backwards compatibility:
 
 | Field | Type | Description |
 |:---|:---:|:---|
 | `cii_rating` | `str` | Operational letter rating (`A` through `E` for CII, or `N/A` for FuelEU). |
-| `attained_cii` | `float` | Attained annual operational CII in $\text{gCO}_2 / (\text{DWT} \cdot \text{nm})$. |
+| `attained_cii` | `float` | Attained annual operational CII in $\text{gCO}_2 / (\text{Capacity\_metric} \cdot \text{nm})$. |
 | `required_cii` | `float` | Target required CII under IMO MEPC.337(76) & MEPC.400(83). |
 | `cii_ratio` | `float` | Attained-to-Required CII ratio ($< 1.0$ indicates outperforming statutory target). |
-| `fueleu_pass` | `bool` | Statutory pass/fail against EU FuelEU Maritime limit. |
+| `fueleu_pass` | `Optional[bool]` | Statutory pass/fail against EU FuelEU limit (`None` during standalone CII assessment). |
 | `fueleu_target` | `float` | Maximum permitted Well-to-Wake GHG intensity ($\text{gCO}_2\text{eq/MJ}$) for assessment year. |
 | `ghg_intensity` | `float` | Attained Well-to-Wake GHG intensity ($\text{gCO}_2\text{eq/MJ}$). |
 | `penalty_eur` | `float` | Statutory financial penalty in Euros (€) under Regulation (EU) 2023/1805 Article 23. |
 | `compliance_status` | `str` | Standardized status string (`COMPLIANT` or `NON_COMPLIANT`). |
-| `compliance_score` | `float` | *(Deprecated)* Legacy compatibility field. Use `cii_ratio` or `penalty_eur`. |
+| `compliance_score` | `float` | *(Deprecated)* Legacy compatibility field. Use `cii_ratio` or `penalty_eur` directly. |
 | `capacity_metric` | `str` | Statutory capacity metric basis (`DWT` or `GT`) under IMO Resolution MEPC.353(78) G2. |
 | `reference_line_a` | `float` | Statutory reference curve regression parameter $a$ under IMO MEPC.353(78). |
 | `reference_line_c` | `float` | Statutory reference curve regression exponent $c$ under IMO MEPC.353(78). |
 | `rating_boundaries`| `tuple` | Statutory boundary vector $(d_1, d_2, d_3, d_4)$ under IMO Resolution MEPC.354(78) G4. |
 
+### Decoupled Regulatory Architectures (`contracts.schemas`)
+To prevent semantic overloading between IMO and EU regulations, the platform introduces dedicated schemas accessible directly or via `ComplianceResult` view properties:
+- **`CIIResult`:** Encapsulates pure IMO operational carbon intensity metrics (`cii_rating`, `attained_cii`, `required_cii`, `cii_ratio`, `compliance_status`, `rating_boundaries`). Exposes `.is_compliant`.
+- **`FuelEUResult`:** Encapsulates pure EU FuelEU Maritime compliance (`fueleu_pass`, `fueleu_target`, `ghg_intensity`, `penalty_eur`, `compliance_status`). Exposes `.is_compliant`.
+- **`ComplianceAssessment`:** Unified multi-regulatory container (`cii: Optional[CIIResult]`, `fueleu: Optional[FuelEUResult]`).
+- **Semantic Integrity:** When evaluating standalone CII, `fueleu_pass` is strictly `None` (rather than copying the CII pass status), guaranteeing that an operational CII downgrade (e.g. Grade E) never falsely flags an EU FuelEU deficit.
+
 > [!WARNING] Deprecation Notice: `compliance_score`
-> The field `compliance_score` is deprecated and preserved strictly for backwards compatibility with legacy tests. It previously functioned as a polymorphic alias (`cii_ratio` for CII, `penalty_eur` for FuelEU). All downstream optimization engines (`FleetObjective`, `nsga2_pareto`, `ScenarioAnalysis`) and dashboards consume the explicit canonical fields `penalty_eur` and `cii_ratio`.
+> The field `compliance_score` is deprecated and preserved strictly for backwards compatibility with legacy tests. It previously functioned as a polymorphic alias (`cii_ratio` for CII, `penalty_eur` for FuelEU). All downstream optimization engines (`FleetObjective`, `nsga2_pareto`, `ScenarioAnalysis`) and dashboards consume the explicit canonical fields `penalty_eur` and `cii_ratio` directly.
 
 ---
 
@@ -216,7 +223,7 @@ Verify that all architectural contracts, physics derivations, statutory emission
 ```bash
 python -m pytest tests/ -v
 ```
-* **Produces:** 195/195 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves, MEPC.400(83) compliance targets, and MEPC.354(78) G4 ship-type-specific rating boundaries.
+* **Produces:** 198/198 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves, MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, and decoupled statutory compliance schemas.
 
 ---
 
