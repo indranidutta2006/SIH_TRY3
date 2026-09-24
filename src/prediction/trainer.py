@@ -142,6 +142,7 @@ class PredictionTrainer:
         comparison_result: ModelComparisonResult,
         artifacts_dir: Path | str = "artifacts",
         feature_columns: list[str] | None = None,
+        target_mode: str = "absolute",
     ) -> dict[str, Path]:
         """Persist trained model binaries and evaluation metrics to storage.
 
@@ -150,6 +151,9 @@ class PredictionTrainer:
             comparison_result: ModelComparisonResult benchmark summary.
             artifacts_dir: Root directory for model and metrics storage.
             feature_columns: Optional list of feature column names used in training.
+            target_mode: 'absolute' or 'rate' — stamped into every artifact payload so
+                         PredictionInferenceEngine applies the correct inverse transform
+                         (rate x implied_hours) at inference time.
 
         Returns:
             Dictionary mapping artifact names to their persisted Path locations.
@@ -167,24 +171,44 @@ class PredictionTrainer:
             filename = self.registry.get_artifact_filename(model_name)
             model_path = models_dir / filename
 
-            # Package model artifact with training metadata and feature schema
+            # Package model artifact with training metadata, feature schema, and target mode.
+            # target_mode is critical: it tells the inference engine whether to multiply
+            # raw predictions by implied_hours to reconstruct absolute fuel consumption.
             artifact_payload = {
                 "model": model,
                 "model_name": model_name,
                 "feature_columns": feature_columns or [],
                 "timestamp": comparison_result.training_timestamp,
+                "target_mode": target_mode,  # "absolute" or "rate"
             }
             joblib.dump(artifact_payload, model_path)
             saved_paths[f"model_{model_name}"] = model_path
-            self.logger.info("Persisted model '%s' to %s", model_name, model_path)
+            self.logger.info(
+                "Persisted model '%s' [target_mode=%s] to %s",
+                model_name,
+                target_mode,
+                model_path,
+            )
 
-        # Save metrics comparison JSON
+        # Save metrics comparison JSON — include training_config block for transparency
+        import json as _json
+        raw_metrics = _json.loads(comparison_result.to_json())
+        raw_metrics["training_config"] = {
+            "target_mode": target_mode,
+            "target_description": (
+                "fuel_consumption (metric tons)"
+                if target_mode == "absolute"
+                else "fuel_consumption / hours_at_sea (tons per hour) — "
+                     "inference multiplies by implied_hours to return metric tons"
+            ),
+        }
         metrics_path = metrics_dir / "baseline_metrics.json"
-        metrics_path.write_text(comparison_result.to_json(), encoding="utf-8")
+        metrics_path.write_text(_json.dumps(raw_metrics, indent=2), encoding="utf-8")
         saved_paths["baseline_metrics"] = metrics_path
         self.logger.info("Persisted benchmark metrics to %s", metrics_path)
 
         return saved_paths
+
 
 
 def train_all_models(
@@ -192,6 +216,7 @@ def train_all_models(
     artifacts_dir: Path | str = "artifacts",
     test_size: float = 0.2,
     random_state: int = DEFAULT_RANDOM_STATE,
+    target_mode: str = "absolute",
 ) -> ModelComparisonResult:
     """Execute end-to-end baseline model training, evaluation, and persistence pipeline.
 
@@ -200,21 +225,36 @@ def train_all_models(
     2. Validate dataset boundaries and uniqueness via ValidationEngine.
     3. Generate maritime domain features via FeatureEngineeringPipeline.
     4. Extract feature matrix X and target y with strict leakage guards.
-    5. Train all registered baseline models (LinearRegression, RF, HistGBDT).
-    6. Evaluate out-of-sample performance metrics on held-out test split.
-    7. Persist trained model artifacts and baseline_metrics.json.
-    8. Return structured ModelComparisonResult.
+    5. Optionally transform y to fuel-rate form (fuel_consumption / hours_at_sea).
+    6. Train all registered baseline models (LinearRegression, RF, HistGBDT).
+    7. Evaluate out-of-sample performance metrics on held-out test split.
+    8. Persist trained model artifacts (with target_mode stamped) and baseline_metrics.json.
+    9. Return structured ModelComparisonResult.
 
     Args:
         dataset_path: Path to input CSV dataset.
         artifacts_dir: Destination folder for model and metric artifacts.
         test_size: Out-of-sample validation split ratio.
         random_state: Random seed for deterministic reproducibility.
+        target_mode: 'absolute' trains y = fuel_consumption (metric tons).
+                     'rate' trains y = fuel_consumption / hours_at_sea (tons/h).
+                     The mode is stored in every artifact so the inference engine
+                     applies the matching inverse transform (rate x implied_hours).
 
     Returns:
-        ModelComparisonResult summarizing comparative metrics and best model selection.
+        ModelComparisonResult summarising comparative metrics and best model selection.
+
+    Raises:
+        ValueError: If target_mode is not 'absolute' or 'rate'.
     """
-    logger.info("Initiating baseline prediction training pipeline from %s", dataset_path)
+    if target_mode not in ("absolute", "rate"):
+        raise ValueError(f"target_mode must be 'absolute' or 'rate', got '{target_mode}'.")
+
+    logger.info(
+        "Initiating baseline prediction training pipeline from %s [target_mode=%s]",
+        dataset_path,
+        target_mode,
+    )
 
     # 1. Ingestion
     loader = CSVDatasetLoader()
@@ -226,27 +266,50 @@ def train_all_models(
 
     # 3 & 4. Feature Extraction & Leakage Guardrails
     pipeline = FeatureEngineeringPipeline()
-    X, y = pipeline.get_training_features_and_target(
+    X, y_abs = pipeline.get_training_features_and_target(
         records, encode_categoricals=True
     )
 
     # Explicitly enforce target leakage prohibition
     pipeline.check_for_target_leakage(X)
 
-    # 5 & 6. Training & Evaluation
+    # 5. Target transformation
+    if target_mode == "rate":
+        # Compute hours_at_sea from the raw records — NOT from the feature matrix
+        # (hours_at_sea was intentionally dropped from X to remove proxy leakage).
+        # The 1e-4 floor matches the clamp used in benchmark_prediction.py.
+        hours = pd.Series(
+            [max(float(r.hours_at_sea), 1e-4) for r in records],
+            index=y_abs.index,
+            name="hours_at_sea",
+        )
+        y = (y_abs / hours).rename("fuel_rate_tons_per_hour")
+        logger.info(
+            "Rate target mode: y = fuel_consumption / hours_at_sea  "
+            "(mean rate = %.4f t/h, stdev = %.4f t/h)",
+            float(y.mean()),
+            float(y.std()),
+        )
+    else:
+        y = y_abs
+
+    # 6 & 7. Training & Evaluation
     trainer = PredictionTrainer(test_size=test_size, random_state=random_state)
     trained_models, comparison_result = trainer.train_and_evaluate(X, y)
 
-    # 7. Persistence
+    # 8. Persistence — target_mode is forwarded so artifacts carry it
     trainer.save_artifacts(
         trained_models=trained_models,
         comparison_result=comparison_result,
         artifacts_dir=artifacts_dir,
         feature_columns=list(X.columns),
+        target_mode=target_mode,
     )
 
     logger.info(
-        "Baseline training pipeline completed successfully. Best model: %s",
+        "Baseline training pipeline completed successfully. Best model: %s [target_mode=%s]",
         comparison_result.best_model_name,
+        target_mode,
     )
     return comparison_result
+

@@ -38,6 +38,7 @@ class PredictionInferenceEngine(PredictionEngine):
         model_name: str = "custom_model",
         feature_columns: list[str] | None = None,
         feature_pipeline: FeatureEngineeringPipeline | None = None,
+        target_mode: str = "absolute",
     ) -> None:
         """Initialize inference engine with model and optional feature expectations.
 
@@ -46,12 +47,17 @@ class PredictionInferenceEngine(PredictionEngine):
             model_name: Identifier for the underlying model.
             feature_columns: Expected feature names and ordering required by model.
             feature_pipeline: Pipeline used to generate features from VoyageRecord sequences.
+            target_mode: 'absolute' — model predicts fuel_consumption (metric tons) directly.
+                         'rate' — model predicts fuel_consumption / hours_at_sea (tons/h);
+                         predict() multiplies raw output by implied_hours to return metric tons.
         """
         self.model = model
         self.model_name = normalize_model_name(model_name)
         self.feature_columns = feature_columns
         self.pipeline = feature_pipeline or FeatureEngineeringPipeline()
+        self.target_mode = target_mode
         self.logger = logger
+
 
     @classmethod
     def load_from_artifact(cls, artifact_path: Path | str) -> "PredictionInferenceEngine":
@@ -85,22 +91,33 @@ class PredictionInferenceEngine(PredictionEngine):
             model = payload["model"]
             model_name = payload.get("model_name", path.stem)
             feature_columns = payload.get("feature_columns")
+            # target_mode defaults to "absolute" for backward-compat with artifacts
+            # that predate this field (they were trained in absolute mode).
+            target_mode = payload.get("target_mode", "absolute")
         elif hasattr(payload, "predict"):
             model = payload
             model_name = path.stem
             feature_columns = None
+            target_mode = "absolute"
         else:
             raise PredictionError(
                 f"Loaded artifact from {path.resolve()} is not a recognized model or bundle.",
                 details={"artifact_path": str(path)},
             )
 
-        logger.info("Loaded model '%s' from %s", model_name, path.name)
+        logger.info(
+            "Loaded model '%s' [target_mode=%s] from %s",
+            model_name,
+            target_mode,
+            path.name,
+        )
         return cls(
             model=model,
             model_name=model_name,
             feature_columns=feature_columns,
+            target_mode=target_mode,
         )
+
 
     def validate_feature_matrix(self, X: pd.DataFrame) -> pd.DataFrame:
         """Validate feature matrix against leakage, null values, and column schema.
@@ -181,11 +198,18 @@ class PredictionInferenceEngine(PredictionEngine):
 
         Fulfills the abstract contract in contracts.interfaces.PredictionEngine.
 
+        For rate-trained models (target_mode='rate') the raw model output is
+        fuel_rate (tons/h).  This method multiplies it by
+        implied_hours = distance_nm / speed_knots to reconstruct absolute fuel
+        consumption (metric tons) — using only operational inputs that are
+        independently available at inference, with no hours_at_sea leakage.
+
         Args:
             feature_records: Sequence of VoyageRecord instances for inference.
 
         Returns:
-            List of structured PredictionResult instances.
+            List of structured PredictionResult instances with predicted_fuel_consumption
+            in metric tons regardless of whether the model was rate- or absolute-trained.
 
         Raises:
             PredictionError: If inference fails or records are empty.
@@ -200,7 +224,27 @@ class PredictionInferenceEngine(PredictionEngine):
             feature_records, encode_categoricals=True
         )
 
-        preds = self.predict_df(X)
+        preds_raw = self.predict_df(X)
+
+        # Rate-trained models: reconstruct absolute consumption via implied_hours = D/V.
+        # implied_hours uses the same operational inputs (distance_nm, speed_knots) that
+        # the feature pipeline uses — NO hours_at_sea is touched here.
+        if self.target_mode == "rate":
+            implied_hours_arr = np.array([
+                max(float(r.distance_nm), 0.0) / max(float(r.speed_knots), 1e-4)
+                for r in feature_records
+            ])
+            preds = preds_raw * implied_hours_arr
+            self.logger.debug(
+                "Rate->absolute reconstruction: mean implied_hours=%.2f h, "
+                "mean rate=%.4f t/h, mean abs=%.2f t",
+                float(implied_hours_arr.mean()),
+                float(preds_raw.mean()),
+                float(preds.mean()),
+            )
+        else:
+            preds = preds_raw
+
         elapsed_total = time.perf_counter() - start_time
         per_record_runtime = elapsed_total / max(len(feature_records), 1)
 
@@ -220,6 +264,7 @@ class PredictionInferenceEngine(PredictionEngine):
             )
 
         return results
+
 
     def train(
         self,
