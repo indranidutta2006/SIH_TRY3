@@ -6,9 +6,13 @@ Serves as the single source of truth for architecture contracts, preventing circ
 
 from contracts.version import CONTRACT_VERSION
 from contracts.constants import (
+    DEFAULT_EUR_TO_USD_FX_RATE,
+    FUEL_PRICES_USD_PER_TON,
     FuelType,
     ModelType,
     OptimizerType,
+    SHORE_POWER_PRICE_USD_PER_MWH,
+    STANDARD_FUEL_PRICES_USD,
     SUPPORTED_FUELS,
     SUPPORTED_OPTIMIZERS,
     SUPPORTED_PREDICTION_MODELS,
@@ -55,6 +59,10 @@ __all__ = [
     "SUPPORTED_FUELS",
     "SUPPORTED_OPTIMIZERS",
     "SUPPORTED_PREDICTION_MODELS",
+    "DEFAULT_EUR_TO_USD_FX_RATE",
+    "FUEL_PRICES_USD_PER_TON",
+    "SHORE_POWER_PRICE_USD_PER_MWH",
+    "STANDARD_FUEL_PRICES_USD",
     # Exceptions
     "MaritimeSystemError",
     "DataValidationError",

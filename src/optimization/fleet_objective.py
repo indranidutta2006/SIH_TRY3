@@ -14,7 +14,12 @@ from typing import Any, Final
 
 import numpy as np
 
-from contracts.constants import DEFAULT_EUR_TO_USD_FX_RATE
+from contracts.constants import (
+    DEFAULT_EUR_TO_USD_FX_RATE,
+    FUEL_PRICES_USD_PER_TON,
+    SHORE_POWER_PRICE_USD_PER_MWH,
+    STANDARD_FUEL_PRICES_USD,
+)
 from contracts.schemas import FleetAssignment, VoyageRecord
 from src.compliance.compliance_engine import MaritimeComplianceEngine
 from src.physics.fuel_physics_engine import MaritimeFuelPhysicsEngine
@@ -44,15 +49,7 @@ PHYSICS_ROUTED_FUELS: Final[set[str]] = {
     "ShorePower",
 }
 
-# Standard statutory and market baseline prices (USD per metric ton)
-STANDARD_FUEL_PRICES_USD: Final[dict[str, float]] = {
-    "Diesel": 650.0,
-    "LNG": 800.0,
-    "Methanol": 950.0,
-    "Hydrogen": 2500.0,
-    "Ammonia": 1200.0,
-    "ShorePower": 300.0,
-}
+
 
 # Lower Calorific Values (LCV in MJ per metric ton)
 FUEL_LCV_MJ_PER_TON: Final[dict[str, float]] = {
@@ -233,13 +230,12 @@ def fleet_objective(
         deadline_hours = v_info["deadline_hours"]
         fuel_consumed = v_info["fuel_tons"]
 
-        price_per_ton = STANDARD_FUEL_PRICES_USD.get(fuel_type, 650.0)
-
         if fuel_type == "ShorePower":
             energy_mwh = v_info["energy_mwh"]
-            voyage_fuel_cost = energy_mwh * price_per_ton
+            voyage_fuel_cost = energy_mwh * SHORE_POWER_PRICE_USD_PER_MWH
             co2e = 0.0  # Zero operational GHG emissions
         else:
+            price_per_ton = FUEL_PRICES_USD_PER_TON.get(fuel_type, 650.0)
             emiss_res = emission_engine.calculate_wtw(fuel_consumed, fuel_type)
             co2e = float(emiss_res.co2e)
 

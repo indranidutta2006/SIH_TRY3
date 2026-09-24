@@ -255,4 +255,27 @@ def test_heterogeneous_multi_vessel_shore_power_energy_aggregation() -> None:
     assert abs(res_multi.energy_consumption_mwh - erroneous_overwritten_sum) > 50.0
 
 
+def test_shore_power_tariff_pricing_dimension() -> None:
+    """Verify ShorePower pricing explicitly uses electricity tariff (USD/MWh) decoupled from bunker ton pricing."""
+    from contracts.constants import FUEL_PRICES_USD_PER_TON, SHORE_POWER_PRICE_USD_PER_MWH
+
+    engine = ScenarioAnalysisEngine()
+    fleet = ["VSL-001"]
+    custom_tariff = 220.0
+    params = {
+        "fuel_type": "ShorePower",
+        "distance_nm": 1000.0,
+        "speed_knots": 14.0,
+        "cargo_tons": 30000.0,
+        "shore_power_price_usd_per_mwh": custom_tariff,
+    }
+
+    res = engine.run_scenario("Custom_Tariff_Test", fleet, params)
+    assert res.energy_consumption_mwh > 0.0
+    assert res.fuel_consumption == 0.0
+    # Cost must be exactly energy_mwh * custom_tariff, independent of fuel_prices
+    assert res.total_cost == pytest.approx(res.energy_consumption_mwh * custom_tariff, rel=1e-2)
+
+
+
 

@@ -12,7 +12,13 @@ and balanced multi-criteria tradeoff rankings without dimensional magnitude dist
 import logging
 from typing import Any, Final, Sequence
 
-from contracts.constants import DEFAULT_EUR_TO_USD_FX_RATE, FuelType
+from contracts.constants import (
+    DEFAULT_EUR_TO_USD_FX_RATE,
+    FUEL_PRICES_USD_PER_TON,
+    FuelType,
+    SHORE_POWER_PRICE_USD_PER_MWH,
+    STANDARD_FUEL_PRICES_USD,
+)
 from contracts.exceptions import MaritimeSystemError
 from contracts.interfaces import ScenarioEngine
 from contracts.schemas import ScenarioResult, VoyageRecord
@@ -37,15 +43,7 @@ PHYSICS_ROUTED_FUELS: Final[set[str]] = {
     FuelType.SHORE_POWER.value,
 }
 
-# Standard economic baseline fuel prices (USD per metric ton)
-STANDARD_FUEL_PRICES_USD: Final[dict[str, float]] = {
-    "Diesel": 650.0,
-    "LNG": 800.0,
-    "Methanol": 950.0,
-    "Hydrogen": 2500.0,
-    "Ammonia": 1200.0,
-    "ShorePower": 300.0,
-}
+
 
 # Fuel Lower Calorific Values (MJ per metric ton) for FuelEU intensity evaluation
 FUEL_LCV_MJ_PER_TON: Final[dict[str, float]] = {
@@ -126,8 +124,22 @@ class ScenarioAnalysisEngine(ScenarioEngine):
                 operational_parameters.get("fx_rate", DEFAULT_EUR_TO_USD_FX_RATE),
             )
         )
-        fuel_prices = operational_parameters.get("fuel_prices", STANDARD_FUEL_PRICES_USD)
-        price_per_ton = float(fuel_prices.get(fuel_type, STANDARD_FUEL_PRICES_USD.get(fuel_type, 650.0)))
+        fuel_prices = operational_parameters.get("fuel_prices", FUEL_PRICES_USD_PER_TON)
+        shore_power_tariff_usd_per_mwh = float(
+            operational_parameters.get(
+                "shore_power_price_usd_per_mwh",
+                operational_parameters.get(
+                    "electricity_tariff_usd_per_mwh",
+                    operational_parameters.get(
+                        "shore_power_tariff_usd_per_mwh",
+                        fuel_prices.get(FuelType.SHORE_POWER.value, SHORE_POWER_PRICE_USD_PER_MWH),
+                    ),
+                ),
+            )
+        )
+        bunker_fuel_price_usd_per_ton = float(
+            fuel_prices.get(fuel_type, FUEL_PRICES_USD_PER_TON.get(fuel_type, 650.0))
+        )
         vessel_specs = operational_parameters.get("vessel_specs", {})
 
         total_fuel_tons = 0.0
@@ -229,7 +241,7 @@ class ScenarioAnalysisEngine(ScenarioEngine):
                 # Shore power electrical MWh directly translated into energy and cost
                 voyage_energy_mj = energy_mwh * 3600.0
                 fueleu_penalty_eur = 0.0  # Zero operational GHG emissions
-                bunker_cost_usd = energy_mwh * price_per_ton  # price_per_ton acts as USD/MWh for shore power
+                bunker_cost_usd = energy_mwh * shore_power_tariff_usd_per_mwh
             else:
                 voyage_energy_mj = fuel_tons * lcv_mj_per_ton
                 ghg_intensity = (co2e * 1e6) / voyage_energy_mj if voyage_energy_mj > 0.0 else 0.0
@@ -239,7 +251,7 @@ class ScenarioAnalysisEngine(ScenarioEngine):
                     year=compliance_year,
                 )
                 fueleu_penalty_eur = float(comp_result.penalty_eur)
-                bunker_cost_usd = fuel_tons * price_per_ton
+                bunker_cost_usd = fuel_tons * bunker_fuel_price_usd_per_ton
 
             total_fuel_cost_usd += bunker_cost_usd
             total_penalty_eur += fueleu_penalty_eur

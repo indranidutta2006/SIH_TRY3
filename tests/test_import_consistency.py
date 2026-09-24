@@ -105,6 +105,10 @@ def test_constant_import_consistency() -> None:
     """Verify constants imported via contracts and root shim refer to identical objects."""
     import contracts.constants as direct_constants
     from constants import (
+        DEFAULT_EUR_TO_USD_FX_RATE as Legacy_FX_RATE,
+        FUEL_PRICES_USD_PER_TON as Legacy_FUEL_PRICES_USD_PER_TON,
+        SHORE_POWER_PRICE_USD_PER_MWH as Legacy_SHORE_POWER_PRICE,
+        STANDARD_FUEL_PRICES_USD as Legacy_STANDARD_FUEL_PRICES_USD,
         SUPPORTED_FUELS as Legacy_SUPPORTED_FUELS,
         SUPPORTED_OPTIMIZERS as Legacy_SUPPORTED_OPTIMIZERS,
         SUPPORTED_PREDICTION_MODELS as Legacy_SUPPORTED_PREDICTION_MODELS,
@@ -113,12 +117,16 @@ def test_constant_import_consistency() -> None:
         OptimizerType as LegacyOptimizerType,
     )
     from contracts import (
-        SUPPORTED_FUELS,
-        SUPPORTED_OPTIMIZERS,
-        SUPPORTED_PREDICTION_MODELS,
+        DEFAULT_EUR_TO_USD_FX_RATE,
+        FUEL_PRICES_USD_PER_TON,
         FuelType,
         ModelType,
         OptimizerType,
+        SHORE_POWER_PRICE_USD_PER_MWH,
+        STANDARD_FUEL_PRICES_USD,
+        SUPPORTED_FUELS,
+        SUPPORTED_OPTIMIZERS,
+        SUPPORTED_PREDICTION_MODELS,
     )
 
     # Assert module identity sanity
@@ -130,11 +138,18 @@ def test_constant_import_consistency() -> None:
     assert SUPPORTED_FUELS is Legacy_SUPPORTED_FUELS
     assert SUPPORTED_OPTIMIZERS is Legacy_SUPPORTED_OPTIMIZERS
     assert SUPPORTED_PREDICTION_MODELS is Legacy_SUPPORTED_PREDICTION_MODELS
+    assert DEFAULT_EUR_TO_USD_FX_RATE == Legacy_FX_RATE
+    assert FUEL_PRICES_USD_PER_TON is Legacy_FUEL_PRICES_USD_PER_TON
+    assert SHORE_POWER_PRICE_USD_PER_MWH == Legacy_SHORE_POWER_PRICE
+    assert STANDARD_FUEL_PRICES_USD is Legacy_STANDARD_FUEL_PRICES_USD
 
     assert FuelType is direct_constants.FuelType
     assert OptimizerType is direct_constants.OptimizerType
     assert ModelType is direct_constants.ModelType
     assert SUPPORTED_FUELS is direct_constants.SUPPORTED_FUELS
+    assert FUEL_PRICES_USD_PER_TON is direct_constants.FUEL_PRICES_USD_PER_TON
+    assert SHORE_POWER_PRICE_USD_PER_MWH == direct_constants.SHORE_POWER_PRICE_USD_PER_MWH
+    assert STANDARD_FUEL_PRICES_USD is direct_constants.STANDARD_FUEL_PRICES_USD
 
 
 def test_exception_import_consistency() -> None:

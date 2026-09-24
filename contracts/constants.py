@@ -66,3 +66,22 @@ SUPPORTED_PREDICTION_MODELS: Final[tuple[ModelType, ...]] = (
 # Configurable baseline foreign exchange rate (1 EUR = 1.08 USD).
 DEFAULT_EUR_TO_USD_FX_RATE: Final[float] = 1.08
 
+# Standard commercial bunker fuel prices (USD per metric ton)
+FUEL_PRICES_USD_PER_TON: Final[dict[str, float]] = {
+    FuelType.DIESEL.value: 650.0,
+    FuelType.LNG.value: 800.0,
+    FuelType.METHANOL.value: 950.0,
+    FuelType.HYDROGEN.value: 2500.0,
+    FuelType.AMMONIA.value: 1200.0,
+}
+
+# Cold-ironing shore power grid electricity tariff (USD per megawatt-hour)
+SHORE_POWER_PRICE_USD_PER_MWH: Final[float] = 300.0
+
+# Legacy compatibility mapping
+STANDARD_FUEL_PRICES_USD: Final[dict[str, float]] = {
+    **FUEL_PRICES_USD_PER_TON,
+    FuelType.SHORE_POWER.value: SHORE_POWER_PRICE_USD_PER_MWH,
+}
+
+

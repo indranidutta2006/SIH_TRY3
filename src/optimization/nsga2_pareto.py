@@ -17,7 +17,11 @@ from typing import Any
 
 import numpy as np
 
-from contracts.constants import DEFAULT_EUR_TO_USD_FX_RATE
+from contracts.constants import (
+    DEFAULT_EUR_TO_USD_FX_RATE,
+    FUEL_PRICES_USD_PER_TON,
+    SHORE_POWER_PRICE_USD_PER_MWH,
+)
 from contracts.schemas import FleetAssignment, VoyageRecord
 from src.optimization.fleet_objective import (
     FUEL_LCV_MJ_PER_TON,
@@ -143,13 +147,13 @@ def evaluate_bi_objective(
     for v_info in voyage_data:
         fuel_type = v_info["fuel_type"]
         fuel_t = v_info["fuel_tons"]
-        price = STANDARD_FUEL_PRICES_USD.get(fuel_type, 650.0)
 
         if fuel_type == "ShorePower":
             energy_mwh = v_info["energy_mwh"]
-            total_cost += energy_mwh * price
+            total_cost += energy_mwh * SHORE_POWER_PRICE_USD_PER_MWH
             # Zero operational CO2e for shore power
         else:
+            price_per_ton = FUEL_PRICES_USD_PER_TON.get(fuel_type, 650.0)
             emiss = emission_engine.calculate_wtw(fuel_t, fuel_type)
             co2e_t = float(emiss.co2e)
 
@@ -161,7 +165,7 @@ def evaluate_bi_objective(
             fueleu_penalty_eur = float(comp.penalty_eur)
             fueleu_penalty_usd = fueleu_penalty_eur * eur_to_usd_rate
 
-            total_cost += (fuel_t * price) + fueleu_penalty_usd
+            total_cost += (fuel_t * price_per_ton) + fueleu_penalty_usd
             total_co2e += co2e_t
 
     return float(total_cost), float(total_co2e)
