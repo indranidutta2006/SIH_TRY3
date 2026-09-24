@@ -5,7 +5,12 @@ Exports QPSOOptimizer, PSOOptimizer, and SwarmOptimizationEngine.
 """
 
 from src.optimization.base import SwarmOptimizationEngine
-from src.optimization.nsga2_pareto import ParetoFleetOptimizer, run_nsga2_pareto
+from src.optimization.nsga2_pareto import (
+    ParetoFleetOptimizer,
+    calculate_crowding_distance,
+    non_dominated_sort,
+    run_nsga2_pareto,
+)
 from src.optimization.pso_baseline import PSOOptimizer
 from src.optimization.qpso import QPSOOptimizer
 
@@ -14,5 +19,7 @@ __all__ = [
     "QPSOOptimizer",
     "PSOOptimizer",
     "ParetoFleetOptimizer",
+    "calculate_crowding_distance",
+    "non_dominated_sort",
     "run_nsga2_pareto",
 ]

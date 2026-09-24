@@ -5,7 +5,8 @@ Solves the bi-objective optimization problem:
   f1(x) = Total Fuel Cost (USD)
   f2(x) = Total Lifecycle CO2e Emissions (metric tons)
 over the scheduled fleet decision vector on the medium problem size tier.
-Features pure-Python non-dominated sorting and crowding distance fallback when pymoo is unavailable.
+Features pure-Python fast non-dominated sorting and canonical Deb et al. (2002)
+crowding-distance environmental selection.
 """
 
 from collections.abc import Sequence
@@ -138,6 +139,53 @@ def non_dominated_sort(objectives: np.ndarray) -> list[list[int]]:
     return [f for f in fronts if len(f) > 0]
 
 
+def calculate_crowding_distance(objectives: np.ndarray) -> np.ndarray:
+    """Calculate NSGA-II crowding distance for a front in objective space.
+
+    Conforms strictly to Deb et al. (2002), Section III-B (Crowding-Distance Computation).
+    For each objective:
+      1. Boundary solutions (minimal and maximal objective values) are assigned infinity (inf).
+      2. Intermediate solutions are assigned the normalized cuboid distance between their neighbors:
+         d_i = sum_m (f_m(i+1) - f_m(i-1)) / (f_m^max - f_m^min)
+
+    Args:
+        objectives: 2D array of shape (L, M) containing objective values for L individuals.
+
+    Returns:
+        1D array of shape (L,) containing crowding distances. Boundary individuals have distance = inf.
+    """
+    objectives = np.asarray(objectives, dtype=float)
+    if objectives.ndim != 2:
+        raise ValueError(f"objectives must be a 2D array, got shape {objectives.shape}")
+
+    n_individuals, n_objectives = objectives.shape
+    if n_individuals == 0:
+        return np.array([], dtype=float)
+    if n_individuals <= 2:
+        return np.full(n_individuals, np.inf, dtype=float)
+
+    distances = np.zeros(n_individuals, dtype=float)
+
+    for m in range(n_objectives):
+        sorted_indices = np.argsort(objectives[:, m])
+        obj_min = float(objectives[sorted_indices[0], m])
+        obj_max = float(objectives[sorted_indices[-1], m])
+        obj_range = obj_max - obj_min
+
+        # Boundary solutions receive infinite distance
+        distances[objectives[:, m] == obj_min] = np.inf
+        distances[objectives[:, m] == obj_max] = np.inf
+
+        if obj_range > 0:
+            for k in range(1, n_individuals - 1):
+                idx = sorted_indices[k]
+                if not np.isinf(distances[idx]):
+                    diff = float(objectives[sorted_indices[k + 1], m] - objectives[sorted_indices[k - 1], m])
+                    distances[idx] += diff / obj_range
+
+    return distances
+
+
 class ParetoFleetOptimizer:
     """Multi-objective evolutionary optimization solver extracting Pareto frontiers."""
 
@@ -196,7 +244,7 @@ class ParetoFleetOptimizer:
             # Non-dominated sort
             fronts = non_dominated_sort(combined_objs)
 
-            # Select best N individuals
+            # Select best N individuals via non-dominated fronts and canonical crowding distance
             new_pop: list[np.ndarray] = []
             new_objs: list[np.ndarray] = []
             for front in fronts:
@@ -206,7 +254,12 @@ class ParetoFleetOptimizer:
                         new_objs.append(combined_objs[idx])
                 else:
                     needed = population_size - len(new_pop)
-                    for idx in front[:needed]:
+                    front_objs = combined_objs[front]
+                    crowding_dist = calculate_crowding_distance(front_objs)
+                    # Descending sort by crowding distance to prioritize boundary and isolated solutions
+                    sorted_front_order = np.argsort(-crowding_dist)
+                    for i in sorted_front_order[:needed]:
+                        idx = front[i]
                         new_pop.append(combined_pop[idx])
                         new_objs.append(combined_objs[idx])
                     break

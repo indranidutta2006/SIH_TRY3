@@ -223,7 +223,7 @@ Verify that all architectural contracts, physics derivations, statutory emission
 ```bash
 python -m pytest tests/ -v
 ```
-* **Produces:** 209/209 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves (including 279k DWT Bulk, 57.7k GT Ro-Ro Vehicle carrier, and 65k DWT LNG carrier effective capacity caps), strict statutory capacity unit validation (GT vs DWT), MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, decoupled statutory compliance schemas, and FuelEU Article 23(2) consecutive-deficit penalty scaling.
+* **Produces:** 216/216 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves (including 279k DWT Bulk, 57.7k GT Ro-Ro Vehicle carrier, and 65k DWT LNG carrier effective capacity caps), strict statutory capacity unit validation (GT vs DWT), MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, decoupled statutory compliance schemas, FuelEU Article 23(2) consecutive-deficit penalty scaling, and canonical Deb et al. (2002) NSGA-II crowding-distance environmental selection.
 
 ---
 
@@ -363,6 +363,18 @@ where:
 > - *Grid shore power $\ne$ zero lifecycle emissions* (grid carbon intensity varies widely by regional port grid mix).
 > 
 > The architecture explicitly provides configurable `wtt_factors` in `MaritimeEmissionEngine`, allowing operators to model grey, blue, or green fuel pathways dynamically.
+
+### 5.5 Multi-Objective Green Fleet Optimization & Canonical NSGA-II Pareto Solver
+Implemented in `src/optimization/nsga2_pareto.py` (`ParetoFleetOptimizer`):
+- **Bi-Objective Tradeoff Formulation:** Solves for Pareto-optimal decision vectors $x = [v_1, f_1, v_2, f_2, \dots, v_n, f_n]$ across scheduled fleet voyages ($v_i \in [10, 20]\text{ knots}$, $f_i \in \{\text{Diesel, LNG, Methanol, Hydrogen, Ammonia, ShorePower}\}$):
+  $$f_1(x) = \text{Total Fuel Cost (USD)} + \text{FuelEU Penalties (EUR)}$$
+  $$f_2(x) = \text{Total Lifecycle Well-to-Wake CO}_2\text{e Emissions (metric tons)}$$
+- **Fast Non-Dominated Sorting:** Partitions the combined $2N$ parent and offspring population ($R_t = P_t \cup Q_t$) into sequential domination fronts $\mathcal{F}_1, \mathcal{F}_2, \dots$ in $\mathcal{O}(M N^2)$ time based on strict Pareto dominance ($p \prec q \iff \forall m: f_m(p) \le f_m(q) \land \exists m: f_m(p) < f_m(q)$).
+- **Canonical Crowding-Distance Environmental Selection (Deb et al., 2002):**
+  When transitioning between generations, successive non-dominated fronts are admitted until the next front $\mathcal{F}_l$ exceeds remaining population capacity ($|P_{t+1}| + |\mathcal{F}_l| > N$). Rather than applying naive truncation (`front[:needed]`), the solver computes the canonical crowding distance for all individuals in $\mathcal{F}_l$:
+  $$d_i = \sum_{m=1}^{M} \frac{f_m(i+1) - f_m(i-1)}{f_m^{\max} - f_m^{\min}}$$
+  where boundary solutions with extreme minimal and maximal values along each objective are explicitly assigned infinite distance ($d_i = \infty$).
+  The front is sorted in descending order of crowding distance, and the top $N - |P_{t+1}|$ individuals are selected. This canonical survival mechanism guarantees the preservation of extreme boundary solutions (minimum cost and minimum emissions configurations) and maximizes the diversity and uniform spread of solutions along the Pareto frontier.
 
 ---
 
