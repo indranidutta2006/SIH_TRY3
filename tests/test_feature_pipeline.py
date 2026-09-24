@@ -61,7 +61,12 @@ def sample_records() -> list[VoyageRecord]:
 def test_feature_creation_computes_expected_columns(
     sample_records: list[VoyageRecord],
 ) -> None:
-    """Verify engineered physical and kinematic metrics are accurately computed."""
+    """Verify engineered physical and kinematic metrics are accurately computed.
+
+    NOTE: implied_speed (D/H) and speed_discrepancy (D/H - V) are intentionally
+    absent — both are invertible functions of hours_at_sea and constitute
+    duration-proxy leakage.  implied_hours (D/V) is the leakage-safe replacement.
+    """
     pipeline = FeatureEngineeringPipeline()
     df = pipeline.create_features(sample_records)
 
@@ -71,13 +76,20 @@ def test_feature_creation_computes_expected_columns(
         "transport_work",
         "ton_nautical_miles",
         "power_proxy",
-        "implied_speed",
-        "speed_discrepancy",
+        "implied_hours",          # D/V — operational input, no duration leakage
         "weather_speed_interaction",
         "weather_sea_interaction",
     ]
     for feat in expected_features:
         assert feat in df.columns, f"Missing engineered feature: {feat}"
+
+    # Duration-proxy columns must NOT appear in create_features() output
+    assert "implied_speed" not in df.columns, (
+        "implied_speed (D/H) must not be in feature matrix — it is a duration proxy."
+    )
+    assert "speed_discrepancy" not in df.columns, (
+        "speed_discrepancy (D/H - V) must not be in feature matrix — it is a duration proxy."
+    )
 
     # Verify physical calculations for record 0
     row0 = df.iloc[0]
@@ -94,8 +106,14 @@ def test_feature_creation_computes_expected_columns(
     assert pytest.approx(row0["power_proxy"], rel=1e-3) == expected_power
 
 
+
 def test_numerical_stability_zero_division() -> None:
-    """Ensure zero values for DWT or hours_at_sea do not produce NaN or ZeroDivisionError."""
+    """Ensure zero values for DWT or speed do not produce NaN or ZeroDivisionError.
+
+    Tests implied_hours (D/V) with zero speed — the 1e-4 clamp must prevent division by zero.
+    implied_speed (D/H) and speed_discrepancy are no longer computed, so hours_at_sea=0
+    no longer raises a ZeroDivisionError either.
+    """
     pipeline = FeatureEngineeringPipeline()
     zero_df = pd.DataFrame(
         [
@@ -106,8 +124,8 @@ def test_numerical_stability_zero_division() -> None:
                 "vessel_dwt": 0.0,
                 "cargo_tons": 0.0,
                 "distance_nm": 100.0,
-                "speed_knots": 10.0,
-                "hours_at_sea": 0.0,
+                "speed_knots": 0.0,   # zero speed — tests 1e-4 clamp in implied_hours
+                "hours_at_sea": 0.0,  # zero duration — previously caused D/H division by zero
                 "fuel_type": "MGO",
                 "weather_factor": 1.0,
                 "sea_state": 0,
@@ -120,8 +138,12 @@ def test_numerical_stability_zero_division() -> None:
     featured = pipeline.create_features(zero_df)
     assert not np.isnan(featured["cargo_ratio"].iloc[0])
     assert not np.isinf(featured["cargo_ratio"].iloc[0])
-    assert not np.isnan(featured["implied_speed"].iloc[0])
-    assert not np.isinf(featured["implied_speed"].iloc[0])
+    assert not np.isnan(featured["implied_hours"].iloc[0])
+    assert not np.isinf(featured["implied_hours"].iloc[0])
+    # Duration-proxy columns must not exist at all
+    assert "implied_speed" not in featured.columns
+    assert "speed_discrepancy" not in featured.columns
+
 
 
 def test_target_leakage_guard_rejects_leakage_columns() -> None:
