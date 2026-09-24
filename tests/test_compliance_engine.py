@@ -50,6 +50,7 @@ def test_fueleu_pass_on_compliant_ghg_intensity() -> None:
 
     assert isinstance(res, ComplianceResult)
     assert res.fueleu_pass is True
+    assert res.penalty_eur == 0.0
     assert res.compliance_score == 0.0
 
 
@@ -63,6 +64,7 @@ def test_fueleu_penalty_on_excess_ghg_intensity() -> None:
 
     assert isinstance(res, ComplianceResult)
     assert res.fueleu_pass is False
+    assert res.penalty_eur > 0.0
     assert res.compliance_score > 0.0
 
 

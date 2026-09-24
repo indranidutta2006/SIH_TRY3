@@ -91,7 +91,7 @@ def evaluate_bi_objective(
         intensity = (co2e_t * 1e6) / energy_mj if energy_mj > 0 else 0.0
 
         comp = compliance_engine.evaluate_fueleu(intensity, energy_mj, year=compliance_year)
-        fueleu_penalty = float(comp.compliance_score) if not comp.fueleu_pass else 0.0
+        fueleu_penalty = float(comp.penalty_eur)
 
         price = STANDARD_FUEL_PRICES_USD.get(fuel_type, 650.0)
         total_cost += (fuel_t * price) + fueleu_penalty

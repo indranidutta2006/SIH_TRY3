@@ -106,7 +106,22 @@ class EmissionResult:
 
 @dataclass(frozen=True, slots=True)
 class ComplianceResult:
-    """Regulatory assessment output (IMO CII letter rating and EU FuelEU status)."""
+    """Regulatory assessment output (IMO CII letter rating and EU FuelEU status).
+
+    Canonical Schema Attributes:
+        cii_rating: Operational letter rating ('A' through 'E' for CII, 'N/A' for FuelEU).
+        attained_cii: Attained operational CII in gCO2 / (DWT * nm).
+        required_cii: Target required CII under IMO MEPC.337(76) & MEPC.400(83).
+        cii_ratio: Attained-to-Required CII ratio (< 1.0 indicates outperforming statutory target).
+        fueleu_pass: Boolean pass/fail against EU FuelEU Maritime statutory GHG intensity limit.
+        fueleu_target: Statutory maximum Well-to-Wake GHG intensity (gCO2eq/MJ) for assessment year.
+        ghg_intensity: Attained Well-to-Wake GHG intensity (gCO2eq/MJ).
+        penalty_eur: Statutory financial penalty in EUR under EU Regulation (EU) 2023/1805 Article 23.
+        compliance_status: Standardized compliance status ('COMPLIANT' or 'NON_COMPLIANT').
+        compliance_score: DEPRECATED legacy compatibility-only field.
+            Warning: Polymorphic across regulations (holds cii_ratio for CII, penalty_eur for FuelEU).
+            All internal calculations and downstream optimizers must consume `penalty_eur` or `cii_ratio`.
+    """
 
     cii_rating: str
     attained_cii: float = 0.0
@@ -117,7 +132,7 @@ class ComplianceResult:
     ghg_intensity: float = 0.0
     penalty_eur: float = 0.0
     compliance_status: str = "COMPLIANT"
-    compliance_score: float = 0.0
+    compliance_score: float = 0.0  # DEPRECATED: use cii_ratio or penalty_eur
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize dataclass to dictionary."""

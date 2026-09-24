@@ -222,7 +222,7 @@ class ScenarioAnalysisEngine(ScenarioEngine):
                     energy_used_mj=voyage_energy_mj,
                     year=compliance_year,
                 )
-                fueleu_penalty = float(comp_result.compliance_score) if not comp_result.fueleu_pass else 0.0
+                fueleu_penalty = float(comp_result.penalty_eur)
                 voyage_cost = (fuel_tons * price_per_ton) + fueleu_penalty
 
             total_cost_usd += voyage_cost

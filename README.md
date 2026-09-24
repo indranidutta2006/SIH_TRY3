@@ -82,13 +82,13 @@ The system is decoupled into eight functional layers communicating strictly via 
 | # | Deliverable | Status | Output Path |
 |---|-------------|--------|-------------|
 | D1 | Mathematical Model | ✅ Complete | `contracts/schemas.py`, `src/physics/` |
-| D2 | Fuel Consumption Prediction Module (QIFCP) | ✅ Complete | `src/prediction/qifcp.py` |
+| D2 | Fuel Consumption Prediction Module (QIFCP & QKP) | ✅ Complete | `src/prediction/qifcp.py`, `models/fuel_predictor.py` |
 | D3 | Quantum Metaheuristic Optimizer (QPSO) | ✅ Complete | `src/optimization/qpso.py` |
 | D4 | Alternative Fuel Scenario Analyser | ✅ Complete | `src/optimization/scenario_analysis.py` |
 | D5 | Multi-Objective Optimization (NSGA-II Pareto) | ✅ Complete | `src/optimization/nsga2_pareto.py` |
-| D6 | Constraint Handler (FuelEU / IMO CII) | ✅ Complete | `src/compliance/compliance_engine.py` |
+| D6 | Constraint Handler (FuelEU / IMO CII MEPC.400(83)) | ✅ Complete | `src/compliance/compliance_engine.py` |
 | D7 | Benchmarking Suite | ✅ Complete | `scripts/benchmark_*.py`, `outputs/reports/` |
-| D8 | Case Studies | ✅ Complete (Synthetic & Real Data) | `outputs/reports/full_pipeline_run.json` |
+| D8 | Case Studies & Data Pipelines | ✅ Complete (Synthetic & Real Data) | `data/pipeline.py`, `outputs/reports/full_pipeline_run.json` |
 | D9 | Integrated Software Platform (Streamlit) | ✅ Complete | `app.py` |
 | D10 | Documentation & User Guide | ✅ Complete | `README.md` |
 
@@ -134,6 +134,26 @@ from contracts import (
     OptimizationError,
 )
 ```
+
+### Canonical Compliance Contract (`ComplianceResult`)
+
+The compliance subsystem evaluates fleet voyages against statutory **IMO Carbon Intensity Indicator (CII)** ratings and **EU FuelEU Maritime** greenhouse gas intensity caps. The canonical dataclass contract is:
+
+| Field | Type | Description |
+|:---|:---:|:---|
+| `cii_rating` | `str` | Operational letter rating (`A` through `E` for CII, or `N/A` for FuelEU). |
+| `attained_cii` | `float` | Attained annual operational CII in $\text{gCO}_2 / (\text{DWT} \cdot \text{nm})$. |
+| `required_cii` | `float` | Target required CII under IMO MEPC.337(76) & MEPC.400(83). |
+| `cii_ratio` | `float` | Attained-to-Required CII ratio ($< 1.0$ indicates outperforming statutory target). |
+| `fueleu_pass` | `bool` | Statutory pass/fail against EU FuelEU Maritime limit. |
+| `fueleu_target` | `float` | Maximum permitted Well-to-Wake GHG intensity ($\text{gCO}_2\text{eq/MJ}$) for assessment year. |
+| `ghg_intensity` | `float` | Attained Well-to-Wake GHG intensity ($\text{gCO}_2\text{eq/MJ}$). |
+| `penalty_eur` | `float` | Statutory financial penalty in Euros (€) under Regulation (EU) 2023/1805 Article 23. |
+| `compliance_status` | `str` | Standardized status string (`COMPLIANT` or `NON_COMPLIANT`). |
+| `compliance_score` | `float` | *(Deprecated)* Legacy compatibility field. Use `cii_ratio` or `penalty_eur`. |
+
+> [!WARNING] Deprecation Notice: `compliance_score`
+> The field `compliance_score` is deprecated and preserved strictly for backwards compatibility with legacy tests. It previously functioned as a polymorphic alias (`cii_ratio` for CII, `penalty_eur` for FuelEU). All downstream optimization engines (`FleetObjective`, `nsga2_pareto`, `ScenarioAnalysis`) and dashboards consume the explicit canonical fields `penalty_eur` and `cii_ratio`.
 
 ---
 
@@ -192,7 +212,7 @@ Verify that all architectural contracts, physics derivations, statutory emission
 ```bash
 python -m pytest tests/ -v
 ```
-* **Produces:** 172/172 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, and algorithm correctness.
+* **Produces:** 183/183 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, MEPC.400(83) compliance targets, and algorithm correctness.
 
 ---
 
@@ -223,11 +243,47 @@ streamlit run app.py
 
 ---
 
-## 5. Lifecycle Emissions & Alternative Fuel Modeling Boundaries
+## 5. Lifecycle Emissions, Statutory Compliance & Quantum Prediction Modeling
 
-The emissions subsystem (`src/prediction/emission_engine.py`) implements full compliance with the [`contracts.interfaces.EmissionEngine`](contracts/interfaces.py) contract:
+The platform models maritime decarbonization through three mathematically grounded engines:
+
+### 5.1 Lifecycle Greenhouse Gas Accounting (TTW & WTW)
+Implemented in `src/prediction/emission_engine.py` conforming to [`contracts.interfaces.EmissionEngine`](contracts/interfaces.py):
 - **Tank-to-Wake (TTW):** Direct operational combustion emissions ($\text{CO}_2$, $\text{CH}_4$, $\text{N}_2\text{O}$, and $\text{CO}_2\text{e}$) calculated using statutory IMO MEPC factors and IPCC AR5 100-year Global Warming Potentials ($\text{GWP}_{\text{CH}_4} = 28.0, \text{GWP}_{\text{N}_2\text{O}} = 265.0$).
 - **Well-to-Wake (WTW):** Total lifecycle climate footprint ($\text{WTW} = \text{TTW} + \text{WTT}$), capturing upstream fuel production, refining, liquefaction, transport, and bunkering. Direct combustion $\text{CO}_2$ is maintained separately from $\text{CO}_2\text{e}$ to avoid mixing physical combustion units with overall lifecycle climate impact.
+
+### 5.2 IMO Carbon Intensity Indicator (CII) & Resolution MEPC.400(83)
+Implemented in `src/compliance/compliance_engine.py` conforming to [`contracts.interfaces.ComplianceEngine`](contracts/interfaces.py):
+- **Attained CII:** Calculated per voyage or annually as $\text{CII}_{\text{attained}} = \frac{\text{CO}_2 \times 10^6}{\text{DWT} \times \text{Distance}}$.
+- **Baseline Reference Curve:** $\text{CII}_{\text{ref}} = a \cdot \text{DWT}^{-c}$ with coefficients defined under IMO Resolution MEPC.337(76) across Bulk Carriers ($a=4745, c=0.622$), Tankers ($a=5247, c=0.610$), Containers ($a=1984, c=0.489$), General Cargo ($a=3196, c=0.540$), and RoRo ($a=1686, c=0.388$).
+- **Statutory Reduction Factor $Z$ (MEPC.400(83)):** On 11 April 2025, IMO MEPC 83 adopted updated annual reduction trajectories:
+
+| Year | Statutory $Z$ Factor | Governing Instrument |
+|:---:|:---:|:---|
+| **2023** | 5.0% | IMO Resolution MEPC.337(76) |
+| **2024** | 7.0% | IMO Resolution MEPC.337(76) |
+| **2025** | 9.0% | IMO Resolution MEPC.337(76) |
+| **2026** | 11.0% | IMO Resolution MEPC.337(76) |
+| **2027** | **13.625%** | **IMO Resolution MEPC.400(83)** |
+| **2028** | **16.250%** | **IMO Resolution MEPC.400(83)** |
+| **2029** | **18.875%** | **IMO Resolution MEPC.400(83)** |
+| **2030** | **21.500%** | **IMO Resolution MEPC.400(83)** |
+
+- **Letter Rating Bands (A–E):** Based on ratio $r = \text{CII}_{\text{attained}} / \text{CII}_{\text{required}}$:
+  $r \le 0.83 \implies \text{A}$, $r \le 0.94 \implies \text{B}$, $r \le 1.06 \implies \text{C}$, $r \le 1.19 \implies \text{D}$, else $\text{E}$.
+
+### 5.3 EU FuelEU Maritime Statutory Penalties (Regulation (EU) 2023/1805)
+Implemented in `src/compliance/compliance_engine.py` following Article 23 & Annex IV:
+$$\text{Penalty (EUR)} = \frac{|\text{Compliance Balance (gCO}_2\text{eq)}|}{\text{GHGIE}_{\text{actual}} \times 41000\text{ MJ/t}} \times 2400\text{ EUR/t}$$
+where:
+- $\text{Compliance Balance} = (\text{GHGIE}_{\text{target}} - \text{GHGIE}_{\text{actual}}) \times \text{Energy Consumed (MJ)}$
+- Reference baseline: $91.16\text{ gCO}_2\text{eq/MJ}$ with phased reductions ($2025 = -2\%, 2030 = -6\%, 2035 = -14.5\%, 2040 = -31\%, 2045 = -62\%, 2050 = -80\%$).
+- Downstream optimization routines directly consume canonical `comp.penalty_eur`.
+
+### 5.4 Quantum-Inspired & Quantum Kernel Modeling
+- **QIFCP (`src/prediction/qifcp.py`):** Quantum-inspired hydrodynamic neural regressor tuned with Quantum-behaved Particle Swarm Optimization (`QPSO`).
+- **QuantumKernelPredictor (`models/fuel_predictor.py`):** PennyLane simulation (`default.qubit`) utilizing `AngleEmbedding` on 4 normalized hydrodynamic features (`speed_kn`, `load_factor`, `wave_ht_m`, `wind_bft`) combined with a 2-repetition `ZZFeatureMap` entangling circuit. The resulting quantum state transition kernel matrix is fed into `KernelRidge(alpha=0.1)`, achieving $R^2 > 0.88$ on cross-class synthetic voyages.
+  > *Quantum principle used:* Interference between feature-encoded states produces a similarity metric unavailable to classical RBF kernels.
 
 > [!NOTE] Alternative Fuel Baseline Assumptions
 > In this baseline implementation, alternative power pathways (**Hydrogen**, **Ammonia**, and **ShorePower**) reflect certified green renewable supply chains (e.g., green hydrogen from water electrolysis powered by renewables, green ammonia synthesized with zero-carbon energy, and zero-emission shore grid connections).

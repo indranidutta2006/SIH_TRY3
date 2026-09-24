@@ -174,7 +174,7 @@ def fleet_objective(
             energy_used_mj=energy_used_mj,
             year=compliance_year,
         )
-        fueleu_penalty = float(comp_res.compliance_score) if not comp_res.fueleu_pass else 0.0
+        fueleu_penalty = float(comp_res.penalty_eur)
 
         # Accumulate costs, emissions, and schedule delays
         price_per_ton = STANDARD_FUEL_PRICES_USD.get(fuel_type, 650.0)

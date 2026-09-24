@@ -211,12 +211,12 @@ def run_full_pipeline(
     )
 
     logger.info(
-        "Emissions & Compliance Verified: WTW CO2e=%.2f t | IMO CII Grade=%s (Ratio=%.2f) | FuelEU Pass=%s (Score=%.2f)",
+        "Emissions & Compliance Verified: WTW CO2e=%.2f t | IMO CII Grade=%s (Ratio=%.2f) | FuelEU Pass=%s (Penalty=EUR %.2f)",
         sample_emissions.co2e,
         sample_cii.cii_rating,
-        sample_cii.compliance_score,
+        sample_cii.cii_ratio,
         sample_fueleu.fueleu_pass,
-        sample_fueleu.compliance_score,
+        sample_fueleu.penalty_eur,
     )
     stage_timings["3_emissions_compliance"] = round(time.perf_counter() - t0, 3)
 
