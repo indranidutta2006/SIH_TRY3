@@ -333,6 +333,7 @@ class ScenarioResult:
     total_cost: float
     total_emissions: float
     fuel_consumption: float
+    energy_consumption_mwh: float = 0.0
     fuel_cost_usd: float = 0.0
     fueleu_penalty_eur: float = 0.0
     fueleu_penalty_usd: float = 0.0

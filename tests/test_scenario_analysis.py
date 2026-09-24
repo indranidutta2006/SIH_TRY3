@@ -99,8 +99,10 @@ def test_physics_fuels_bypass_production_model(fuel: str) -> None:
     if fuel == "ShorePower":
         assert result.fuel_consumption == 0.0
         assert result.total_emissions == 0.0
+        assert result.energy_consumption_mwh > 0.0
     else:
         assert result.fuel_consumption > 0.0
+        assert result.energy_consumption_mwh > 0.0
 
     assert result.total_cost > 0.0
 
@@ -191,4 +193,30 @@ def test_scenario_analysis_dimensional_currency_conversion() -> None:
     # Total cost in USD = bunker fuel cost (USD) + converted penalty (USD)
     assert res_parity.total_cost == pytest.approx(res_parity.fuel_cost_usd + res_parity.fueleu_penalty_usd, rel=1e-2)
     assert res_scaled.total_cost == pytest.approx(res_scaled.fuel_cost_usd + res_scaled.fueleu_penalty_usd, rel=1e-2)
+
+
+def test_shore_power_energy_consumption_mwh_representation() -> None:
+    """Verify that ShorePower reports electrical consumption in MWh and does not appear as zero consumption."""
+    engine = ScenarioAnalysisEngine()
+    fleet = ["VSL-001", "VSL-002", "VSL-003"]
+    params = {
+        "fuel_type": "ShorePower",
+        "distance_nm": 1200.0,
+        "speed_knots": 14.0,
+        "cargo_tons": 35000.0,
+        "vessel_dwt": 45000.0,
+    }
+
+    res = engine.run_scenario("ShorePower_Test", fleet, params)
+
+    # Physical combustion fuel mass is 0.0
+    assert res.fuel_consumption == 0.0
+    # But electrical energy in MWh is positive and non-zero
+    assert res.energy_consumption_mwh > 0.0
+    # Operational emissions are zero
+    assert res.total_emissions == 0.0
+    # Electricity costs reflect MWh * price_per_MWh
+    assert res.total_cost > 0.0
+    assert res.total_cost == pytest.approx(res.energy_consumption_mwh * 300.0, rel=1e-2)
+
 

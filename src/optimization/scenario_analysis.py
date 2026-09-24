@@ -131,6 +131,7 @@ class ScenarioAnalysisEngine(ScenarioEngine):
         vessel_specs = operational_parameters.get("vessel_specs", {})
 
         total_fuel_tons = 0.0
+        total_energy_mwh = 0.0
         total_co2e_tons = 0.0
         total_fuel_cost_usd = 0.0
         total_penalty_eur = 0.0
@@ -223,6 +224,7 @@ class ScenarioAnalysisEngine(ScenarioEngine):
                 bunker_cost_usd = energy_mwh * price_per_ton  # price_per_ton acts as USD/MWh for shore power
             else:
                 voyage_energy_mj = fuel_tons * lcv_mj_per_ton
+                energy_mwh = voyage_energy_mj / 3600.0
                 ghg_intensity = (co2e * 1e6) / voyage_energy_mj if voyage_energy_mj > 0.0 else 0.0
                 comp_result = self.compliance_engine.evaluate_fueleu(
                     ghg_intensity=ghg_intensity,
@@ -232,6 +234,7 @@ class ScenarioAnalysisEngine(ScenarioEngine):
                 fueleu_penalty_eur = float(comp_result.penalty_eur)
                 bunker_cost_usd = fuel_tons * price_per_ton
 
+            total_energy_mwh += energy_mwh
             total_fuel_cost_usd += bunker_cost_usd
             total_penalty_eur += fueleu_penalty_eur
 
@@ -244,6 +247,7 @@ class ScenarioAnalysisEngine(ScenarioEngine):
             total_cost=float(round(total_cost_usd, 2)),
             total_emissions=float(round(total_co2e_tons, 2)),
             fuel_consumption=float(round(total_fuel_tons, 2)),
+            energy_consumption_mwh=float(round(total_energy_mwh, 2)),
             fuel_cost_usd=float(round(total_fuel_cost_usd, 2)),
             fueleu_penalty_eur=float(round(total_penalty_eur, 2)),
             fueleu_penalty_usd=float(round(total_penalty_usd, 2)),

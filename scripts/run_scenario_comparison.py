@@ -117,6 +117,7 @@ def run_scenario_comparison(
                 "scenario": r.scenario_name,
                 "fuel_type": r.fuel_type,
                 "fuel_consumption_tons": r.fuel_consumption,
+                "energy_consumption_mwh": r.energy_consumption_mwh,
                 "total_emissions_co2e_tons": r.total_emissions,
                 "fuel_cost_usd": r.fuel_cost_usd,
                 "fueleu_penalty_eur": r.fueleu_penalty_eur,
@@ -143,6 +144,7 @@ if __name__ == "__main__":
         print(
             f"{item['scenario']:<30} | Fuel: {item['fuel_type']:<11} | "
             f"Cons: {item['fuel_consumption_tons']:>8.2f} t | "
+            f"Energy: {item.get('energy_consumption_mwh', 0.0):>9.2f} MWh | "
             f"CO2e: {item['total_emissions_co2e_tons']:>8.2f} t | "
             f"Bunker: ${item.get('fuel_cost_usd', 0.0):>10.2f} | "
             f"Penalty: €{item.get('fueleu_penalty_eur', 0.0):>9.2f} (${item.get('fueleu_penalty_usd', 0.0):>9.2f}) | "
