@@ -220,6 +220,93 @@ class MaritimeComplianceEngine(ComplianceEngine):
 
         return a, c, eff_cap, metric
 
+    def resolve_cii_rating_boundaries(
+        self,
+        vessel_type: str,
+        capacity: float,
+    ) -> tuple[float, float, float, float]:
+        """Resolve IMO Resolution MEPC.354(78) (G4) ship-type-specific rating boundaries.
+
+        Table 1 dd vectors transformed into exponential boundary multipliers:
+        exp(d1), exp(d2), exp(d3), exp(d4):
+        - Grade A (Superior):  ratio <= exp(d1)
+        - Grade B (Minor):     exp(d1) < ratio <= exp(d2)
+        - Grade C (Moderate):  exp(d2) < ratio <= exp(d3)
+        - Grade D (Inferior):  exp(d3) < ratio <= exp(d4)
+        - Grade E (Poor):      ratio > exp(d4)
+
+        Statutory branches conforming to Table 1 of Resolution MEPC.354(78):
+        1. Bulk carrier:               (0.86, 0.94, 1.06, 1.18)
+        2. Tanker:                     (0.82, 0.93, 1.08, 1.28)
+        3. Containership:              (0.83, 0.94, 1.07, 1.19)
+        4. General cargo ship:         (0.83, 0.94, 1.06, 1.19)
+        5. LNG carrier (>= 100k DWT):  (0.89, 0.98, 1.06, 1.13)
+        6. LNG carrier (< 100k DWT):   (0.78, 0.92, 1.10, 1.37)
+        7. Ro-ro cargo (vehicle):      (0.86, 0.94, 1.06, 1.16)
+        8. Ro-ro cargo ship:           (0.76, 0.89, 1.08, 1.27)
+        9. Ro-ro passenger ship:       (0.76, 0.92, 1.14, 1.30)
+        10. Cruise passenger ship:     (0.87, 0.95, 1.06, 1.16)
+        11. Gas carrier (>= 65k DWT):  (0.81, 0.91, 1.12, 1.44)
+        12. Gas carrier (< 65k DWT):   (0.85, 0.95, 1.06, 1.25)
+        13. Refrigerated cargo:        (0.78, 0.91, 1.07, 1.20)
+        14. Combination carrier:       (0.87, 0.96, 1.06, 1.14)
+
+        Returns:
+            Tuple of (exp_d1, exp_d2, exp_d3, exp_d4).
+        """
+        v_norm = (vessel_type or "").strip().lower()
+
+        # 1. Ro-Ro categories
+        if "vehicle" in v_norm or "car carrier" in v_norm:
+            return 0.86, 0.94, 1.06, 1.16
+        elif "passenger" in v_norm and ("ro" in v_norm or "ferry" in v_norm):
+            return 0.76, 0.92, 1.14, 1.30
+        elif "roro" in v_norm or "ro-ro" in v_norm:
+            return 0.76, 0.89, 1.08, 1.27
+        elif "cruise" in v_norm:
+            return 0.87, 0.95, 1.06, 1.16
+
+        # 2. Tanker
+        elif "tanker" in v_norm:
+            return 0.82, 0.93, 1.08, 1.28
+
+        # 3. Bulk Carrier
+        elif "bulk" in v_norm:
+            return 0.86, 0.94, 1.06, 1.18
+
+        # 4. Container Ship
+        elif "container" in v_norm:
+            return 0.83, 0.94, 1.07, 1.19
+
+        # 5. General Cargo
+        elif "general cargo" in v_norm:
+            return 0.83, 0.94, 1.06, 1.19
+
+        # 6. LNG Carrier
+        elif "lng" in v_norm:
+            if capacity >= 100000.0:
+                return 0.89, 0.98, 1.06, 1.13
+            else:
+                return 0.78, 0.92, 1.10, 1.37
+
+        # 7. Gas Carrier
+        elif "gas" in v_norm:
+            if capacity >= 65000.0:
+                return 0.81, 0.91, 1.12, 1.44
+            else:
+                return 0.85, 0.95, 1.06, 1.25
+
+        # 8. Refrigerated Cargo
+        elif "refrigerated" in v_norm:
+            return 0.78, 0.91, 1.07, 1.20
+
+        # 9. Combination Carrier
+        elif "combination" in v_norm:
+            return 0.87, 0.96, 1.06, 1.14
+
+        # Fallback default (bulk carrier standard)
+        return 0.86, 0.94, 1.06, 1.18
+
     def evaluate_cii(
         self,
         co2_emissions: Optional[float] = None,
@@ -256,7 +343,7 @@ class MaritimeComplianceEngine(ComplianceEngine):
             **kwargs: Additional contextual metadata.
 
         Returns:
-            ComplianceResult detailing letter rating (A-E), attained/required CII, ratio, status, and G2 parameters.
+            ComplianceResult detailing letter rating (A-E), attained/required CII, ratio, status, and G2/G4 parameters.
 
         Raises:
             DataValidationError: If inputs are negative, zero, or missing.
@@ -332,14 +419,16 @@ class MaritimeComplianceEngine(ComplianceEngine):
         required_cii = baseline_cii * (1.0 - z_factor)
         ratio = attained_cii / required_cii if required_cii > 0.0 else 1.0
 
-        # IMO Standard Rating Boundaries
-        if ratio <= 0.83:
+        # IMO Resolution MEPC.354(78) G4 Ship-Type-Specific Rating Boundaries
+        d1, d2, d3, d4 = self.resolve_cii_rating_boundaries(vessel_type=vtype, capacity=resolved_cap)
+
+        if ratio <= d1:
             rating = "A"
-        elif ratio <= 0.94:
+        elif ratio <= d2:
             rating = "B"
-        elif ratio <= 1.06:
+        elif ratio <= d3:
             rating = "C"
-        elif ratio <= 1.19:
+        elif ratio <= d4:
             rating = "D"
         else:
             rating = "E"
@@ -361,6 +450,7 @@ class MaritimeComplianceEngine(ComplianceEngine):
             capacity_metric=statutory_metric,
             reference_line_a=round(a, 4),
             reference_line_c=round(c, 4),
+            rating_boundaries=(d1, d2, d3, d4),
         )
 
     def evaluate_fueleu(

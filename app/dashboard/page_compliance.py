@@ -91,9 +91,14 @@ def render_compliance_page() -> None:
             with rcol3:
                 st.metric("Required Target CII", f"{res.required_cii:.2f} gCO₂/{metric_unit}·nm")
 
+            d1, d2, d3, d4 = res.rating_boundaries
             st.caption(
                 f"IMO MEPC.353(78) G2 Reference Branch: a={res.reference_line_a}, c={res.reference_line_c} | "
                 f"Statutory Metric: {res.capacity_metric} | CII Ratio: {res.cii_ratio:.3f} | Compliance Status: {res.compliance_status}"
+            )
+            st.caption(
+                f"IMO MEPC.354(78) G4 Rating Boundaries: "
+                f"Grade A ≤ {d1:.2f} | Grade B ≤ {d2:.2f} | Grade C ≤ {d3:.2f} | Grade D ≤ {d4:.2f} | Grade E > {d4:.2f}"
             )
 
     with tab_fueleu:

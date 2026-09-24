@@ -257,6 +257,23 @@ class ComplianceEngine(ABC):
         pass
 
     @abstractmethod
+    def resolve_cii_rating_boundaries(
+        self,
+        vessel_type: str,
+        capacity: float,
+    ) -> tuple[float, float, float, float]:
+        """Resolve IMO Resolution MEPC.354(78) (G4) rating boundary vector.
+
+        Args:
+            vessel_type: Vessel classification category.
+            capacity: Vessel capacity numeric value (DWT or GT).
+
+        Returns:
+            Tuple of (exp_d1, exp_d2, exp_d3, exp_d4) boundary thresholds.
+        """
+        pass
+
+    @abstractmethod
     def evaluate_fueleu(
         self,
         ghg_intensity: float,

@@ -154,6 +154,7 @@ The compliance subsystem evaluates fleet voyages against statutory **IMO Carbon 
 | `capacity_metric` | `str` | Statutory capacity metric basis (`DWT` or `GT`) under IMO Resolution MEPC.353(78) G2. |
 | `reference_line_a` | `float` | Statutory reference curve regression parameter $a$ under IMO MEPC.353(78). |
 | `reference_line_c` | `float` | Statutory reference curve regression exponent $c$ under IMO MEPC.353(78). |
+| `rating_boundaries`| `tuple` | Statutory boundary vector $(d_1, d_2, d_3, d_4)$ under IMO Resolution MEPC.354(78) G4. |
 
 > [!WARNING] Deprecation Notice: `compliance_score`
 > The field `compliance_score` is deprecated and preserved strictly for backwards compatibility with legacy tests. It previously functioned as a polymorphic alias (`cii_ratio` for CII, `penalty_eur` for FuelEU). All downstream optimization engines (`FleetObjective`, `nsga2_pareto`, `ScenarioAnalysis`) and dashboards consume the explicit canonical fields `penalty_eur` and `cii_ratio`.
@@ -215,7 +216,7 @@ Verify that all architectural contracts, physics derivations, statutory emission
 ```bash
 python -m pytest tests/ -v
 ```
-* **Produces:** 193/193 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves, and MEPC.400(83) compliance targets.
+* **Produces:** 195/195 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves, MEPC.400(83) compliance targets, and MEPC.354(78) G4 ship-type-specific rating boundaries.
 
 ---
 
@@ -298,8 +299,29 @@ Implemented in `src/compliance/compliance_engine.py` conforming to [`contracts.i
 | **2030** | **21.500%** (`0.21500`) | **IMO Resolution MEPC.400(83)** |
 
 - **Statutory Lookup & Regulatory Range Enforcement:** Implemented via immutable lookup table `CII_Z_FACTORS`. Both `get_cii_z_factor(year)` and `evaluate_cii(..., year=year)` strictly reject calendar years outside the statutory regulatory range ($[2023, 2030]$) by raising `ComplianceError`, preventing erroneous extrapolations or arbitrary linear drift.
-- **Letter Rating Bands (A–E):** Based on ratio $r = \text{CII}_{\text{attained}} / \text{CII}_{\text{required}}$:
-  $r \le 0.83 \implies \text{A}$, $r \le 0.94 \implies \text{B}$, $r \le 1.06 \implies \text{C}$, $r \le 1.19 \implies \text{D}$, else $\text{E}$.
+- **Ship-Type-Specific Letter Rating Boundaries (IMO Resolution MEPC.354(78) G4):** Superseding simplified universal thresholds (`0.83, 0.94, 1.06, 1.19`), the engine resolves statutory rating boundary vectors $(d_1, d_2, d_3, d_4)$ conforming to Table 1 of Resolution MEPC.354(78). Operational rating (A–E) is evaluated against the statutory ratio $r = \text{CII}_{\text{attained}} / \text{CII}_{\text{required}}$:
+  - **Grade A (Superior):** $r \le \exp(d_1)$
+  - **Grade B (Minor Superior):** $\exp(d_1) < r \le \exp(d_2)$
+  - **Grade C (Moderate):** $\exp(d_2) < r \le \exp(d_3)$
+  - **Grade D (Inferior):** $\exp(d_3) < r \le \exp(d_4)$
+  - **Grade E (Inferior / Non-compliant):** $r > \exp(d_4)$
+
+| Statutory Vessel Category | Capacity Sub-tier | $\exp(d_1)$ (A/B) | $\exp(d_2)$ (B/C) | $\exp(d_3)$ (C/D) | $\exp(d_4)$ (D/E) |
+|:---|:---|:---:|:---:|:---:|:---:|
+| **Bulk Carrier** | All sizes | 0.86 | 0.94 | 1.06 | 1.18 |
+| **Tanker** | All sizes | 0.82 | 0.93 | 1.08 | 1.28 |
+| **Containership** | All sizes | 0.83 | 0.94 | 1.07 | 1.19 |
+| **General Cargo Ship** | All sizes | 0.83 | 0.94 | 1.06 | 1.19 |
+| **LNG Carrier** | $\ge 100,000$ DWT | 0.89 | 0.98 | 1.06 | 1.13 |
+| **LNG Carrier** | $< 100,000$ DWT | 0.78 | 0.92 | 1.10 | 1.37 |
+| **Ro-Ro Vehicle Carrier** | All sizes | 0.86 | 0.94 | 1.06 | 1.16 |
+| **Ro-Ro Cargo Ship** | All sizes | 0.76 | 0.89 | 1.08 | 1.27 |
+| **Ro-Ro Passenger Ship** | All sizes | 0.76 | 0.92 | 1.14 | 1.30 |
+| **Cruise Passenger Ship** | All sizes | 0.87 | 0.95 | 1.06 | 1.16 |
+| **Gas Carrier** | $\ge 65,000$ DWT | 0.81 | 0.91 | 1.12 | 1.44 |
+| **Gas Carrier** | $< 65,000$ DWT | 0.85 | 0.95 | 1.06 | 1.25 |
+| **Refrigerated Cargo** | All sizes | 0.78 | 0.91 | 1.07 | 1.20 |
+| **Combination Carrier** | All sizes | 0.87 | 0.96 | 1.06 | 1.14 |
 
 ### 5.3 EU FuelEU Maritime Statutory Penalties (Regulation (EU) 2023/1805)
 Implemented in `src/compliance/compliance_engine.py` following Article 23 & Annex IV:

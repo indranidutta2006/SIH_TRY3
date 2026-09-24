@@ -311,4 +311,77 @@ def test_cii_evaluate_with_gt_capacity() -> None:
     assert res.attained_cii == pytest.approx(expected_attained, abs=1e-3)
 
 
+def test_cii_rating_boundaries_mepc354_78() -> None:
+    """Verify Resolution MEPC.354(78) G4 ship-type specific rating boundary vectors."""
+    engine = MaritimeComplianceEngine()
+
+    # Bulk Carrier: 0.86, 0.94, 1.06, 1.18
+    assert engine.resolve_cii_rating_boundaries("Bulk Carrier", 60000.0) == (0.86, 0.94, 1.06, 1.18)
+
+    # Tanker: 0.82, 0.93, 1.08, 1.28
+    assert engine.resolve_cii_rating_boundaries("Tanker", 50000.0) == (0.82, 0.93, 1.08, 1.28)
+
+    # Containership: 0.83, 0.94, 1.07, 1.19
+    assert engine.resolve_cii_rating_boundaries("Container", 40000.0) == (0.83, 0.94, 1.07, 1.19)
+
+    # LNG Carrier (>= 100k DWT): 0.89, 0.98, 1.06, 1.13
+    assert engine.resolve_cii_rating_boundaries("LNG Carrier", 120000.0) == (0.89, 0.98, 1.06, 1.13)
+
+    # LNG Carrier (< 100k DWT): 0.78, 0.92, 1.10, 1.37
+    assert engine.resolve_cii_rating_boundaries("LNG Carrier", 80000.0) == (0.78, 0.92, 1.10, 1.37)
+
+    # Ro-Ro Vehicle Carrier: 0.86, 0.94, 1.06, 1.16
+    assert engine.resolve_cii_rating_boundaries("Ro-Ro Vehicle Carrier", 45000.0) == (0.86, 0.94, 1.06, 1.16)
+
+    # Ro-Ro Cargo Ship: 0.76, 0.89, 1.08, 1.27
+    assert engine.resolve_cii_rating_boundaries("Ro-Ro Cargo Ship", 25000.0) == (0.76, 0.89, 1.08, 1.27)
+
+    # Ro-Ro Passenger Ship: 0.76, 0.92, 1.14, 1.30
+    assert engine.resolve_cii_rating_boundaries("Ro-Ro Passenger Ship", 35000.0) == (0.76, 0.92, 1.14, 1.30)
+
+
+def test_cii_rating_classification_ship_type_differences() -> None:
+    """Verify that ship-type-specific boundaries correctly classify edge cases."""
+    engine = MaritimeComplianceEngine()
+
+    # 1. Tanker with ratio 1.25:
+    # Under universal threshold (1.19), this would be E. Under Tanker G4 vector (d4=1.28), this is Grade D.
+    # Compute emissions to get ratio ~1.25
+    dwt = 50000.0
+    dist = 40000.0
+    baseline = 5247.0 * (dwt ** -0.610)
+    z = engine.get_cii_z_factor(2025)
+    req = baseline * (1.0 - z)
+    target_attained = req * 1.25
+    co2 = (target_attained * dwt * dist) / 1e6
+
+    res_tanker = engine.evaluate_cii(
+        vessel_type="Tanker",
+        capacity=dwt,
+        annual_distance_nm=dist,
+        annual_co2_tons=co2,
+        year=2025,
+    )
+    assert res_tanker.cii_ratio == pytest.approx(1.25, abs=0.01)
+    assert res_tanker.cii_rating == "D"  # Would have been E under old universal 1.19!
+
+    # 2. LNG Carrier (120,000 DWT) with ratio 0.88:
+    # Under universal threshold (0.83), this would be B. Under Large LNG G4 vector (d1=0.89), this is Grade A!
+    baseline_lng = 9.827
+    req_lng = baseline_lng * (1.0 - z)
+    target_attained_lng = req_lng * 0.88
+    co2_lng = (target_attained_lng * 120000.0 * dist) / 1e6
+
+    res_lng = engine.evaluate_cii(
+        vessel_type="LNG Carrier",
+        capacity=120000.0,
+        annual_distance_nm=dist,
+        annual_co2_tons=co2_lng,
+        year=2025,
+    )
+    assert res_lng.cii_ratio == pytest.approx(0.88, abs=0.01)
+    assert res_lng.cii_rating == "A"  # Would have been B under old universal 0.83!
+
+
+
 

@@ -136,6 +136,7 @@ class ComplianceResult:
     capacity_metric: str = "DWT"  # Statutory capacity basis ('DWT' or 'GT' under MEPC.353(78) G2)
     reference_line_a: float = 0.0  # IMO G2 curve coefficient a
     reference_line_c: float = 0.0  # IMO G2 curve exponent c
+    rating_boundaries: tuple[float, float, float, float] = (0.86, 0.94, 1.06, 1.18)  # IMO MEPC.354(78) G4 boundaries
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize dataclass to dictionary."""
