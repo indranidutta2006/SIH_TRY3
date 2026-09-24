@@ -110,7 +110,7 @@ class MaritimeComplianceEngine(ComplianceEngine):
         5. LNG carrier:
            - >= 100,000 DWT: a=9.827, c=0.0 (CII_ref = 9.827), capacity_metric="DWT"
            - 65,000 to < 100,000 DWT: a=1.4479e14, c=2.673, capacity_metric="DWT"
-           - < 65,000 DWT: a=1.4779e14, c=2.673, capacity_metric="DWT"
+           - < 65,000 DWT: a=1.4779e14, c=2.673, effective_capacity=65000.0, capacity_metric="DWT"
         6. Ro-ro cargo ship (vehicle carrier):
            - >= 57,700 GT: a=3627.0, c=0.590, effective_capacity=57700.0, capacity_metric="GT"
            - 30,000 to < 57,700 GT: a=3627.0, c=0.590, capacity_metric="GT"
@@ -170,11 +170,13 @@ class MaritimeComplianceEngine(ComplianceEngine):
             metric = "DWT"
             if capacity >= 100000.0:
                 a, c = 9.827, 0.0
+                eff_cap = capacity
             elif capacity >= 65000.0:
                 a, c = 1.4479e14, 2.673
+                eff_cap = capacity
             else:
                 a, c = 1.4779e14, 2.673
-            eff_cap = capacity
+                eff_cap = 65000.0  # Statutory fixed effective capacity under IMO MEPC.353(78) Table 1
 
         # 4. Gas Carrier
         elif "gas" in v_norm:

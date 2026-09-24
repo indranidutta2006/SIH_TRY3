@@ -253,11 +253,27 @@ def test_cii_lng_carrier_mepc353_78_split() -> None:
     assert c_md == 2.673
     assert metric_md == "DWT"
 
-    # Small LNG carrier (< 65,000 DWT): a=1.4779e14, c=2.673
-    a_sm, c_sm, _, metric_sm = engine.resolve_cii_reference_line("LNG Carrier", 50000.0)
+    # Small LNG carrier (< 65,000 DWT): a=1.4779e14, c=2.673, eff_cap=65,000 DWT
+    a_sm, c_sm, eff_sm, metric_sm = engine.resolve_cii_reference_line("LNG Carrier", 50000.0)
     assert a_sm == pytest.approx(1.4779e14, rel=1e-5)
     assert c_sm == 2.673
+    assert eff_sm == 65000.0  # Statutory fixed effective capacity under IMO MEPC.353(78)
     assert metric_sm == "DWT"
+
+    # Verify evaluate_cii uses fixed 65,000 DWT baseline rather than raw 50,000 DWT
+    res_lng_50k = engine.evaluate_cii(
+        vessel_type="LNG Carrier",
+        capacity=50000.0,
+        annual_distance_nm=40000.0,
+        annual_co2_tons=20000.0,
+        year=2025,
+    )
+    expected_baseline_65k = 1.4779e14 * (65000.0 ** -2.673)
+    expected_req_65k = round(expected_baseline_65k * (1.0 - 0.09), 4)
+    assert res_lng_50k.required_cii == pytest.approx(expected_req_65k, abs=1e-3)
+    # Ensure it did NOT use raw 50,000 DWT
+    uncapped_lng_baseline = 1.4779e14 * (50000.0 ** -2.673)
+    assert res_lng_50k.required_cii != pytest.approx(round(uncapped_lng_baseline * (1.0 - 0.09), 4), abs=1e-1)
 
 
 def test_cii_roro_mepc353_78_gt_metric() -> None:
