@@ -41,9 +41,41 @@ def run_audit(csv_path: Path, figures_dir: Path, reports_dir: Path) -> dict[str,
     figures_dir.mkdir(parents=True, exist_ok=True)
     reports_dir.mkdir(parents=True, exist_ok=True)
 
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, low_memory=False, encoding_errors="replace")
     total_rows = len(df)
-    logger.info("Loaded %d voyage records", total_rows)
+    logger.info("Loaded %d voyage records from '%s'", total_rows, csv_path.name)
+
+    required_schema_cols = [
+        "voyage_id",
+        "vessel_id",
+        "vessel_type",
+        "vessel_dwt",
+        "cargo_tons",
+        "distance_nm",
+        "speed_knots",
+        "hours_at_sea",
+        "fuel_type",
+        "weather_factor",
+        "sea_state",
+        "data_source",
+        "is_synthetic",
+    ]
+    missing_schema_cols = [c for c in required_schema_cols if c not in df.columns]
+
+    if missing_schema_cols:
+        logger.warning(
+            "Dataset '%s' is missing %d required VoyageRecord schema column(s): %s",
+            csv_path.name,
+            len(missing_schema_cols),
+            missing_schema_cols,
+        )
+        return {
+            "status": "REQUIRES_ADAPTATION",
+            "total_rows": total_rows,
+            "total_raw_cols": len(df.columns),
+            "missing_cols": missing_schema_cols,
+            "raw_cols": list(df.columns),
+        }
 
     # =========================================================================
     # CHECK 1: DATA INTEGRITY & BOUNDARIES (NaN, Inf, Negatives)
@@ -434,6 +466,28 @@ def main() -> int:
         return 1
 
     metrics = run_audit(csv_file, figures_dir, reports_dir)
+
+    if metrics.get("status") == "REQUIRES_ADAPTATION":
+        print("=" * 70)
+        print("RAW DATASET SCHEMA AUDIT: ADAPTATION REQUIRED")
+        print("=" * 70)
+        print(f"Dataset File:             {csv_file}")
+        print(f"Total Rows:               {metrics['total_rows']:,}")
+        print(f"Total Raw Columns:        {metrics['total_raw_cols']}")
+        print(f"\nMissing Canonical VoyageRecord Columns ({len(metrics['missing_cols'])}):")
+        for mc in metrics["missing_cols"]:
+            print(f"  [X] {mc}")
+        print(f"\nSample of Available Raw Columns ({min(len(metrics['raw_cols']), 20)} of {len(metrics['raw_cols'])}):")
+        for i, rc in enumerate(metrics["raw_cols"][:20]):
+            clean_rc = rc.encode("ascii", errors="replace").decode("ascii")
+            print(f"  [{i+1:2d}] {clean_rc}")
+        if len(metrics["raw_cols"]) > 20:
+            print(f"  ... and {len(metrics['raw_cols']) - 20} more columns")
+        print("\nNote: Use src/ingestion/real_data_adapter.py (or --use-real-data) to automatically")
+        print("map these observational columns into the canonical VoyageRecord schema.")
+        print("=" * 70)
+        return 0
+
     print("=" * 70)
     print("DATASET SANITY AUDIT COMPLETED SUCCESSFULLY")
     print("=" * 70)
