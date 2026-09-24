@@ -179,7 +179,7 @@ The central architecture contracts in [`contracts/constants.py`](contracts/const
 | `ModelType.XGBOOST` *(Alias)* | `hist_gradient_boosting` | `HistGradientBoostingRegressor` | 🔄 Architectural Alias | Contract alias mapped to native histogram GBDT (eliminates unpinned external C++ binaries). |
 
 > [!NOTE] Architectural Clarification: XGBoost & Native GBDT Alignment
-> Early Phase 0 contract specifications referenced `ModelType.XGBOOST`. However, to ensure deterministic cross-platform execution (Windows, Linux, Docker, Render cloud containers) without unpinned native C++ dynamic library dependencies (`libxgboost`, OpenMP runtime mismatches), the implementation standardizes on `HistGradientBoostingRegressor` (`scikit-learn`). `HistGradientBoosting` implements the exact same histogram-binning and gradient-boosted decision tree algorithm as XGBoost/LightGBM. For architectural compatibility, `ModelType.XGBOOST` is preserved as a valid contract alias and transparently resolves to `hist_gradient_boosting` in `normalize_model_name()`.
+> Early Phase 0 contract specifications referenced `ModelType.XGBOOST`. However, to ensure deterministic cross-platform execution (Windows, Linux, Docker, Render cloud containers) without unpinned native C++ dynamic library dependencies (`libxgboost`, OpenMP runtime mismatches), the implementation standardizes on `HistGradientBoostingRegressor` (`scikit-learn`). `HistGradientBoosting` belongs to the same broad class of histogram-based gradient-boosted decision tree methods as XGBoost and LightGBM (inspired by LightGBM's binning paradigm). For architectural compatibility, `ModelType.XGBOOST` is preserved as a valid contract alias and transparently resolves to `hist_gradient_boosting` in `normalize_model_name()`.
 
 ---
 
