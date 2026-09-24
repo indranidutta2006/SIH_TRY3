@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.metrics import root_mean_squared_error
+from sklearn.model_selection import GroupShuffleSplit
 
 from contracts.exceptions import PredictionError
 from src.optimization.qpso import QPSOOptimizer
@@ -182,6 +183,7 @@ class QIFCPRegressor(BaseEstimator, RegressorMixin):
         self,
         X: Any,
         y: Any,
+        groups: Any = None,
         population_size: int = 10,
         max_iterations: int = 15,
         val_split: float = 0.2,
@@ -190,14 +192,59 @@ class QIFCPRegressor(BaseEstimator, RegressorMixin):
 
         Directly establishes synergy between Objective 1 (Prediction) and
         Objective 2 (QPSO Optimization) under an equal-budget protocol.
+
+        Supports vessel-grouped (group-disjoint) inner validation splitting to eliminate
+        vessel data leakage during the QPSO hyperparameter search.
+
+        Args:
+            X: Training feature matrix.
+            y: Target values.
+            groups: Optional group identifiers (e.g. vessel_id array) to enforce
+                vessel-disjoint inner validation splitting.
+            population_size: Number of QPSO particles.
+            max_iterations: Maximum QPSO optimization iterations.
+            val_split: Fraction of groups (or samples) held out for validation.
         """
         X_arr = np.asarray(X, dtype=float)
         y_arr = np.asarray(y, dtype=float).ravel()
         n = len(X_arr)
 
-        split_idx = int(n * (1.0 - val_split))
-        X_train, X_val = X_arr[:split_idx], X_arr[split_idx:]
-        y_train, y_val = y_arr[:split_idx], y_arr[split_idx:]
+        if groups is not None:
+            groups_arr = np.asarray(groups)
+            if len(groups_arr) != n:
+                raise PredictionError(
+                    f"Length of groups ({len(groups_arr)}) does not match samples ({n})."
+                )
+            unique_groups = np.unique(groups_arr)
+            if len(unique_groups) >= 2:
+                gss = GroupShuffleSplit(n_splits=1, test_size=val_split, random_state=self.random_state)
+                tr_idx, val_idx = next(gss.split(X_arr, y_arr, groups=groups_arr))
+                X_train, X_val = X_arr[tr_idx], X_arr[val_idx]
+                y_train, y_val = y_arr[tr_idx], y_arr[val_idx]
+                self.inner_train_indices_ = tr_idx
+                self.inner_val_indices_ = val_idx
+                logger.info(
+                    "QIFCP inner vessel-grouped split: %d train (%d vessels), %d val (%d vessels)",
+                    len(X_train),
+                    len(np.unique(groups_arr[tr_idx])),
+                    len(X_val),
+                    len(np.unique(groups_arr[val_idx])),
+                )
+            else:
+                logger.warning(
+                    "Only 1 unique group detected in groups; falling back to positional validation split."
+                )
+                split_idx = int(n * (1.0 - val_split))
+                X_train, X_val = X_arr[:split_idx], X_arr[split_idx:]
+                y_train, y_val = y_arr[:split_idx], y_arr[split_idx:]
+                self.inner_train_indices_ = np.arange(split_idx)
+                self.inner_val_indices_ = np.arange(split_idx, n)
+        else:
+            split_idx = int(n * (1.0 - val_split))
+            X_train, X_val = X_arr[:split_idx], X_arr[split_idx:]
+            y_train, y_val = y_arr[:split_idx], y_arr[split_idx:]
+            self.inner_train_indices_ = np.arange(split_idx)
+            self.inner_val_indices_ = np.arange(split_idx, n)
 
         # Search bounds: gamma in [0.05, 2.0], alpha_reg in [0.01, 50.0]
         param_bounds = [

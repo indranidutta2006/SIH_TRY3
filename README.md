@@ -223,7 +223,7 @@ Verify that all architectural contracts, physics derivations, statutory emission
 ```bash
 python -m pytest tests/ -v
 ```
-* **Produces:** 216/216 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves (including 279k DWT Bulk, 57.7k GT Ro-Ro Vehicle carrier, and 65k DWT LNG carrier effective capacity caps), strict statutory capacity unit validation (GT vs DWT), MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, decoupled statutory compliance schemas, FuelEU Article 23(2) consecutive-deficit penalty scaling, and canonical Deb et al. (2002) NSGA-II crowding-distance environmental selection.
+* **Produces:** 218/218 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves (including 279k DWT Bulk, 57.7k GT Ro-Ro Vehicle carrier, and 65k DWT LNG carrier effective capacity caps), strict statutory capacity unit validation (GT vs DWT), MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, decoupled statutory compliance schemas, FuelEU Article 23(2) consecutive-deficit penalty scaling, canonical Deb et al. (2002) NSGA-II crowding-distance environmental selection, and nested vessel-disjoint inner validation for QPSO-tuned QIFCP.
 
 ---
 
@@ -350,7 +350,10 @@ where:
 > 4. Port-call geographic exemptions (outermost regions, islands, or ice-class provisions).
 
 ### 5.4 Quantum-Inspired & Quantum Kernel Modeling
-- **QIFCP (`src/prediction/qifcp.py`):** Quantum-inspired hydrodynamic neural regressor tuned with Quantum-behaved Particle Swarm Optimization (`QPSO`).
+- **QIFCP (`src/prediction/qifcp.py`):** Quantum-inspired hydrodynamic neural regressor tuned with Quantum-behaved Particle Swarm Optimization (`QPSO`). Encodes standardized hydro-meteorological features into quantum phase angles $\theta_j = \arctan(\gamma \cdot z_j)$ and pairwise quantum superposition-entanglement correlation states.
+- **Nested Vessel-Disjoint Validation Protocol:** To eliminate data leakage and guard against optimistic generalization bias across all evaluation stages, the QIFCP hyperparameter tuning and model evaluation pipeline enforces strict nested vessel-disjoint splitting:
+  $$\text{Outer Vessel-Disjoint Split (Test Evaluation)} \longrightarrow \text{Training Partition} \longrightarrow \text{Inner Vessel-Disjoint Split (QPSO Hyperparameter Search)}$$
+  In `QIFCPRegressor.tune_with_qpso(X, y, groups=vessel_ids)`, the inner validation partition is constructed using `GroupShuffleSplit` over vessel identities. This ensures that no vessel present in the inner validation fold appears in the inner training fold while QPSO searches for optimal phase scaling ($\gamma$) and L2 regularization ($\alpha_{\text{reg}}$).
 - **QuantumKernelPredictor (`models/fuel_predictor.py`):** PennyLane simulation (`default.qubit`) utilizing `AngleEmbedding` on 4 normalized hydrodynamic features (`speed_kn`, `load_factor`, `wave_ht_m`, `wind_bft`) combined with a 2-repetition `ZZFeatureMap` entangling circuit. The resulting quantum state transition kernel matrix is fed into `KernelRidge(alpha=0.1)`, achieving $R^2 > 0.88$ on cross-class synthetic voyages.
   > *Quantum principle used:* Interference between feature-encoded states produces a similarity metric unavailable to classical RBF kernels.
 

@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from contracts.exceptions import PredictionError
 from src.ingestion.dataset_loader import CSVDatasetLoader
 from src.ingestion.feature_pipeline import FeatureEngineeringPipeline
 from src.prediction.model_registry import ModelRegistry
@@ -106,3 +107,57 @@ def test_qifcp_model_registry_integration() -> None:
     model = registry.create_model("qifcp")
     assert isinstance(model, QIFCPRegressor)
     assert ModelRegistry.get_artifact_filename("qifcp") == "qifcp.pkl"
+
+
+def test_qifcp_tune_with_qpso_vessel_grouped() -> None:
+    """Assert QPSO hyperparameter tuning performs strict vessel-disjoint inner validation."""
+    loader = CSVDatasetLoader()
+    records = loader.load_data("data/raw/voyages_sample.csv")
+    sample_records = records[:300]
+    pipeline = FeatureEngineeringPipeline()
+    X_df, y_ser = pipeline.get_training_features_and_target(sample_records, encode_categoricals=True)
+    vessel_ids = np.array([r.vessel_id for r in sample_records])
+
+    X = X_df.to_numpy(dtype=float)
+    y = y_ser.to_numpy(dtype=float)
+
+    model = QIFCPRegressor(gamma=0.5, alpha_reg=1.0, random_state=42)
+    tuned = model.tune_with_qpso(
+        X,
+        y,
+        groups=vessel_ids,
+        population_size=6,
+        max_iterations=6,
+        val_split=0.25,
+    )
+
+    assert tuned is model
+    assert hasattr(model, "inner_train_indices_")
+    assert hasattr(model, "inner_val_indices_")
+
+    train_vessels = set(vessel_ids[model.inner_train_indices_])
+    val_vessels = set(vessel_ids[model.inner_val_indices_])
+
+    # Assert ZERO vessel leakage in the inner hyperparameter validation split
+    assert train_vessels.isdisjoint(val_vessels), (
+        f"Vessel leakage detected in inner validation! Overlapping vessels: {train_vessels & val_vessels}"
+    )
+    assert len(train_vessels) >= 2
+    assert len(val_vessels) >= 1
+    assert len(model.tuning_history_) == 6
+
+    # Verify model is fitted and can perform inference
+    preds = model.predict(X[:50])
+    assert len(preds) == 50
+    assert np.all(preds >= 0.0)
+
+
+def test_qifcp_tune_with_qpso_groups_mismatch_raises_error() -> None:
+    """Assert passing mismatched groups length raises PredictionError."""
+    X = np.ones((50, 5))
+    y = np.ones(50)
+    groups = np.array(["V1", "V2"])  # Length 2 != 50
+    model = QIFCPRegressor(random_state=42)
+
+    with pytest.raises(PredictionError, match="Length of groups"):
+        model.tune_with_qpso(X, y, groups=groups)

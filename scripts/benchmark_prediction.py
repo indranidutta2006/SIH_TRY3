@@ -147,8 +147,14 @@ def run_prediction_benchmark(
 
         fit_start = time.perf_counter()
         if model_name == "qifcp" and isinstance(model, QIFCPRegressor):
-            # Tune QIFCP hyperparameters using QPSO under equal-budget discipline
-            model.tune_with_qpso(X_train, y_train, population_size=8, max_iterations=10)
+            # Tune QIFCP hyperparameters using QPSO under equal-budget discipline with inner vessel-grouped split
+            model.tune_with_qpso(
+                X_train,
+                y_train,
+                groups=vessel_groups[train_idx],
+                population_size=8,
+                max_iterations=10,
+            )
         else:
             model.fit(X_train, y_train)
         fit_time = time.perf_counter() - fit_start
@@ -347,7 +353,13 @@ def run_segmented_benchmark(
 
             t0 = time.perf_counter()
             if model_name == "qifcp" and isinstance(model_src, QIFCPRegressor):
-                model_src.tune_with_qpso(X_tr_src, y_tr_src, population_size=8, max_iterations=10)
+                model_src.tune_with_qpso(
+                    X_tr_src,
+                    y_tr_src,
+                    groups=vessel_groups[train_idx][tr_mask],
+                    population_size=8,
+                    max_iterations=10,
+                )
             else:
                 model_src.fit(X_tr_src, y_tr_src)
             fit_t = time.perf_counter() - t0
