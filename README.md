@@ -238,7 +238,7 @@ Verify that all architectural contracts, physics derivations, statutory emission
 ```bash
 python -m pytest tests/ -v
 ```
-* **Produces:** 222/222 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves (including 279k DWT Bulk, 57.7k GT Ro-Ro Vehicle carrier, and 65k DWT LNG carrier effective capacity caps), strict statutory capacity unit validation (GT vs DWT), MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, decoupled statutory compliance schemas, FuelEU Article 23(2) consecutive-deficit penalty scaling, canonical Deb et al. (2002) NSGA-II crowding-distance environmental selection, nested vessel-disjoint inner validation for QPSO-tuned QIFCP, unified system-wide dual-route fuel architecture across scenario analysis and fleet optimizers, and full ModelType central contract & ModelRegistry estimator alignment.
+* **Produces:** 225/225 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves (including 279k DWT Bulk, 57.7k GT Ro-Ro Vehicle carrier, and 65k DWT LNG carrier effective capacity caps), strict statutory capacity unit validation (GT vs DWT), MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, decoupled statutory compliance schemas, FuelEU Article 23(2) consecutive-deficit penalty scaling, canonical Deb et al. (2002) NSGA-II crowding-distance environmental selection, nested vessel-disjoint inner validation for QPSO-tuned QIFCP, unified system-wide dual-route fuel architecture, dynamic vessel-weather parameterization across fleet optimization routines, and full ModelType central contract & ModelRegistry estimator alignment.
 
 ---
 
@@ -432,6 +432,43 @@ To maintain strict scientific integrity across both comparative scenario simulat
 - **ShorePower Direct Grid Accounting:** For vessels drawing cold-ironing shore power (`ShorePower`), operational combustion fuel mass is $0.0\text{ metric tons}$, operational $\text{CO}_2\text{e}$ emissions are $0.0\text{ metric tons}$, FuelEU penalty exposure is $0.0\text{ EUR}$, and total voyage cost is computed directly via electrical energy consumption:
   $$\text{Cost} = E_{\text{electrical}}\text{ (MWh)} \times \text{Electricity Tariff (USD/MWh)}$$
 - **System-Wide Uniformity:** This dispatch boundary is identically enforced across `ScenarioAnalysisEngine` (`src/optimization/scenario_analysis.py`), scalar fleet objective evaluation for QPSO/PSO (`src/optimization/fleet_objective.py`), and bi-objective Pareto optimization (`src/optimization/nsga2_pareto.py`).
+
+### 5.7 Dynamic Vessel & Weather Parameterization in Fleet Optimization (`voyage_specs` & `vessel_specs`)
+To guarantee physical realism and ensure that scheduling and routing decisions reflect authentic vessel heterogeneity and environmental conditions, both [`fleet_objective.py`](src/optimization/fleet_objective.py) and [`nsga2_pareto.py`](src/optimization/nsga2_pareto.py) resolve vessel and meteorological characteristics dynamically rather than substituting hardcoded constants:
+
+```
+                  Context Dictionary (context)
+                                |
+        +-----------------------+-----------------------+
+        |                                               |
+  vessel_specs                                     voyage_specs
+(per-vessel defaults:                            (per-cargo / per-voyage:
+ vessel_type, vessel_dwt)                         cargo_tons, weather_factor, sea_state)
+        |                                               |
+        +-----------------------+-----------------------+
+                                |
+                                v
+               Hierarchical Specification Merging:
+             spec = {**v_entry, **c_entry, **pair_entry}
+                                |
+        +-----------------------+-----------------------+
+        |                                               |
+        v                                               v
+   ML Inference                                First-Principles Physics
+  (VoyageRecord populated with                 (calculate_fuel_use invoked with
+   exact vessel_type, dwt,                      exact cargo_tons, weather_factor,
+   cargo_tons, weather, sea_state)              and vessel_dwt)
+```
+
+- **Dynamic Attributes Resolved:**
+  - `vessel_type`: Populated dynamically (e.g., `Container Ship`, `Tanker`, `Gas Carrier`, `General Cargo`, `Bulk Carrier`) rather than assuming every vessel is a generic bulk carrier.
+  - `vessel_dwt`: Extracted from vessel capacity / deadweight specifications rather than arbitrary fallback tonnages.
+  - `cargo_tons`: Extracted directly from scheduled cargo consignment weights.
+  - `weather_factor`: Captures route-specific environmental resistance multipliers ($w \ge 1.0$) rather than calm-sea neutral conditions ($1.0$).
+  - `sea_state`: Evaluates Douglas sea state scale integers ($0 \le \text{sea\_state} \le 9$) reflecting actual wave action.
+- **Hierarchical Precedence:** The objective evaluation merges context dictionaries with graceful fallback precedence:
+  $$\text{pair\_entry (vessel-cargo pair)} \succ \text{c\_entry (cargo/route)} \succ \text{v\_entry (vessel)} \succ \text{physical fallback}$$
+- **Fleet Benchmark Alignment:** In `generate_fleet_problem()`, generated problem instances deterministically populate diverse vessel categories (`vessel_type`, `vessel_dwt`) and cargo meteorological profiles (`weather_factor`, `sea_state`), allowing the optimizers to discover genuine operational distinctions between vessel assignments.
 
 ---
 

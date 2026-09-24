@@ -49,6 +49,7 @@ def evaluate_bi_objective(
         raise ValueError(f"Expected 3 or 4 engines, got {len(engines)}")
 
     voyage_specs = context.get("voyage_specs", {})
+    vessel_specs = context.get("vessel_specs", context.get("vessels", {}))
     compliance_year = int(context.get("compliance_year", 2025))
 
     total_cost = 0.0
@@ -64,11 +65,23 @@ def evaluate_bi_objective(
         fuel_idx = int(np.clip(round(float(x[2 * i + 1])), 0, len(SUPPORTED_FUEL_CHOICES) - 1))
         fuel_type = SUPPORTED_FUEL_CHOICES[fuel_idx]
 
-        spec = voyage_specs.get(a.cargo_id, voyage_specs.get(a.vessel_id, {}))
-        cargo_tons = float(spec.get("tons", 40000.0))
-        vessel_dwt = float(spec.get("capacity", max(cargo_tons * 1.2, 50000.0)))
+        # Resolve hierarchical voyage and vessel specifications from context
+        v_entry = vessel_specs.get(a.vessel_id, {}) if isinstance(vessel_specs, dict) else {}
+        if not v_entry and isinstance(voyage_specs, dict):
+            v_entry = voyage_specs.get(a.vessel_id, {})
+        c_entry = voyage_specs.get(a.cargo_id, {}) if isinstance(voyage_specs, dict) else {}
+        pair_entry = (
+            voyage_specs.get(f"{a.vessel_id}_{a.cargo_id}", voyage_specs.get(f"{a.vessel_id}-{a.cargo_id}", {}))
+            if isinstance(voyage_specs, dict)
+            else {}
+        )
+        spec = {**v_entry, **c_entry, **pair_entry}
+
+        cargo_tons = float(spec.get("cargo_tons", spec.get("tons", spec.get("weight", 40000.0))))
+        vessel_dwt = float(spec.get("vessel_dwt", spec.get("capacity", spec.get("dwt", max(cargo_tons * 1.2, 50000.0)))))
         distance_nm = float(spec.get("distance_nm", 1000.0))
         weather_factor = float(spec.get("weather_factor", 1.0))
+        sea_state = int(spec.get("sea_state", 3))
         vessel_type = str(spec.get("vessel_type", "Bulk Carrier"))
         hours_at_sea = distance_nm / max(speed, 1.0)
 
@@ -92,7 +105,7 @@ def evaluate_bi_objective(
                 hours_at_sea=hours_at_sea,
                 fuel_type=fuel_type,
                 weather_factor=weather_factor,
-                sea_state=3,
+                sea_state=sea_state,
                 data_source="nsga2_solver",
                 is_synthetic=True,
                 fuel_consumption=None,
@@ -350,6 +363,7 @@ class ParetoFleetOptimizer:
         )
         context = {
             "voyage_specs": constraints["cargos"],
+            "vessel_specs": constraints.get("vessels", {}),
             "compliance_year": 2025,
         }
         res = self.optimize(

@@ -116,6 +116,7 @@ def fleet_objective(
     w1, w2, w3 = weights
     ctx = context or {}
     voyage_specs = ctx.get("voyage_specs", {})
+    vessel_specs = ctx.get("vessel_specs", ctx.get("vessels", {}))
     hourly_delay_rate = float(ctx.get("delay_penalty_per_hour", 500.0))
     compliance_year = int(ctx.get("compliance_year", 2025))
 
@@ -148,12 +149,24 @@ def fleet_objective(
         v_id = assignment.vessel_id
         c_id = assignment.cargo_id
 
-        spec = voyage_specs.get(c_id, voyage_specs.get(v_id, {}))
-        cargo_tons = float(spec.get("tons", 40000.0))
-        vessel_dwt = float(spec.get("capacity", max(cargo_tons * 1.2, 50000.0)))
+        # Resolve hierarchical voyage and vessel specifications from context
+        v_entry = vessel_specs.get(v_id, {}) if isinstance(vessel_specs, dict) else {}
+        if not v_entry and isinstance(voyage_specs, dict):
+            v_entry = voyage_specs.get(v_id, {})
+        c_entry = voyage_specs.get(c_id, {}) if isinstance(voyage_specs, dict) else {}
+        pair_entry = (
+            voyage_specs.get(f"{v_id}_{c_id}", voyage_specs.get(f"{v_id}-{c_id}", {}))
+            if isinstance(voyage_specs, dict)
+            else {}
+        )
+        spec = {**v_entry, **c_entry, **pair_entry}
+
+        cargo_tons = float(spec.get("cargo_tons", spec.get("tons", spec.get("weight", 40000.0))))
+        vessel_dwt = float(spec.get("vessel_dwt", spec.get("capacity", spec.get("dwt", max(cargo_tons * 1.2, 50000.0)))))
         distance_nm = float(spec.get("distance_nm", 1000.0))
         deadline_hours = float(spec.get("deadline_hours", 120.0))
         weather_factor = float(spec.get("weather_factor", 1.0))
+        sea_state = int(spec.get("sea_state", 3))
         vessel_type = str(spec.get("vessel_type", "Bulk Carrier"))
 
         hours_at_sea = distance_nm / max(speed_knots, 1.0)
@@ -179,7 +192,7 @@ def fleet_objective(
                 hours_at_sea=hours_at_sea,
                 fuel_type=fuel_type,
                 weather_factor=weather_factor,
-                sea_state=3,
+                sea_state=sea_state,
                 data_source="fleet_optimizer",
                 is_synthetic=True,
                 fuel_consumption=None,

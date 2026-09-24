@@ -269,3 +269,128 @@ def test_fuel_routing_mixed_fleet() -> None:
     assert call_records[0].fuel_type == "Diesel"
     assert call_records[0].vessel_id == "VSL-DIESEL"
     assert j_result > 0.0
+
+
+def test_dynamic_vessel_and_weather_specs_in_fleet_objective() -> None:
+    """Verify that fleet_objective passes dynamic vessel and weather characteristics instead of hardcoded constants."""
+    mock_model = MagicMock()
+    mock_model.predict.return_value = [
+        PredictionResult(
+            model_name="mock_model",
+            predicted_fuel_consumption=120.0,
+            confidence_score=0.92,
+            runtime_seconds=0.001,
+        )
+    ]
+    emission_engine = MaritimeEmissionEngine()
+    compliance_engine = MaritimeComplianceEngine()
+
+    assignments = [
+        FleetAssignment(
+            vessel_id="VSL-CONTAINER-01",
+            cargo_id="CRG-BOX-99",
+            assigned=True,
+            estimated_cost=0.0,
+            estimated_fuel=0.0,
+        )
+    ]
+    # speed = 16.0 knots, fuel_idx = 0.0 (Diesel)
+    x = np.array([16.0, 0.0], dtype=float)
+
+    context = {
+        "voyage_specs": {
+            "CRG-BOX-99": {
+                "vessel_type": "Container Ship",
+                "vessel_dwt": 85000.0,
+                "cargo_tons": 55000.0,
+                "distance_nm": 1800.0,
+                "deadline_hours": 140.0,
+                "weather_factor": 1.25,
+                "sea_state": 5,
+            }
+        },
+        "compliance_year": 2025,
+    }
+
+    j_result = fleet_objective(
+        x=x,
+        assignments=assignments,
+        weights=(1.0, 1.0, 1.0),
+        context=context,
+        engines=(mock_model, emission_engine, compliance_engine),
+    )
+
+    assert mock_model.predict.call_count == 1
+    call_records = mock_model.predict.call_args[0][0]
+    assert len(call_records) == 1
+    rec = call_records[0]
+
+    # Verify that characteristics were dynamically populated rather than using defaults
+    assert rec.vessel_type == "Container Ship"
+    assert rec.vessel_dwt == 85000.0
+    assert rec.cargo_tons == 55000.0
+    assert rec.weather_factor == 1.25
+    assert rec.sea_state == 5
+    assert j_result > 0.0
+
+
+def test_hierarchical_vessel_and_cargo_specs_merging() -> None:
+    """Verify hierarchical merging: vessel_specs provides vessel characteristics, voyage_specs provides cargo/weather."""
+    mock_model = MagicMock()
+    mock_model.predict.return_value = [
+        PredictionResult(
+            model_name="mock_model",
+            predicted_fuel_consumption=95.0,
+            confidence_score=0.9,
+            runtime_seconds=0.001,
+        )
+    ]
+    emission_engine = MaritimeEmissionEngine()
+    compliance_engine = MaritimeComplianceEngine()
+
+    assignments = [
+        FleetAssignment(
+            vessel_id="VSL-TANKER-77",
+            cargo_id="CRG-OIL-12",
+            assigned=True,
+            estimated_cost=0.0,
+            estimated_fuel=0.0,
+        )
+    ]
+    x = np.array([13.5, 0.0], dtype=float)
+
+    context = {
+        "vessel_specs": {
+            "VSL-TANKER-77": {
+                "vessel_type": "Tanker",
+                "capacity": 105000.0,
+            }
+        },
+        "voyage_specs": {
+            "CRG-OIL-12": {
+                "tons": 70000.0,
+                "distance_nm": 1200.0,
+                "deadline_hours": 100.0,
+                "weather_factor": 1.15,
+                "sea_state": 4,
+            }
+        },
+        "compliance_year": 2025,
+    }
+
+    fleet_objective(
+        x=x,
+        assignments=assignments,
+        weights=(1.0, 1.0, 1.0),
+        context=context,
+        engines=(mock_model, emission_engine, compliance_engine),
+    )
+
+    assert mock_model.predict.call_count == 1
+    rec = mock_model.predict.call_args[0][0][0]
+
+    assert rec.vessel_type == "Tanker"
+    assert rec.vessel_dwt == 105000.0
+    assert rec.cargo_tons == 70000.0
+    assert rec.weather_factor == 1.15
+    assert rec.sea_state == 4

@@ -261,3 +261,71 @@ def test_evaluate_bi_objective_fuel_routing() -> None:
     assert cost > 0.0
     assert co2e > 0.0
 
+
+def test_evaluate_bi_objective_dynamic_specs() -> None:
+    """Verify evaluate_bi_objective populates dynamic vessel and weather characteristics into VoyageRecord."""
+    from unittest.mock import MagicMock
+    from contracts.schemas import FleetAssignment, PredictionResult
+    from src.compliance.compliance_engine import MaritimeComplianceEngine
+    from src.prediction.emission_engine import MaritimeEmissionEngine
+
+    mock_model = MagicMock()
+    mock_model.predict.return_value = [
+        PredictionResult(
+            model_name="mock_model",
+            predicted_fuel_consumption=85.0,
+            confidence_score=0.95,
+            runtime_seconds=0.001,
+        )
+    ]
+    emission_engine = MaritimeEmissionEngine()
+    compliance_engine = MaritimeComplianceEngine()
+
+    assignments = [
+        FleetAssignment(
+            vessel_id="VSL-GAS-01",
+            cargo_id="CRG-LNG-01",
+            assigned=True,
+            estimated_cost=0.0,
+            estimated_fuel=0.0,
+        )
+    ]
+
+    context = {
+        "vessel_specs": {
+            "VSL-GAS-01": {
+                "vessel_type": "Gas Carrier",
+                "capacity": 72000.0,
+            }
+        },
+        "voyage_specs": {
+            "CRG-LNG-01": {
+                "cargo_tons": 48000.0,
+                "distance_nm": 950.0,
+                "weather_factor": 1.2,
+                "sea_state": 4,
+            }
+        },
+        "compliance_year": 2025,
+    }
+
+    # speed = 15.0 knots, fuel = LNG (1.0)
+    x = np.array([15.0, 1.0], dtype=float)
+
+    evaluate_bi_objective(
+        x=x,
+        assignments=assignments,
+        context=context,
+        engines=(mock_model, emission_engine, compliance_engine),
+    )
+
+    assert mock_model.predict.call_count == 1
+    rec = mock_model.predict.call_args[0][0][0]
+
+    assert rec.vessel_type == "Gas Carrier"
+    assert rec.vessel_dwt == 72000.0
+    assert rec.cargo_tons == 48000.0
+    assert rec.weather_factor == 1.2
+    assert rec.sea_state == 4
+
+

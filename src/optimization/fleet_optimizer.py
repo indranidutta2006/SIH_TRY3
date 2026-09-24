@@ -64,21 +64,32 @@ def generate_fleet_problem(
     vessel_ids = [f"VSL-{i+1:03d}" for i in range(n_vessels)]
     cargo_ids = [f"CRG-{j+1:04d}" for j in range(n_cargos)]
 
-    vessels_spec: dict[str, dict[str, float]] = {}
-    for vid in vessel_ids:
+    vessel_types = ("Bulk Carrier", "Container Ship", "Tanker", "General Cargo")
+    vessels_spec: dict[str, dict[str, Any]] = {}
+    for i, vid in enumerate(vessel_ids):
         capacity = float(rng.choice([35000.0, 55000.0, 75000.0, 110000.0]))
-        vessels_spec[vid] = {"capacity": capacity}
+        vtype = vessel_types[i % len(vessel_types)]
+        vessels_spec[vid] = {
+            "capacity": capacity,
+            "vessel_dwt": capacity,
+            "vessel_type": vtype,
+        }
 
-    cargos_spec: dict[str, dict[str, float]] = {}
-    for cid in cargo_ids:
+    cargos_spec: dict[str, dict[str, Any]] = {}
+    for j, cid in enumerate(cargo_ids):
         tons = float(rng.uniform(15000.0, 65000.0))
         distance_nm = float(rng.uniform(800.0, 2500.0))
         transit_h = distance_nm / 14.0
         deadline_hours = float(transit_h + rng.uniform(36.0, 96.0))
+        weather_factor = float(round(1.0 + (0.05 * (j % 5)), 2))
+        sea_state = int(2 + (j % 4))
         cargos_spec[cid] = {
             "tons": tons,
+            "cargo_tons": tons,
             "distance_nm": distance_nm,
             "deadline_hours": deadline_hours,
+            "weather_factor": weather_factor,
+            "sea_state": sea_state,
         }
 
     constraints: dict[str, Any] = {
@@ -141,6 +152,7 @@ class FleetOptimizationRunner:
 
         context = {
             "voyage_specs": constraints["cargos"],
+            "vessel_specs": constraints.get("vessels", {}),
             "delay_penalty_per_hour": 500.0,
             "compliance_year": 2025,
             "normalize": normalize,
