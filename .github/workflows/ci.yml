@@ -1,0 +1,61 @@
+# ==============================================================================
+# SIH26138 – Green Fleet Navigator  •  Continuous Integration
+#
+# Triggers on every push and pull-request targeting main.
+# Workflow:
+#   1. Install runtime + dev dependencies (requirements.txt + pytest + pennylane)
+#   2. Generate 500-row synthetic dataset and train all three baseline models
+#      (hist_gradient_boosting, random_forest, linear_regression) via the
+#      project's canonical pipeline script.
+#   3. Run the full pytest suite.  Any failure blocks the merge.
+# ==============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: "pytest · Python 3.12 · ubuntu-latest"
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Python setup ──────────────────────────────────────────────────────
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      # ── 3. Dependencies ──────────────────────────────────────────────────────
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # Dev / CI extras not in requirements.txt
+          pip install pytest pytest-cov
+          # PennyLane: required by models/fuel_predictor.py (QPSO layer)
+          pip install pennylane
+
+      # ── 4. Pre-test artifact generation ──────────────────────────────────────
+      #   Generates data/raw/voyages_sample.csv  (500 rows, seed 42)
+      #   Trains  artifacts/models/*.pkl  and writes
+      #           artifacts/metrics/baseline_metrics.json
+      #   A subset of tests (test_model_manager.py) hard-require these artifacts;
+      #   three other suites (test_dataset_loader, test_no_source_leakage,
+      #   test_real_data_adapter) skip gracefully when the CSV is absent — the
+      #   pipeline step ensures they run rather than skip.
+      - name: Generate dataset and train models
+        run: python scripts/run_full_pipeline.py --rows 500
+
+      # ── 5. Test suite ─────────────────────────────────────────────────────────
+      - name: Run pytest
+        run: pytest -q --tb=short
