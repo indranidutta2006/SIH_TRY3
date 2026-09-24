@@ -223,7 +223,7 @@ Verify that all architectural contracts, physics derivations, statutory emission
 ```bash
 python -m pytest tests/ -v
 ```
-* **Produces:** 199/199 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves, MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, decoupled statutory compliance schemas, and FuelEU Article 23(2) consecutive-deficit penalty scaling.
+* **Produces:** 199/199 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves (including 279k DWT Bulk and 57.7k GT Ro-Ro Vehicle carrier caps), MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, decoupled statutory compliance schemas, and FuelEU Article 23(2) consecutive-deficit penalty scaling.
 
 ---
 
@@ -279,7 +279,8 @@ Implemented in `src/compliance/compliance_engine.py` conforming to [`contracts.i
 | **LNG Carrier** | $\ge 100,000$ DWT | DWT | 9.827 | 0.0000 |
 | **LNG Carrier** | $65,000 \le \text{DWT} < 100,000$ | DWT | $1.4479 \times 10^{14}$ | 2.6730 |
 | **LNG Carrier** | $< 65,000$ DWT | DWT | $1.4779 \times 10^{14}$ | 2.6730 |
-| **Ro-Ro Vehicle Carrier** | $\ge 30,000$ GT | **GT** | 3,627.0 | 0.5900 |
+| **Ro-Ro Vehicle Carrier** | $\ge 57,700$ GT (cap at 57,700 GT) | **GT** | 3,627.0 | 0.5900 |
+| **Ro-Ro Vehicle Carrier** | $30,000 \le \text{GT} < 57,700$ | **GT** | 3,627.0 | 0.5900 |
 | **Ro-Ro Vehicle Carrier** | $< 30,000$ GT | **GT** | 330.0 | 0.3290 |
 | **Ro-Ro Cargo Ship** | All sizes | **GT** | 1,967.0 | 0.4850 |
 | **Ro-Ro Passenger Ship** | All sizes | **GT** | 2,023.0 | 0.4600 |

@@ -264,16 +264,40 @@ def test_cii_roro_mepc353_78_gt_metric() -> None:
     """Verify Ro-Ro categories use Gross Tonnage (GT) and correct statutory curves."""
     engine = MaritimeComplianceEngine()
 
-    # Ro-Ro Vehicle Carrier >= 30,000 GT: a=3627, c=0.590, metric=GT
-    a_vc_lg, c_vc_lg, _, m_vc_lg = engine.resolve_cii_reference_line("Ro-Ro Vehicle Carrier", 45000.0)
-    assert a_vc_lg == 3627.0
-    assert c_vc_lg == 0.590
-    assert m_vc_lg == "GT"
+    # Ro-Ro Vehicle Carrier 30,000 - 57,700 GT: a=3627, c=0.590, eff_cap=45,000, metric=GT
+    a_vc_mid, c_vc_mid, eff_vc_mid, m_vc_mid = engine.resolve_cii_reference_line("Ro-Ro Vehicle Carrier", 45000.0)
+    assert a_vc_mid == 3627.0
+    assert c_vc_mid == 0.590
+    assert eff_vc_mid == 45000.0
+    assert m_vc_mid == "GT"
+
+    # Ro-Ro Vehicle Carrier >= 57,700 GT: statutory cap at 57,700 GT
+    a_vc_cap, c_vc_cap, eff_vc_cap, m_vc_cap = engine.resolve_cii_reference_line("Ro-Ro Vehicle Carrier", 100000.0)
+    assert a_vc_cap == 3627.0
+    assert c_vc_cap == 0.590
+    assert eff_vc_cap == 57700.0  # Statutory cap under IMO MEPC.353(78)
+    assert m_vc_cap == "GT"
+
+    # Verify evaluate_cii uses 57,700 GT baseline rather than uncapped 100,000 GT
+    res_vc_100k = engine.evaluate_cii(
+        vessel_type="Ro-Ro Vehicle Carrier",
+        capacity=100000.0,
+        annual_distance_nm=50000.0,
+        annual_co2_tons=25000.0,
+        year=2025,
+    )
+    expected_baseline_57700 = 3627.0 * (57700.0 ** -0.590)
+    expected_req_57700 = round(expected_baseline_57700 * (1.0 - 0.09), 4)
+    assert res_vc_100k.required_cii == pytest.approx(expected_req_57700, abs=1e-3)
+    # Ensure it did NOT use uncapped 100,000 GT
+    uncapped_baseline = 3627.0 * (100000.0 ** -0.590)
+    assert res_vc_100k.required_cii != pytest.approx(round(uncapped_baseline * (1.0 - 0.09), 4), abs=1e-1)
 
     # Ro-Ro Vehicle Carrier < 30,000 GT: a=330, c=0.329, metric=GT
-    a_vc_sm, c_vc_sm, _, m_vc_sm = engine.resolve_cii_reference_line("Ro-Ro Vehicle Carrier", 20000.0)
+    a_vc_sm, c_vc_sm, eff_vc_sm, m_vc_sm = engine.resolve_cii_reference_line("Ro-Ro Vehicle Carrier", 20000.0)
     assert a_vc_sm == 330.0
     assert c_vc_sm == 0.329
+    assert eff_vc_sm == 20000.0
     assert m_vc_sm == "GT"
 
     # Ro-Ro Cargo Ship: a=1967, c=0.485, metric=GT

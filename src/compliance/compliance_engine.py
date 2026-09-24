@@ -112,7 +112,8 @@ class MaritimeComplianceEngine(ComplianceEngine):
            - 65,000 to < 100,000 DWT: a=1.4479e14, c=2.673, capacity_metric="DWT"
            - < 65,000 DWT: a=1.4779e14, c=2.673, capacity_metric="DWT"
         6. Ro-ro cargo ship (vehicle carrier):
-           - >= 30,000 GT: a=3627.0, c=0.590, capacity_metric="GT"
+           - >= 57,700 GT: a=3627.0, c=0.590, effective_capacity=57700.0, capacity_metric="GT"
+           - 30,000 to < 57,700 GT: a=3627.0, c=0.590, capacity_metric="GT"
            - < 30,000 GT: a=330.0, c=0.329, capacity_metric="GT"
         7. Ro-ro cargo ship:
            - All sizes: a=1967.0, c=0.485, capacity_metric="GT"
@@ -138,9 +139,10 @@ class MaritimeComplianceEngine(ComplianceEngine):
             metric = "GT"
             if capacity >= 30000.0:
                 a, c = 3627.0, 0.590
+                eff_cap = min(capacity, 57700.0)
             else:
                 a, c = 330.0, 0.329
-            eff_cap = capacity
+                eff_cap = capacity
         elif "passenger" in v_norm and ("ro" in v_norm or "ferry" in v_norm):
             metric = "GT"
             a, c = 2023.0, 0.460
