@@ -238,7 +238,7 @@ Verify that all architectural contracts, physics derivations, statutory emission
 ```bash
 python -m pytest tests/ -v
 ```
-* **Produces:** 244/244 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves (including 279k DWT Bulk, 57.7k GT Ro-Ro Vehicle carrier, and 65k DWT LNG carrier effective capacity caps), strict statutory capacity unit validation (GT vs DWT), strict statutory vessel category validation (rejection of unsupported vessel categories via `ComplianceError`), MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, decoupled statutory compliance schemas, FuelEU Article 23(2) consecutive-deficit penalty scaling, canonical Deb et al. (2002) NSGA-II crowding-distance environmental selection, nested vessel-disjoint inner validation for QPSO-tuned QIFCP, unified system-wide dual-route fuel architecture, dynamic vessel-weather parameterization across fleet optimization routines, and full ModelType central contract & ModelRegistry estimator alignment.
+* **Produces:** 247/247 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves (including 279k DWT Bulk, 57.7k GT Ro-Ro Vehicle carrier, and 65k DWT LNG carrier effective capacity caps), strict statutory capacity unit validation (GT vs DWT), strict statutory vessel category validation (rejection of unsupported vessel categories via `ComplianceError`), dimensional currency consistency and explicit foreign exchange conversion (EUR to USD) across all optimization objectives and scenario simulations, MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, decoupled statutory compliance schemas, FuelEU Article 23(2) consecutive-deficit penalty scaling, canonical Deb et al. (2002) NSGA-II crowding-distance environmental selection, nested vessel-disjoint inner validation for QPSO-tuned QIFCP, unified system-wide dual-route fuel architecture, dynamic vessel-weather parameterization across fleet optimization routines, and full ModelType central contract & ModelRegistry estimator alignment.
 
 ---
 
@@ -357,9 +357,10 @@ $$\text{Base Penalty (EUR)} = \frac{|\text{Compliance Balance (gCO}_2\text{eq)}|
 $$\text{Total Penalty (EUR)} = \text{Base Penalty} \times \left(1 + \frac{n - 1}{10}\right)$$
 where:
 - $\text{Compliance Balance} = (\text{GHGIE}_{\text{target}} - \text{GHGIE}_{\text{actual}}) \times \text{Energy Consumed (MJ)}$
-- Reference baseline: $91.16\text{ gCO}_2\text{eq/MJ}$ with phased statutory reductions ($2025 = -2\%, 2030 = -6\%, 2035 = -14.5\%, 2040 = -31\%, 2045 = -62\%, 2050 = -80\%$).
 - **Consecutive Deficit Multiplier (Article 23(2)):** When a vessel incurs a compliance deficit across $n \ge 2$ consecutive reporting periods, penalties scale by $1 + \frac{n-1}{10}$ ($1.1\times$ for $n=2$, $1.2\times$ for $n=3$, etc.).
-- Downstream optimization routines directly consume canonical `comp.penalty_eur`.
+- **Dimensional Foreign Exchange Alignment (`DEFAULT_EUR_TO_USD_FX_RATE`):** Statutory FuelEU penalties are legally denominated in Euros (€) under Regulation (EU) 2023/1805 Article 23, whereas international bunker fuel markets quote in US Dollars ($/t). Downstream optimization routines (`fleet_objective`, `nsga2_pareto`, and `scenario_analysis`) resolve this dimensional mismatch by converting statutory EUR penalties to USD using an explicit configurable exchange rate (`eur_to_usd_rate`, default `1.08` USD per EUR) before combining them with bunker fuel expenditures:
+  $$\text{Total Financial Cost (USD)} = \text{Bunker Fuel Cost (USD)} + \left(\text{FuelEU Penalty (EUR)} \times \text{FX}_{\text{EUR}\to\text{USD}}\right)$$
+  `ScenarioResult` explicitly tracks `fuel_cost_usd`, `fueleu_penalty_eur`, `fueleu_penalty_usd`, and `exchange_rate_eur_to_usd` to guarantee transparent financial accounting.
 
 > [!NOTE] Defensible Regulatory Scope Notice
 > This component functions specifically as a **FuelEU GHG-intensity compliance and penalty estimator**. It evaluates operational Well-to-Wake GHG intensity targets (Article 4) and financial penalty exposure (Article 23 & Annex IV). It does not claim full statutory compliance certification as it intentionally does not simulate:
@@ -392,7 +393,7 @@ where:
 ### 5.5 Multi-Objective Green Fleet Optimization & Hybrid DE-NSGA-II Pareto Solver
 Implemented in `src/optimization/nsga2_pareto.py` (`ParetoFleetOptimizer`):
 - **Bi-Objective Tradeoff Formulation:** Solves for Pareto-optimal decision vectors $x = [v_1, f_1, v_2, f_2, \dots, v_n, f_n]$ across scheduled fleet voyages ($v_i \in [10, 20]\text{ knots}$, $f_i \in \{\text{Diesel, LNG, Methanol, Hydrogen, Ammonia, ShorePower}\}$):
-  $$f_1(x) = \text{Total Fuel Cost (USD)} + \text{FuelEU Penalties (EUR)}$$
+  $$f_1(x) = \text{Bunker Fuel Cost (USD)} + \left(\text{FuelEU Penalties (EUR)} \times \text{FX}_{\text{EUR}\to\text{USD}}\right)$$
   $$f_2(x) = \text{Total Lifecycle Well-to-Wake CO}_2\text{e Emissions (metric tons)}$$
 - **Fast Non-Dominated Sorting:** Partitions the combined $2N$ parent and offspring population ($R_t = P_t \cup Q_t$) into sequential domination fronts $\mathcal{F}_1, \mathcal{F}_2, \dots$ in $\mathcal{O}(M N^2)$ time based on strict Pareto dominance ($p \prec q \iff \forall m: f_m(p) \le f_m(q) \land \exists m: f_m(p) < f_m(q)$).
 - **Canonical Crowding-Distance Environmental Selection (Deb et al., 2002):**

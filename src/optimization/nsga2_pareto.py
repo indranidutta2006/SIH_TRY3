@@ -17,6 +17,7 @@ from typing import Any
 
 import numpy as np
 
+from contracts.constants import DEFAULT_EUR_TO_USD_FX_RATE
 from contracts.schemas import FleetAssignment, VoyageRecord
 from src.optimization.fleet_objective import (
     FUEL_LCV_MJ_PER_TON,
@@ -51,6 +52,7 @@ def evaluate_bi_objective(
     voyage_specs = context.get("voyage_specs", {})
     vessel_specs = context.get("vessel_specs", context.get("vessels", {}))
     compliance_year = int(context.get("compliance_year", 2025))
+    eur_to_usd_rate = float(context.get("eur_to_usd_rate", context.get("fx_rate", DEFAULT_EUR_TO_USD_FX_RATE)))
 
     total_cost = 0.0
     total_co2e = 0.0
@@ -156,9 +158,10 @@ def evaluate_bi_objective(
             intensity = (co2e_t * 1e6) / energy_mj if energy_mj > 0 else 0.0
 
             comp = compliance_engine.evaluate_fueleu(intensity, energy_mj, year=compliance_year)
-            fueleu_penalty = float(comp.penalty_eur)
+            fueleu_penalty_eur = float(comp.penalty_eur)
+            fueleu_penalty_usd = fueleu_penalty_eur * eur_to_usd_rate
 
-            total_cost += (fuel_t * price) + fueleu_penalty
+            total_cost += (fuel_t * price) + fueleu_penalty_usd
             total_co2e += co2e_t
 
     return float(total_cost), float(total_co2e)
@@ -346,7 +349,11 @@ class ParetoFleetOptimizer:
             "population_size": population_size,
             "pareto_front_size": len(pareto_indices),
             "pareto_front": [
-                {"fuel_cost_usd": round(float(pt[0]), 2), "co2e_tons": round(float(pt[1]), 2)}
+                {
+                    "total_cost_usd": round(float(pt[0]), 2),
+                    "fuel_cost_usd": round(float(pt[0]), 2),
+                    "co2e_tons": round(float(pt[1]), 2),
+                }
                 for pt in sorted_points
             ],
         }

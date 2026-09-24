@@ -14,6 +14,7 @@ from typing import Any, Final
 
 import numpy as np
 
+from contracts.constants import DEFAULT_EUR_TO_USD_FX_RATE
 from contracts.schemas import FleetAssignment, VoyageRecord
 from src.compliance.compliance_engine import MaritimeComplianceEngine
 from src.physics.fuel_physics_engine import MaritimeFuelPhysicsEngine
@@ -119,6 +120,7 @@ def fleet_objective(
     vessel_specs = ctx.get("vessel_specs", ctx.get("vessels", {}))
     hourly_delay_rate = float(ctx.get("delay_penalty_per_hour", 500.0))
     compliance_year = int(ctx.get("compliance_year", 2025))
+    eur_to_usd_rate = float(ctx.get("eur_to_usd_rate", ctx.get("fx_rate", DEFAULT_EUR_TO_USD_FX_RATE)))
 
     # Resolve engines (production model, emission engine, compliance engine, physics engine)
     if engines is not None:
@@ -250,8 +252,9 @@ def fleet_objective(
                 energy_used_mj=energy_used_mj,
                 year=compliance_year,
             )
-            fueleu_penalty = float(comp_res.penalty_eur)
-            voyage_fuel_cost = (fuel_consumed * price_per_ton) + fueleu_penalty
+            fueleu_penalty_eur = float(comp_res.penalty_eur)
+            fueleu_penalty_usd = fueleu_penalty_eur * eur_to_usd_rate
+            voyage_fuel_cost = (fuel_consumed * price_per_ton) + fueleu_penalty_usd
 
         total_fuel_cost += voyage_fuel_cost
         total_co2e += co2e

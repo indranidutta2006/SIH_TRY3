@@ -333,6 +333,10 @@ class ScenarioResult:
     total_cost: float
     total_emissions: float
     fuel_consumption: float
+    fuel_cost_usd: float = 0.0
+    fueleu_penalty_eur: float = 0.0
+    fueleu_penalty_usd: float = 0.0
+    exchange_rate_eur_to_usd: float = 1.08
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize dataclass to dictionary."""

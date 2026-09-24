@@ -394,3 +394,72 @@ def test_hierarchical_vessel_and_cargo_specs_merging() -> None:
     assert rec.cargo_tons == 70000.0
     assert rec.weather_factor == 1.15
     assert rec.sea_state == 4
+
+
+def test_fleet_objective_configurable_fx_rate() -> None:
+    """Verify that fleet_objective properly converts FuelEU penalties in EUR to USD via eur_to_usd_rate."""
+    mock_model = MagicMock()
+    mock_model.predict.return_value = [
+        PredictionResult(
+            model_name="mock_model",
+            predicted_fuel_consumption=100.0,
+            confidence_score=0.9,
+            runtime_seconds=0.001,
+        )
+    ]
+    emission_engine = MaritimeEmissionEngine()
+    compliance_engine = MaritimeComplianceEngine()
+
+    assignments = [
+        FleetAssignment(
+            vessel_id="VSL-FX-1",
+            cargo_id="CRG-FX-1",
+            assigned=True,
+            estimated_cost=0.0,
+            estimated_fuel=0.0,
+        )
+    ]
+    # speed = 14.0 knots, fuel = Diesel (0.0), compliance_year = 2025 (incurs penalty)
+    x = np.array([14.0, 0.0], dtype=float)
+
+    context_base = {
+        "voyage_specs": {
+            "CRG-FX-1": {
+                "tons": 40000.0,
+                "distance_nm": 1000.0,
+                "deadline_hours": 100.0,
+            }
+        },
+        "compliance_year": 2025,
+    }
+
+    # Weight cost only
+    j_parity = fleet_objective(
+        x=x,
+        assignments=assignments,
+        weights=(1.0, 0.0, 0.0),
+        context={**context_base, "eur_to_usd_rate": 1.0},
+        engines=(mock_model, emission_engine, compliance_engine),
+    )
+
+    j_scaled = fleet_objective(
+        x=x,
+        assignments=assignments,
+        weights=(1.0, 0.0, 0.0),
+        context={**context_base, "eur_to_usd_rate": 1.30},
+        engines=(mock_model, emission_engine, compliance_engine),
+    )
+
+    # Calculate exact FuelEU penalty in EUR
+    emiss = emission_engine.calculate_wtw(100.0, "Diesel")
+    energy_mj = 100.0 * 42700.0
+    intensity = (float(emiss.co2e) * 1e6) / energy_mj
+    fe_res = compliance_engine.evaluate_fueleu(intensity, energy_mj, year=2025)
+    expected_penalty_eur = fe_res.penalty_eur
+    assert expected_penalty_eur > 0.0
+
+    bunker_usd = 100.0 * 650.0
+    assert j_parity == pytest.approx(bunker_usd + expected_penalty_eur * 1.0, rel=1e-3)
+    assert j_scaled == pytest.approx(bunker_usd + expected_penalty_eur * 1.30, rel=1e-3)
+    assert (j_scaled - j_parity) == pytest.approx(expected_penalty_eur * 0.30, rel=1e-3)
+

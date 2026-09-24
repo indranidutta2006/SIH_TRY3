@@ -329,3 +329,76 @@ def test_evaluate_bi_objective_dynamic_specs() -> None:
     assert rec.sea_state == 4
 
 
+def test_nsga2_configurable_fx_rate() -> None:
+    """Verify evaluate_bi_objective in NSGA-II scales FuelEU penalties by configurable eur_to_usd_rate."""
+    from unittest.mock import MagicMock
+    from contracts.schemas import FleetAssignment, PredictionResult
+    from src.compliance.compliance_engine import MaritimeComplianceEngine
+    from src.prediction.emission_engine import MaritimeEmissionEngine
+
+    mock_model = MagicMock()
+    mock_model.predict.return_value = [
+        PredictionResult(
+            model_name="mock_model",
+            predicted_fuel_consumption=80.0,
+            confidence_score=0.9,
+            runtime_seconds=0.001,
+        )
+    ]
+    emission_engine = MaritimeEmissionEngine()
+    compliance_engine = MaritimeComplianceEngine()
+
+    assignments = [
+        FleetAssignment(
+            vessel_id="VSL-FX-NSGA",
+            cargo_id="CRG-FX-NSGA",
+            assigned=True,
+            estimated_cost=0.0,
+            estimated_fuel=0.0,
+        )
+    ]
+    # speed = 14.0 knots, fuel = Diesel (0.0), compliance_year = 2025
+    x = np.array([14.0, 0.0], dtype=float)
+
+    context_base = {
+        "voyage_specs": {
+            "CRG-FX-NSGA": {
+                "tons": 35000.0,
+                "distance_nm": 1000.0,
+            }
+        },
+        "compliance_year": 2025,
+    }
+
+    cost_1, co2_1 = evaluate_bi_objective(
+        x=x,
+        assignments=assignments,
+        context={**context_base, "eur_to_usd_rate": 1.0},
+        engines=(mock_model, emission_engine, compliance_engine),
+    )
+
+    cost_12, co2_12 = evaluate_bi_objective(
+        x=x,
+        assignments=assignments,
+        context={**context_base, "eur_to_usd_rate": 1.20},
+        engines=(mock_model, emission_engine, compliance_engine),
+    )
+
+    # CO2e emissions are identical
+    assert co2_1 == co2_12
+
+    # Compute exact penalty in EUR
+    emiss = emission_engine.calculate_wtw(80.0, "Diesel")
+    energy_mj = 80.0 * 42700.0
+    intensity = (float(emiss.co2e) * 1e6) / energy_mj
+    fe_res = compliance_engine.evaluate_fueleu(intensity, energy_mj, year=2025)
+    expected_penalty_eur = fe_res.penalty_eur
+    assert expected_penalty_eur > 0.0
+
+    bunker_usd = 80.0 * 650.0
+    assert cost_1 == pytest.approx(bunker_usd + expected_penalty_eur * 1.0, rel=1e-3)
+    assert cost_12 == pytest.approx(bunker_usd + expected_penalty_eur * 1.20, rel=1e-3)
+    assert (cost_12 - cost_1) == pytest.approx(expected_penalty_eur * 0.20, rel=1e-3)
+
+
+

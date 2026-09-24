@@ -118,6 +118,10 @@ def run_scenario_comparison(
                 "fuel_type": r.fuel_type,
                 "fuel_consumption_tons": r.fuel_consumption,
                 "total_emissions_co2e_tons": r.total_emissions,
+                "fuel_cost_usd": r.fuel_cost_usd,
+                "fueleu_penalty_eur": r.fueleu_penalty_eur,
+                "fueleu_penalty_usd": r.fueleu_penalty_usd,
+                "exchange_rate_eur_to_usd": r.exchange_rate_eur_to_usd,
                 "total_cost_usd": r.total_cost,
             }
             for r in results
@@ -140,6 +144,8 @@ if __name__ == "__main__":
             f"{item['scenario']:<30} | Fuel: {item['fuel_type']:<11} | "
             f"Cons: {item['fuel_consumption_tons']:>8.2f} t | "
             f"CO2e: {item['total_emissions_co2e_tons']:>8.2f} t | "
-            f"Cost: ${item['total_cost_usd']:>11.2f}"
+            f"Bunker: ${item.get('fuel_cost_usd', 0.0):>10.2f} | "
+            f"Penalty: €{item.get('fueleu_penalty_eur', 0.0):>9.2f} (${item.get('fueleu_penalty_usd', 0.0):>9.2f}) | "
+            f"Total Cost: ${item['total_cost_usd']:>11.2f}"
         )
     print("\nBalanced Multicriteria Ranking:", report["rankings"]["balanced_multicriteria_tradeoff"])

@@ -12,7 +12,7 @@ and balanced multi-criteria tradeoff rankings without dimensional magnitude dist
 import logging
 from typing import Any, Final, Sequence
 
-from contracts.constants import FuelType
+from contracts.constants import DEFAULT_EUR_TO_USD_FX_RATE, FuelType
 from contracts.exceptions import MaritimeSystemError
 from contracts.interfaces import ScenarioEngine
 from contracts.schemas import ScenarioResult, VoyageRecord
@@ -120,13 +120,20 @@ class ScenarioAnalysisEngine(ScenarioEngine):
         raw_fuel = operational_parameters.get("fuel_type", FuelType.DIESEL.value)
         fuel_type = normalize_fuel_name(raw_fuel)
         compliance_year = int(operational_parameters.get("compliance_year", 2025))
+        eur_to_usd_rate = float(
+            operational_parameters.get(
+                "eur_to_usd_rate",
+                operational_parameters.get("fx_rate", DEFAULT_EUR_TO_USD_FX_RATE),
+            )
+        )
         fuel_prices = operational_parameters.get("fuel_prices", STANDARD_FUEL_PRICES_USD)
         price_per_ton = float(fuel_prices.get(fuel_type, STANDARD_FUEL_PRICES_USD.get(fuel_type, 650.0)))
         vessel_specs = operational_parameters.get("vessel_specs", {})
 
         total_fuel_tons = 0.0
         total_co2e_tons = 0.0
-        total_cost_usd = 0.0
+        total_fuel_cost_usd = 0.0
+        total_penalty_eur = 0.0
 
         is_ml_route = fuel_type in ML_ROUTED_FUELS
         logger.info(
@@ -212,8 +219,8 @@ class ScenarioAnalysisEngine(ScenarioEngine):
                 # Shore power electrical MWh directly translated into energy and cost
                 energy_mwh = self.physics_engine.last_energy_mwh
                 voyage_energy_mj = energy_mwh * 3600.0
-                fueleu_penalty = 0.0  # Zero operational GHG emissions
-                voyage_cost = (energy_mwh * price_per_ton)  # price_per_ton acts as USD/MWh for shore power
+                fueleu_penalty_eur = 0.0  # Zero operational GHG emissions
+                bunker_cost_usd = energy_mwh * price_per_ton  # price_per_ton acts as USD/MWh for shore power
             else:
                 voyage_energy_mj = fuel_tons * lcv_mj_per_ton
                 ghg_intensity = (co2e * 1e6) / voyage_energy_mj if voyage_energy_mj > 0.0 else 0.0
@@ -222,10 +229,14 @@ class ScenarioAnalysisEngine(ScenarioEngine):
                     energy_used_mj=voyage_energy_mj,
                     year=compliance_year,
                 )
-                fueleu_penalty = float(comp_result.penalty_eur)
-                voyage_cost = (fuel_tons * price_per_ton) + fueleu_penalty
+                fueleu_penalty_eur = float(comp_result.penalty_eur)
+                bunker_cost_usd = fuel_tons * price_per_ton
 
-            total_cost_usd += voyage_cost
+            total_fuel_cost_usd += bunker_cost_usd
+            total_penalty_eur += fueleu_penalty_eur
+
+        total_penalty_usd = total_penalty_eur * eur_to_usd_rate
+        total_cost_usd = total_fuel_cost_usd + total_penalty_usd
 
         result = ScenarioResult(
             scenario_name=scenario_name,
@@ -233,6 +244,10 @@ class ScenarioAnalysisEngine(ScenarioEngine):
             total_cost=float(round(total_cost_usd, 2)),
             total_emissions=float(round(total_co2e_tons, 2)),
             fuel_consumption=float(round(total_fuel_tons, 2)),
+            fuel_cost_usd=float(round(total_fuel_cost_usd, 2)),
+            fueleu_penalty_eur=float(round(total_penalty_eur, 2)),
+            fueleu_penalty_usd=float(round(total_penalty_usd, 2)),
+            exchange_rate_eur_to_usd=float(eur_to_usd_rate),
         )
         return result
 

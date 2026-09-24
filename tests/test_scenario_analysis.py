@@ -143,3 +143,52 @@ def test_compare_scenarios_balanced_ranking_without_distortion() -> None:
     emiss_ranked = engine.rank_by_emissions([s1, s2, s3])
     assert emiss_ranked[0].scenario_name == "Cleanest_HighCost"
     assert emiss_ranked[-1].scenario_name == "Cheapest_HighEmiss"
+
+
+def test_scenario_analysis_dimensional_currency_conversion() -> None:
+    """Verify that FuelEU penalties in EUR are explicitly converted to USD at the configurable FX rate."""
+    mock_model = MagicMock()
+    mock_model.predict.return_value = [
+        PredictionResult(
+            model_name="HistGradientBoosting",
+            predicted_fuel_consumption=100.0,
+            confidence_score=0.95,
+            runtime_seconds=0.001,
+        )
+    ]
+    mock_manager = MagicMock()
+    mock_manager.get_best_model.return_value = mock_model
+
+    engine = ScenarioAnalysisEngine(model_manager=mock_manager)
+
+    fleet = ["VSL-001"]
+    base_params = {
+        "fuel_type": "Diesel",
+        "distance_nm": 1000.0,
+        "speed_knots": 14.0,
+        "cargo_tons": 40000.0,
+        "compliance_year": 2025,
+    }
+
+    # Run with parity FX rate (1 EUR = 1.0 USD)
+    params_parity = {**base_params, "eur_to_usd_rate": 1.0}
+    res_parity = engine.run_scenario("parity_test", fleet, params_parity)
+
+    # Run with 1 EUR = 1.25 USD
+    params_scaled = {**base_params, "eur_to_usd_rate": 1.25}
+    res_scaled = engine.run_scenario("scaled_test", fleet, params_scaled)
+
+    # Fuel consumption and bunker cost in USD must be identical
+    assert res_parity.fuel_cost_usd == res_scaled.fuel_cost_usd == 100.0 * 650.0
+    # Statutory penalty in EUR must be identical
+    assert res_parity.fueleu_penalty_eur == res_scaled.fueleu_penalty_eur
+    assert res_parity.fueleu_penalty_eur > 0.0
+
+    # Converted penalty in USD must scale by exactly 1.25
+    assert res_parity.fueleu_penalty_usd == pytest.approx(res_parity.fueleu_penalty_eur * 1.0, rel=1e-3)
+    assert res_scaled.fueleu_penalty_usd == pytest.approx(res_scaled.fueleu_penalty_eur * 1.25, rel=1e-3)
+
+    # Total cost in USD = bunker fuel cost (USD) + converted penalty (USD)
+    assert res_parity.total_cost == pytest.approx(res_parity.fuel_cost_usd + res_parity.fueleu_penalty_usd, rel=1e-2)
+    assert res_scaled.total_cost == pytest.approx(res_scaled.fuel_cost_usd + res_scaled.fueleu_penalty_usd, rel=1e-2)
+

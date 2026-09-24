@@ -59,3 +59,10 @@ SUPPORTED_PREDICTION_MODELS: Final[tuple[ModelType, ...]] = (
     ModelType.HIST_GRADIENT_BOOSTING,
     ModelType.QIFCP,
 )
+
+# Financial & Economic Baseline Assumptions:
+# Statutory FuelEU penalties are denominated in EUR (€) under Regulation (EU) 2023/1805 Article 23.
+# Bunker fuel spot/contract prices are denominated in USD ($) per metric ton.
+# Configurable baseline foreign exchange rate (1 EUR = 1.08 USD).
+DEFAULT_EUR_TO_USD_FX_RATE: Final[float] = 1.08
+
