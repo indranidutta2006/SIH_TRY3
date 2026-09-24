@@ -20,11 +20,14 @@ import numpy as np
 from contracts.schemas import FleetAssignment, VoyageRecord
 from src.optimization.fleet_objective import (
     FUEL_LCV_MJ_PER_TON,
+    ML_ROUTED_FUELS,
+    PHYSICS_ROUTED_FUELS,
     STANDARD_FUEL_PRICES_USD,
     SUPPORTED_FUEL_CHOICES,
     get_cached_engines,
 )
 from src.optimization.fleet_optimizer import generate_fleet_problem
+from src.physics.fuel_physics_engine import MaritimeFuelPhysicsEngine
 
 logger = logging.getLogger("maritime_system")
 
@@ -33,19 +36,28 @@ def evaluate_bi_objective(
     x: np.ndarray,
     assignments: Sequence[FleetAssignment],
     context: dict[str, Any],
-    engines: tuple[Any, Any, Any],
+    engines: tuple[Any, ...],
 ) -> tuple[float, float]:
     """Evaluate dual objectives: (total_fuel_cost, total_co2e)."""
     assigned_voyages = [a for a in assignments if a.assigned]
-    prod_model, emission_engine, compliance_engine = engines
+    if len(engines) == 4:
+        prod_model, emission_engine, compliance_engine, physics_engine = engines
+    elif len(engines) == 3:
+        prod_model, emission_engine, compliance_engine = engines
+        physics_engine = MaritimeFuelPhysicsEngine()
+    else:
+        raise ValueError(f"Expected 3 or 4 engines, got {len(engines)}")
+
     voyage_specs = context.get("voyage_specs", {})
     compliance_year = int(context.get("compliance_year", 2025))
 
     total_cost = 0.0
     total_co2e = 0.0
 
-    records: list[VoyageRecord] = []
-    voyage_meta: list[tuple[str, float]] = []
+    # 1. Decode decision vector into per-voyage telemetry and route ML vs Physics
+    ml_records: list[VoyageRecord] = []
+    ml_indices: list[int] = []
+    voyage_data: list[dict[str, Any]] = []
 
     for i, a in enumerate(assigned_voyages):
         speed = float(x[2 * i])
@@ -56,48 +68,85 @@ def evaluate_bi_objective(
         cargo_tons = float(spec.get("tons", 40000.0))
         vessel_dwt = float(spec.get("capacity", max(cargo_tons * 1.2, 50000.0)))
         distance_nm = float(spec.get("distance_nm", 1000.0))
+        weather_factor = float(spec.get("weather_factor", 1.0))
+        vessel_type = str(spec.get("vessel_type", "Bulk Carrier"))
         hours_at_sea = distance_nm / max(speed, 1.0)
 
-        record = VoyageRecord(
-            voyage_id=f"VY-{a.vessel_id}-{a.cargo_id}",
-            vessel_id=a.vessel_id,
-            vessel_type="Bulk Carrier",
-            vessel_dwt=vessel_dwt,
-            cargo_tons=cargo_tons,
-            distance_nm=distance_nm,
-            speed_knots=speed,
-            hours_at_sea=hours_at_sea,
-            fuel_type=fuel_type,
-            weather_factor=1.0,
-            sea_state=3,
-            data_source="nsga2_solver",
-            is_synthetic=True,
-            fuel_consumption=None,
-            co2_emissions=None,
-        )
-        records.append(record)
-        voyage_meta.append((fuel_type, hours_at_sea))
+        v_info: dict[str, Any] = {
+            "fuel_type": fuel_type,
+            "hours_at_sea": hours_at_sea,
+            "fuel_tons": 0.0,
+            "energy_mwh": 0.0,
+        }
 
-    # Single batched inference call across all voyages
-    preds = prod_model.predict(records)
+        if fuel_type in ML_ROUTED_FUELS:
+            # Route ML-trained fuels (Diesel, LNG, Methanol) through ProductionModelManager
+            record = VoyageRecord(
+                voyage_id=f"VY-{a.vessel_id}-{a.cargo_id}",
+                vessel_id=a.vessel_id,
+                vessel_type=vessel_type,
+                vessel_dwt=vessel_dwt,
+                cargo_tons=cargo_tons,
+                distance_nm=distance_nm,
+                speed_knots=speed,
+                hours_at_sea=hours_at_sea,
+                fuel_type=fuel_type,
+                weather_factor=weather_factor,
+                sea_state=3,
+                data_source="nsga2_solver",
+                is_synthetic=True,
+                fuel_consumption=None,
+                co2_emissions=None,
+            )
+            ml_records.append(record)
+            ml_indices.append(i)
+        else:
+            # Route novel alternative fuels (Hydrogen, Ammonia, ShorePower) through FuelPhysicsEngine
+            # ProductionModelManager is NEVER invoked for these fuels
+            fuel_val = physics_engine.calculate_fuel_use(
+                distance_nm=distance_nm,
+                speed_knots=speed,
+                cargo_tons=cargo_tons,
+                weather_factor=weather_factor,
+                fuel_type=fuel_type,
+                vessel_dwt=vessel_dwt,
+            )
+            v_info["fuel_tons"] = float(fuel_val)
+            if fuel_type == "ShorePower":
+                v_info["energy_mwh"] = float(physics_engine.last_energy_mwh)
 
-    for i, pred in enumerate(preds):
-        fuel_type, hours_at_sea = voyage_meta[i]
-        fuel_t = float(pred.predicted_fuel_consumption)
+        voyage_data.append(v_info)
 
-        emiss = emission_engine.calculate_wtw(fuel_t, fuel_type)
-        co2e_t = float(emiss.co2e)
+    # 2. Batch predict ML-routed voyages
+    if ml_records:
+        preds = prod_model.predict(ml_records)
+        for k, pred in enumerate(preds):
+            orig_idx = ml_indices[k]
+            voyage_data[orig_idx]["fuel_tons"] = float(pred.predicted_fuel_consumption)
 
-        lcv = FUEL_LCV_MJ_PER_TON.get(fuel_type, 42700.0)
-        energy_mj = fuel_t * lcv
-        intensity = (co2e_t * 1e6) / energy_mj if energy_mj > 0 else 0.0
-
-        comp = compliance_engine.evaluate_fueleu(intensity, energy_mj, year=compliance_year)
-        fueleu_penalty = float(comp.penalty_eur)
-
+    # 3. Compute cost and emissions
+    for v_info in voyage_data:
+        fuel_type = v_info["fuel_type"]
+        fuel_t = v_info["fuel_tons"]
         price = STANDARD_FUEL_PRICES_USD.get(fuel_type, 650.0)
-        total_cost += (fuel_t * price) + fueleu_penalty
-        total_co2e += co2e_t
+
+        if fuel_type == "ShorePower":
+            energy_mwh = v_info["energy_mwh"]
+            total_cost += energy_mwh * price
+            # Zero operational CO2e for shore power
+        else:
+            emiss = emission_engine.calculate_wtw(fuel_t, fuel_type)
+            co2e_t = float(emiss.co2e)
+
+            lcv = FUEL_LCV_MJ_PER_TON.get(fuel_type, 42700.0)
+            energy_mj = fuel_t * lcv
+            intensity = (co2e_t * 1e6) / energy_mj if energy_mj > 0 else 0.0
+
+            comp = compliance_engine.evaluate_fueleu(intensity, energy_mj, year=compliance_year)
+            fueleu_penalty = float(comp.penalty_eur)
+
+            total_cost += (fuel_t * price) + fueleu_penalty
+            total_co2e += co2e_t
 
     return float(total_cost), float(total_co2e)
 

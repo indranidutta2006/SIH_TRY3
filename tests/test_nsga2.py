@@ -15,6 +15,7 @@ import pytest
 from src.optimization.nsga2_pareto import (
     ParetoFleetOptimizer,
     calculate_crowding_distance,
+    evaluate_bi_objective,
     non_dominated_sort,
     run_nsga2_pareto,
 )
@@ -194,3 +195,69 @@ def test_run_nsga2_pareto_wrapper() -> None:
     assert isinstance(res, dict)
     assert "pareto_front" in res
     assert res["population_size"] == 8
+
+
+def test_evaluate_bi_objective_fuel_routing() -> None:
+    """Verify evaluate_bi_objective bypasses ML for physics-routed novel fuels."""
+    from unittest.mock import MagicMock
+    from contracts.schemas import FleetAssignment, PredictionResult
+    from src.compliance.compliance_engine import MaritimeComplianceEngine
+    from src.prediction.emission_engine import MaritimeEmissionEngine
+
+    mock_model = MagicMock()
+    mock_model.predict.return_value = [
+        PredictionResult(
+            model_name="mock_model",
+            predicted_fuel_consumption=75.0,
+            confidence_score=0.9,
+            runtime_seconds=0.001,
+        )
+    ]
+    emission_engine = MaritimeEmissionEngine()
+    compliance_engine = MaritimeComplianceEngine()
+
+    assignments = [
+        FleetAssignment(
+            vessel_id="VSL-1",
+            cargo_id="CRG-1",
+            assigned=True,
+            estimated_cost=0.0,
+            estimated_fuel=0.0,
+        ),
+        FleetAssignment(
+            vessel_id="VSL-2",
+            cargo_id="CRG-2",
+            assigned=True,
+            estimated_cost=0.0,
+            estimated_fuel=0.0,
+        ),
+    ]
+
+    context = {
+        "voyage_specs": {
+            "CRG-1": {"tons": 35000.0, "distance_nm": 600.0},
+            "CRG-2": {"tons": 35000.0, "distance_nm": 600.0},
+        },
+        "compliance_year": 2025,
+    }
+
+    # Voyage 1: Methanol (2.0) -> ML
+    # Voyage 2: Hydrogen (3.0) -> Physics
+    x = np.array([13.0, 2.0, 11.0, 3.0], dtype=float)
+
+    cost, co2e = evaluate_bi_objective(
+        x=x,
+        assignments=assignments,
+        context=context,
+        engines=(mock_model, emission_engine, compliance_engine),
+    )
+
+    # ML model called only for Methanol (1 record)
+    assert mock_model.predict.call_count == 1
+    call_records = mock_model.predict.call_args[0][0]
+    assert len(call_records) == 1
+    assert call_records[0].fuel_type == "Methanol"
+
+    assert cost > 0.0
+    assert co2e > 0.0
+

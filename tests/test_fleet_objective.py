@@ -124,3 +124,148 @@ def test_fleet_objective_with_real_production_engines() -> None:
 
     assert isinstance(j_real, float)
     assert j_real > 0.0
+
+
+def test_fuel_routing_novel_fuels_bypass_ml() -> None:
+    """Verify novel alternative fuels (Hydrogen, Ammonia) bypass ML production model completely."""
+    mock_model = MagicMock()
+    emission_engine = MaritimeEmissionEngine()
+    compliance_engine = MaritimeComplianceEngine()
+
+    assignments = [
+        FleetAssignment(
+            vessel_id="VSL-H2",
+            cargo_id="CRG-H2",
+            assigned=True,
+            estimated_cost=0.0,
+            estimated_fuel=0.0,
+        )
+    ]
+    # speed = 12.0 knots, fuel_idx = 3.0 (Hydrogen)
+    x = np.array([12.0, 3.0], dtype=float)
+
+    context = {
+        "voyage_specs": {
+            "CRG-H2": {
+                "tons": 35000.0,
+                "capacity": 45000.0,
+                "distance_nm": 800.0,
+                "deadline_hours": 100.0,
+            }
+        },
+        "compliance_year": 2025,
+    }
+
+    j_result = fleet_objective(
+        x=x,
+        assignments=assignments,
+        weights=(1.0, 1.0, 1.0),
+        context=context,
+        engines=(mock_model, emission_engine, compliance_engine),
+    )
+
+    # ML model must NOT be called for Hydrogen
+    mock_model.predict.assert_not_called()
+    assert j_result > 0.0
+
+
+def test_fuel_routing_shorepower_zero_operational_co2e() -> None:
+    """Verify ShorePower routes through physics, generates 0 operational CO2e, and computes electricity cost."""
+    mock_model = MagicMock()
+    emission_engine = MaritimeEmissionEngine()
+    compliance_engine = MaritimeComplianceEngine()
+
+    assignments = [
+        FleetAssignment(
+            vessel_id="VSL-SHORE",
+            cargo_id="CRG-SHORE",
+            assigned=True,
+            estimated_cost=0.0,
+            estimated_fuel=0.0,
+        )
+    ]
+    # speed = 10.0 knots, fuel_idx = 5.0 (ShorePower)
+    x = np.array([10.0, 5.0], dtype=float)
+
+    context = {
+        "voyage_specs": {
+            "CRG-SHORE": {
+                "tons": 30000.0,
+                "capacity": 40000.0,
+                "distance_nm": 200.0,
+                "deadline_hours": 50.0,
+            }
+        },
+        "compliance_year": 2025,
+    }
+
+    # Weight CO2e heavily (100.0), weights=(1.0, 100.0, 0.0)
+    # Since operational CO2e = 0.0, delay = 0.0 (20h vs 50h deadline), J = cost
+    j_result = fleet_objective(
+        x=x,
+        assignments=assignments,
+        weights=(1.0, 100.0, 0.0),
+        context=context,
+        engines=(mock_model, emission_engine, compliance_engine),
+    )
+
+    mock_model.predict.assert_not_called()
+    assert j_result > 0.0
+
+
+def test_fuel_routing_mixed_fleet() -> None:
+    """Verify mixed fleet: ML-routed fuels pass to prod_model.predict, physics-routed fuels do not."""
+    mock_model = MagicMock()
+    mock_model.predict.return_value = [
+        PredictionResult(
+            model_name="mock_model",
+            predicted_fuel_consumption=80.0,
+            confidence_score=0.9,
+            runtime_seconds=0.001,
+        )
+    ]
+    emission_engine = MaritimeEmissionEngine()
+    compliance_engine = MaritimeComplianceEngine()
+
+    assignments = [
+        FleetAssignment(
+            vessel_id="VSL-DIESEL",
+            cargo_id="CRG-1",
+            assigned=True,
+            estimated_cost=0.0,
+            estimated_fuel=0.0,
+        ),
+        FleetAssignment(
+            vessel_id="VSL-AMMONIA",
+            cargo_id="CRG-2",
+            assigned=True,
+            estimated_cost=0.0,
+            estimated_fuel=0.0,
+        ),
+    ]
+    # Voyage 1: speed=14.0, fuel=0.0 (Diesel) -> ML
+    # Voyage 2: speed=12.0, fuel=4.0 (Ammonia) -> Physics
+    x = np.array([14.0, 0.0, 12.0, 4.0], dtype=float)
+
+    context = {
+        "voyage_specs": {
+            "CRG-1": {"tons": 40000.0, "distance_nm": 1000.0, "deadline_hours": 100.0},
+            "CRG-2": {"tons": 40000.0, "distance_nm": 1000.0, "deadline_hours": 100.0},
+        }
+    }
+
+    j_result = fleet_objective(
+        x=x,
+        assignments=assignments,
+        weights=(1.0, 1.0, 1.0),
+        context=context,
+        engines=(mock_model, emission_engine, compliance_engine),
+    )
+
+    # ML model called exactly once with exactly 1 record (for Diesel only)
+    assert mock_model.predict.call_count == 1
+    call_records = mock_model.predict.call_args[0][0]
+    assert len(call_records) == 1
+    assert call_records[0].fuel_type == "Diesel"
+    assert call_records[0].vessel_id == "VSL-DIESEL"
+    assert j_result > 0.0

@@ -238,7 +238,7 @@ Verify that all architectural contracts, physics derivations, statutory emission
 ```bash
 python -m pytest tests/ -v
 ```
-* **Produces:** 218/218 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves (including 279k DWT Bulk, 57.7k GT Ro-Ro Vehicle carrier, and 65k DWT LNG carrier effective capacity caps), strict statutory capacity unit validation (GT vs DWT), MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, decoupled statutory compliance schemas, FuelEU Article 23(2) consecutive-deficit penalty scaling, canonical Deb et al. (2002) NSGA-II crowding-distance environmental selection, nested vessel-disjoint inner validation for QPSO-tuned QIFCP, and full ModelType central contract & ModelRegistry estimator alignment.
+* **Produces:** 222/222 passing deterministic tests (**0 failures, 0 errors**) confirming strict contract adherence, proxy-leakage neutralization, granular statutory MEPC.353(78) G2 baseline curves (including 279k DWT Bulk, 57.7k GT Ro-Ro Vehicle carrier, and 65k DWT LNG carrier effective capacity caps), strict statutory capacity unit validation (GT vs DWT), MEPC.400(83) compliance targets, MEPC.354(78) G4 ship-type-specific rating boundaries, decoupled statutory compliance schemas, FuelEU Article 23(2) consecutive-deficit penalty scaling, canonical Deb et al. (2002) NSGA-II crowding-distance environmental selection, nested vessel-disjoint inner validation for QPSO-tuned QIFCP, unified system-wide dual-route fuel architecture across scenario analysis and fleet optimizers, and full ModelType central contract & ModelRegistry estimator alignment.
 
 ---
 
@@ -395,6 +395,43 @@ Implemented in `src/optimization/nsga2_pareto.py` (`ParetoFleetOptimizer`):
   The front is sorted in descending order of crowding distance, and the top $N - |P_{t+1}|$ individuals are selected. This canonical survival mechanism guarantees the preservation of extreme boundary solutions (minimum cost and minimum emissions configurations) and maximizes the diversity and uniform spread of solutions along the Pareto frontier.
 - **Offspring Generation Nuance (DE-NSGA-II / DEMO Architecture):**
   While the environmental survival mechanism strictly implements Deb et al. (2002) non-dominated sorting and crowding distance, offspring generation uses continuous **differential-evolution variation** (DE/rand/1/bin mutation: $v = x_{r1} + F(x_{r2} - x_{r3})$ with differential weight $F=0.8$, combined with binomial crossover at $CR=0.7$) rather than textbook genetic algorithm simulated binary crossover (SBX) and polynomial mutation. In multi-objective evolutionary computation literature, this hybrid paradigm is formally designated as **DE-NSGA-II** or **DEMO** (Differential Evolution for Multiobjective Optimization), leveraging DE's continuous step adaptation while preserving NSGA-II's elitist frontier geometry.
+
+### 5.6 Unified System-Wide Fuel-Routing Architecture (ML vs. First-Principles Physics Boundary)
+To maintain strict scientific integrity across both comparative scenario simulations and automated fleet optimization routines, the platform enforces a **unified dual-route fuel calculation architecture**:
+
+```
+                       Scheduled Voyage / Fuel Selection
+                                      |
+                 +--------------------+--------------------+
+                 |                                         |
+     ML-Routed Conventional /                   First-Principles Novel
+     Transitional Fuels                         Zero-Emission Pathways
+    (Diesel, LNG, Methanol)                    (Hydrogen, Ammonia, ShorePower)
+                 |                                         |
+                 v                                         v
+   +----------------------------+            +----------------------------+
+   |  ProductionModelManager    |            | MaritimeFuelPhysicsEngine  |
+   | (Vectorized Batch Predict) |            | (Admiralty / Hydrodynamics)|
+   +----------------------------+            +----------------------------+
+                 |                                         |
+                 |      +----------------------------------+
+                 |      |
+                 v      v
+   +------------------------------------------------------+
+   |         Downstream Statutory & Cost Engines          |
+   | - MaritimeEmissionEngine (Lifecycle WTW CO2e)        |
+   | - MaritimeComplianceEngine (FuelEU Penalty Estimator)|
+   | - Scheduled Fuel & Electricity Cost Evaluation       |
+   +------------------------------------------------------+
+```
+
+- **ML-Trained Fuels (`Diesel`, `LNG`, `Methanol`):** Dispatched in vectorized batches through `ProductionModelManager` (Linear Regression, Random Forest, HistGradientBoosting, or QIFCP). These fuels possess empirical training distributions derived from sensor telemetry and MRV logbooks.
+- **Novel Zero-Emission Pathways (`Hydrogen`, `Ammonia`, `ShorePower`):** Dispatched exclusively through `MaritimeFuelPhysicsEngine`. Because commercial operational voyage records for deep-sea hydrogen or ammonia carriers do not yet exist at historical scale, the statistical ML regressors are **never called** for these fuels. Instead, fuel consumption is derived from first-principles naval architecture:
+  $$P_{\text{propulsion}} = \frac{\Delta^{2/3} \cdot V^3}{C_{\text{adm}}}, \quad E_{\text{mech}} = (P_{\text{propulsion}} + P_{\text{aux}}) \times t_{\text{sea}} \times w_{\text{weather}}$$
+  $$\text{Fuel Mass (t)} = \frac{E_{\text{mech}} / \eta_{\text{thermal}}}{\text{LHV}_{\text{fuel}}}$$
+- **ShorePower Direct Grid Accounting:** For vessels drawing cold-ironing shore power (`ShorePower`), operational combustion fuel mass is $0.0\text{ metric tons}$, operational $\text{CO}_2\text{e}$ emissions are $0.0\text{ metric tons}$, FuelEU penalty exposure is $0.0\text{ EUR}$, and total voyage cost is computed directly via electrical energy consumption:
+  $$\text{Cost} = E_{\text{electrical}}\text{ (MWh)} \times \text{Electricity Tariff (USD/MWh)}$$
+- **System-Wide Uniformity:** This dispatch boundary is identically enforced across `ScenarioAnalysisEngine` (`src/optimization/scenario_analysis.py`), scalar fleet objective evaluation for QPSO/PSO (`src/optimization/fleet_objective.py`), and bi-objective Pareto optimization (`src/optimization/nsga2_pareto.py`).
 
 ---
 
