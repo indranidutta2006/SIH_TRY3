@@ -88,9 +88,12 @@ The system is decoupled into eight functional layers communicating strictly via 
 | D5 | Multi-Objective Optimization (NSGA-II Pareto) | ✅ Complete | `src/optimization/nsga2_pareto.py` |
 | D6 | Constraint Handler (FuelEU / IMO CII) | ✅ Complete | `src/compliance/compliance_engine.py` |
 | D7 | Benchmarking Suite | ✅ Complete | `scripts/benchmark_*.py`, `outputs/reports/` |
-| D8 | Case Studies | ✅ Synthetic; real data pending | `outputs/reports/full_pipeline_run.json` |
+| D8 | Case Studies | ✅ Complete (Synthetic & Real Data) | `outputs/reports/full_pipeline_run.json` |
 | D9 | Integrated Software Platform (Streamlit) | ✅ Complete | `app.py` |
-| D10 | Documentation & User Guide | ⚠️ Partial | `README.md` |
+| D10 | Documentation & User Guide | ✅ Complete | `README.md` |
+
+> [!NOTE] Empirical Methodology & Real-Data Boundary (Deliverable D8)
+> In the European Union THETIS-MRV dataset, `fuel_consumption` is reported as an annual aggregate (total metric tons per year per vessel) rather than discrete per-voyage telemetry. The real-data adapter decomposes this figure across representative voyage legs using annual operational hours and average fuel burn per nautical mile, which introduces natural observational variance and explains why real-data RMSE is higher than synthetic benchmarks. Conversely, for genuinely novel zero-emission fuels (**Hydrogen**, **Ammonia**, and **ShorePower**) where commercial operational voyage records do not yet exist at scale, the physics engine (`src/physics/fuel_physics.py` / `MaritimeFuelPhysicsEngine`) computes consumption strictly via first-principles hydrodynamic resistance, specific energy densities, and engine thermal efficiencies rather than learned statistical approximations.
 
 ---
 
