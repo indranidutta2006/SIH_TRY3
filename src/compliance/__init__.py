@@ -5,6 +5,7 @@ Exports MaritimeComplianceEngine.
 """
 
 from src.compliance.compliance_engine import (
+    CII_Z_FACTORS,
     FUELEU_REFERENCE_GHG_INTENSITY,
     FUELEU_STATUTORY_PENALTY_RATE_EUR,
     VLSFO_ENERGY_DENSITY_MJ_PER_TON,
@@ -13,6 +14,7 @@ from src.compliance.compliance_engine import (
 
 __all__ = [
     "MaritimeComplianceEngine",
+    "CII_Z_FACTORS",
     "FUELEU_REFERENCE_GHG_INTENSITY",
     "VLSFO_ENERGY_DENSITY_MJ_PER_TON",
     "FUELEU_STATUTORY_PENALTY_RATE_EUR",

@@ -19,6 +19,18 @@ FUELEU_REFERENCE_GHG_INTENSITY: Final[float] = 91.16  # gCO2eq/MJ
 VLSFO_ENERGY_DENSITY_MJ_PER_TON: Final[float] = 41000.0  # MJ/t
 FUELEU_STATUTORY_PENALTY_RATE_EUR: Final[float] = 2400.0  # EUR/ton VLSFO equivalent
 
+# IMO Resolution MEPC.400(83) statutory annual reduction factor Z (adopted 11 April 2025)
+CII_Z_FACTORS: Final[dict[int, float]] = {
+    2023: 0.050,
+    2024: 0.070,
+    2025: 0.090,
+    2026: 0.110,
+    2027: 0.13625,
+    2028: 0.16250,
+    2029: 0.18875,
+    2030: 0.21500,
+}
+
 
 class MaritimeComplianceEngine(ComplianceEngine):
     """Statutory maritime environmental compliance accounting engine."""
@@ -26,6 +38,16 @@ class MaritimeComplianceEngine(ComplianceEngine):
     def __init__(self) -> None:
         """Initialize compliance engine."""
         self.logger = logger
+
+    def get_cii_z_factor(self, year: int) -> float:
+        """Retrieve statutory IMO CII reduction factor Z conforming to MEPC.400(83)."""
+        if year <= 2022:
+            return 0.0
+        if year in CII_Z_FACTORS:
+            return CII_Z_FACTORS[year]
+        if year > 2030:
+            return CII_Z_FACTORS[2030]
+        return 0.0
 
     def get_fueleu_target(self, year: int) -> float:
         """Retrieve statutory FuelEU Maritime maximum GHG intensity target for given year."""
@@ -145,20 +167,8 @@ class MaritimeComplianceEngine(ComplianceEngine):
 
         baseline_cii = a * (resolved_dwt ** -c) if c != 0.0 else a
 
-        # Statutory Annual Reduction Factor Z
-        if year <= 2022:
-            z_factor = 0.0
-        elif year == 2023:
-            z_factor = 0.05
-        elif year == 2024:
-            z_factor = 0.07
-        elif year == 2025:
-            z_factor = 0.09
-        elif year == 2026:
-            z_factor = 0.11
-        else:
-            # 2% annual reduction increment through 2030 (up to 21%)
-            z_factor = min(0.21, 0.11 + 0.02 * (year - 2026))
+        # Statutory Annual Reduction Factor Z (IMO Resolution MEPC.400(83))
+        z_factor = self.get_cii_z_factor(year)
 
         required_cii = baseline_cii * (1.0 - z_factor)
         ratio = attained_cii / required_cii if required_cii > 0.0 else 1.0

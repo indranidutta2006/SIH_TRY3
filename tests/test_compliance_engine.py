@@ -9,7 +9,7 @@ import pytest
 from contracts.exceptions import ComplianceError, DataValidationError
 from contracts.interfaces import ComplianceEngine
 from contracts.schemas import ComplianceResult
-from src.compliance import MaritimeComplianceEngine
+from src.compliance import CII_Z_FACTORS, MaritimeComplianceEngine
 
 
 def test_compliance_engine_implements_contract() -> None:
@@ -131,3 +131,65 @@ def test_compliance_result_canonical_schema_fields() -> None:
     assert fe_res.penalty_eur > 0.0
     assert fe_res.fueleu_target > 0.0
     assert fe_res.ghg_intensity == 95.0
+
+
+@pytest.mark.parametrize(
+    "year, expected_z",
+    [
+        (2023, 0.050),
+        (2024, 0.070),
+        (2025, 0.090),
+        (2026, 0.110),
+        (2027, 0.13625),
+        (2028, 0.16250),
+        (2029, 0.18875),
+        (2030, 0.21500),
+    ],
+)
+def test_cii_z_factors_mepc_400_83(year: int, expected_z: float) -> None:
+    """Verify statutory annual reduction factor Z conforming to IMO Resolution MEPC.400(83)."""
+    engine = MaritimeComplianceEngine()
+    assert engine.get_cii_z_factor(year) == pytest.approx(expected_z, abs=1e-5)
+
+    # Verify required CII calculation respects the statutory Z-factor
+    dwt = 70000.0
+    baseline_cii = 4745.0 * (dwt ** -0.622)
+    expected_required = baseline_cii * (1.0 - expected_z)
+
+    res = engine.evaluate_cii(
+        co2_emissions=1200.0,
+        cargo_tons=dwt,
+        distance_nm=4000.0,
+        year=year,
+    )
+    assert res.required_cii == pytest.approx(expected_required, rel=1e-4)
+
+
+def test_cii_future_years_2027_through_2030() -> None:
+    """Verify explicit compliance evaluations for assessment years 2027, 2028, 2029, and 2030."""
+    engine = MaritimeComplianceEngine()
+    dwt = 65000.0
+    dist = 45000.0
+    co2 = 12500.0
+    baseline_cii = 4745.0 * (dwt ** -0.622)
+
+    z_targets = {
+        2027: 0.13625,
+        2028: 0.16250,
+        2029: 0.18875,
+        2030: 0.21500,
+    }
+
+    for y, z in z_targets.items():
+        res = engine.evaluate_cii(
+            vessel_type="Bulk Carrier",
+            vessel_dwt=dwt,
+            annual_distance_nm=dist,
+            annual_co2_tons=co2,
+            year=y,
+        )
+        expected_req = round(baseline_cii * (1.0 - z), 4)
+        assert res.required_cii == pytest.approx(expected_req, abs=1e-3)
+        expected_ratio = round(res.attained_cii / res.required_cii, 4)
+        assert res.cii_ratio == pytest.approx(expected_ratio, abs=1e-3)
+
