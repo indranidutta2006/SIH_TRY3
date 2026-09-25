@@ -5,7 +5,8 @@ the data ingestion, prediction, physics, emissions, compliance, scheduling,
 and optimization components.
 """
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
+from enum import StrEnum
 import json
 from typing import Any, Optional, Self
 
@@ -361,3 +362,167 @@ class ScenarioResult:
     def to_json(self) -> str:
         """Serialize dataclass to JSON string."""
         return json.dumps(self.to_dict())
+
+
+class OptimizationStatus(StrEnum):
+    """Execution outcome status for fleet and routing optimization."""
+
+    SUCCESS = "SUCCESS"
+    INFEASIBLE = "INFEASIBLE"
+    BUDGET_EXCEEDED = "BUDGET_EXCEEDED"
+    DEMAND_UNSATISFIABLE = "DEMAND_UNSATISFIABLE"
+    DEADLINE_VIOLATED = "DEADLINE_VIOLATED"
+
+
+@dataclass(frozen=True, slots=True)
+class OptimizationScenario:
+    """Unified operational scenario context passed across all strategy optimizers."""
+
+    cargo_demand: float
+    route_distance: float
+    deadline_hours: float
+    scenario_id: str = "SCENARIO-001"
+    created_at: str = ""
+    carbon_price: float = 80.0  # USD per metric ton lifecycle CO2e
+    budget: float = 100_000_000.0  # Total available fleet capex / charter budget
+    weather_factor: float = 1.0  # Weather severity multiplier (>= 1.0)
+    vessel_class: str = "PANAMAX"  # FEEDER, PANAMAX, POST_PANAMAX, CAPESIZE
+    service_level: float = 0.95  # Target delivery fraction (0.0 to 1.0)
+    max_transition_rate: float = 1.0  # Max fraction of fleet allowed to transition fuel technology per cycle
+    fuel_prices: dict[str, float] | None = None
+    routes: tuple[dict[str, Any], ...] | None = None
+    weights: tuple[float, float, float] = (1.0, 1.0, 1.0)  # (w_cost, w_fuel, w_emissions)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        return asdict(self)
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into OptimizationScenario."""
+        clean_data = dict(data)
+        if "routes" in clean_data and isinstance(clean_data["routes"], list):
+            clean_data["routes"] = tuple(clean_data["routes"])
+        if "weights" in clean_data and isinstance(clean_data["weights"], list):
+            clean_data["weights"] = tuple(clean_data["weights"])
+        return cls(**clean_data)
+
+
+@dataclass(frozen=True, slots=True)
+class FleetCompositionResult:
+    """Optimal fleet composition decision output under operational constraints."""
+
+    status: OptimizationStatus
+    fleet_mix: dict[str, int]
+    total_capacity: float
+    fuel_consumption: float
+    emissions: float
+    operational_cost: float
+    carbon_cost: float
+    optimization_score: float
+    service_level_achieved: float
+    metadata: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        d = asdict(self)
+        d["status"] = self.status.value
+        return d
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+
+@dataclass(frozen=True, slots=True)
+class CapacityOptimizationResult:
+    """Optimal vessel capacity and sizing recommendation output."""
+
+    status: OptimizationStatus
+    vessel_class: str
+    recommended_capacity: float
+    capacity_teu: float
+    utilization_rate: float
+    fuel_consumption: float
+    cost: float
+    emissions: float
+    optimal_trips: int
+    metadata: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        d = asdict(self)
+        d["status"] = self.status.value
+        return d
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+
+@dataclass(frozen=True, slots=True)
+class SpeedOptimizationResult:
+    """Optimal cruising speed recommendation output."""
+
+    status: OptimizationStatus
+    optimal_speed: float
+    estimated_eta: float
+    fuel_consumption: float
+    cost: float
+    emissions: float
+    delay_hours: float
+    metadata: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        d = asdict(self)
+        d["status"] = self.status.value
+        return d
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+
+@dataclass(frozen=True, slots=True)
+class FleetStrategyRecommendation:
+    """Integrated executive strategy unifying Fleet Mix, Capacity, Speed, and Deployment."""
+
+    status: OptimizationStatus
+    scenario: OptimizationScenario
+    fleet_mix: FleetCompositionResult
+    capacity_recommendation: CapacityOptimizationResult
+    speed_recommendation: SpeedOptimizationResult
+    deployment_plan: dict[str, list[dict[str, Any]]]
+    baseline_comparison: dict[str, dict[str, float]]
+    fuel_estimate: float
+    cost_estimate: float
+    emissions_estimate: float
+    service_reliability: float | None = None
+    summary: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        return {
+            "status": self.status.value,
+            "scenario": self.scenario.to_dict(),
+            "fleet_mix": self.fleet_mix.to_dict(),
+            "capacity_recommendation": self.capacity_recommendation.to_dict(),
+            "speed_recommendation": self.speed_recommendation.to_dict(),
+            "deployment_plan": self.deployment_plan,
+            "baseline_comparison": self.baseline_comparison,
+            "fuel_estimate": self.fuel_estimate,
+            "cost_estimate": self.cost_estimate,
+            "emissions_estimate": self.emissions_estimate,
+            "service_reliability": self.service_reliability,
+            "summary": self.summary,
+        }
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict(), indent=2)
+

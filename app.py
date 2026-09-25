@@ -24,6 +24,7 @@ from app.dashboard import (
     render_overview_page,
     render_prediction_page,
     render_scenarios_page,
+    render_strategy_page,
 )
 
 # 1. Streamlit Global Page Configuration
@@ -47,6 +48,7 @@ page_selection = st.sidebar.radio(
         "3. Swarm Optimization (QPSO)",
         "4. Statutory Compliance (IMO/EU)",
         "5. Scenario Analysis & Alternative Fuels",
+        "6. Fleet Strategy Optimization",
     ],
     index=0,
 )
@@ -60,6 +62,7 @@ st.sidebar.markdown(
     - ⚡ Swarm Engine: `QPSO (Swarm)`
     - ⚖️ Decarbonization: `IMO CII / FuelEU`
     - 🛡️ Physics Engine: `Admiralty + LHV`
+    - 🎯 Strategy Engine: `Mix + Capacity + Speed`
     """
 )
 
@@ -77,3 +80,6 @@ elif page_selection == "4. Statutory Compliance (IMO/EU)":
     render_compliance_page()
 elif page_selection == "5. Scenario Analysis & Alternative Fuels":
     render_scenarios_page()
+elif page_selection == "6. Fleet Strategy Optimization":
+    render_strategy_page()
+

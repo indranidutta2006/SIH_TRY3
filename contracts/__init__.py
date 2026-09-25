@@ -38,14 +38,20 @@ from contracts.interfaces import (
 )
 from contracts.schemas import (
     CIIResult,
+    CapacityOptimizationResult,
     ComplianceAssessment,
     ComplianceResult,
     EmissionResult,
     FleetAssignment,
+    FleetCompositionResult,
+    FleetStrategyRecommendation,
     FuelEUResult,
     OptimizationResult,
+    OptimizationScenario,
+    OptimizationStatus,
     PredictionResult,
     ScenarioResult,
+    SpeedOptimizationResult,
     VoyageRecord,
 )
 
@@ -91,4 +97,11 @@ __all__ = [
     "FleetAssignment",
     "OptimizationResult",
     "ScenarioResult",
+    "OptimizationStatus",
+    "OptimizationScenario",
+    "FleetCompositionResult",
+    "CapacityOptimizationResult",
+    "SpeedOptimizationResult",
+    "FleetStrategyRecommendation",
 ]
+
