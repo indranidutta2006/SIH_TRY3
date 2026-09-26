@@ -98,6 +98,7 @@ class FleetStrategyOptimizer:
                 target_reliability=scenario.target_reliability,
                 port_delay_factor=scenario.port_delay_factor,
                 forecasted_demand=scenario.forecasted_demand,
+                regulation_factor=scenario.regulation_factor,
             )
 
         self.logger.info("Executing Strategic Optimization for Scenario ID: %s", scenario.scenario_id)

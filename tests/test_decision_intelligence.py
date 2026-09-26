@@ -284,6 +284,20 @@ def test_multi_scenario_analyzer(base_scenario: OptimizationScenario) -> None:
     assert res.worst_scenario in res.scenario_names
     assert len(res.sensitivity_analysis) == 5  # 5 non-baseline scenarios
 
+    # Verify scenario shocks are propagated
+    fps_metrics = res.metrics_comparison["Fuel Price Shock"]
+    assert fps_metrics["fossil_fuel_multiplier"] == 1.50
+    assert fps_metrics["alt_fuel_multiplier"] == 1.10
+    assert fps_metrics["diesel_price_usd"] == 975.0  # 650.0 * 1.50
+
+    strict_metrics = res.metrics_comparison["Strict Regulation"]
+    assert strict_metrics["regulation_factor"] == 1.25
+
+    # Fuel Price Shock must result in higher operational cost than baseline
+    base_cost = res.metrics_comparison["Baseline Scenario"]["operational_cost_usd"]
+    fps_cost = fps_metrics["operational_cost_usd"]
+    assert fps_cost > base_cost
+
 
 # =============================================================================
 # 6. INDUSTRIAL CASE STUDIES SUITE TESTS

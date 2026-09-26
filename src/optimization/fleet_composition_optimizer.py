@@ -427,7 +427,9 @@ class FleetCompositionOptimizer:
                 energy_used_mj=energy_mj,
                 year=2025,
             )
-            penalty_usd = float(fe_res.penalty_eur) * DEFAULT_EUR_TO_USD_FX_RATE
+            base_penalty_usd = float(fe_res.penalty_eur) * DEFAULT_EUR_TO_USD_FX_RATE
+            reg_multiplier = getattr(scenario, "regulation_factor", 1.0)
+            penalty_usd = base_penalty_usd * reg_multiplier
 
             cum_fuel += fleet_fuel_type
             cum_emiss += emiss_val

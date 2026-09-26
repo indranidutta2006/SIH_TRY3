@@ -395,6 +395,7 @@ class OptimizationScenario:
     target_reliability: float = 90.0  # Target schedule reliability score (0.0 to 100.0)
     port_delay_factor: float = 1.0  # Port congestion / turn-around delay multiplier (>= 1.0)
     forecasted_demand: float | None = None  # Optional forecasted cargo demand
+    regulation_factor: float = 1.0  # Regulatory stringency multiplier for compliance penalties (default: 1.0)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize dataclass to dictionary."""

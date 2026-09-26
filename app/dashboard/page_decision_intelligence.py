@@ -286,6 +286,9 @@ def render_decision_intelligence_page() -> None:
         scen_table_data.append({
             "Scenario Name": s_name,
             "Carbon ($/t)": data["carbon_price"],
+            "Fossil Mult": f"{data.get('fossil_fuel_multiplier', 1.0):.2f}x",
+            "Alt Mult": f"{data.get('alt_fuel_multiplier', 1.0):.2f}x",
+            "Reg Stringency": f"{data.get('regulation_factor', 1.0):.2f}x",
             "Cost ($M)": round(data["operational_cost_usd"] / 1e6, 2),
             "WTW CO2e (t)": round(data["emissions_tons"], 0),
             "Reliability": f"{data['reliability_score']:.1f}%",

@@ -15,6 +15,7 @@ from collections.abc import Sequence
 import logging
 from typing import Any, Final
 
+from contracts.constants import FUEL_PRICES_USD_PER_TON
 from contracts.schemas import (
     OptimizationScenario,
     ScenarioComparisonResult,
@@ -121,7 +122,21 @@ class MultiScenarioAnalyzer:
             self.logger.info("Evaluating scenario: %s", scen_def.name)
             scenario_names.append(scen_def.name)
 
-            # Construct parameterized scenario
+            # 1. Transform fuel prices based on fossil and alternative fuel multipliers
+            base_prices = dict(base_scenario.fuel_prices or FUEL_PRICES_USD_PER_TON)
+            adjusted_fuel_prices: dict[str, float] = {}
+            for k, price in base_prices.items():
+                k_lower = k.lower()
+                if k_lower in {"diesel", "mgo", "vlsfo", "lng", "hfo"}:
+                    mult = scen_def.fossil_fuel_multiplier
+                else:
+                    mult = scen_def.alt_fuel_multiplier
+                adj = round(price * mult, 2)
+                adjusted_fuel_prices[k] = adj
+                adjusted_fuel_prices[k.capitalize()] = adj
+                adjusted_fuel_prices[k_lower] = adj
+
+            # 2. Construct parameterized scenario with all scenario shocks
             adjusted_scenario = OptimizationScenario(
                 cargo_demand=base_scenario.cargo_demand * scen_def.demand_multiplier,
                 route_distance=base_scenario.route_distance,
@@ -135,6 +150,8 @@ class MultiScenarioAnalyzer:
                 vessel_class=base_scenario.vessel_class,
                 scenario_id=f"SCEN-{scen_def.name.upper().replace(' ', '-')}",
                 max_transition_rate=base_scenario.max_transition_rate,
+                fuel_prices=adjusted_fuel_prices,
+                regulation_factor=scen_def.regulation_factor,
             )
 
             # Optimize strategy under adjusted conditions
@@ -158,6 +175,12 @@ class MultiScenarioAnalyzer:
                 "vessel_count": v_cnt,
                 "speed_knots": round(opt_spd, 2),
                 "carbon_price": scen_def.carbon_price,
+                "fossil_fuel_multiplier": scen_def.fossil_fuel_multiplier,
+                "alt_fuel_multiplier": scen_def.alt_fuel_multiplier,
+                "regulation_factor": scen_def.regulation_factor,
+                "diesel_price_usd": adjusted_fuel_prices.get("Diesel", 650.0),
+                "lng_price_usd": adjusted_fuel_prices.get("LNG", 800.0),
+                "methanol_price_usd": adjusted_fuel_prices.get("Methanol", 950.0),
             }
 
         # Ranking based on operational cost and emissions
