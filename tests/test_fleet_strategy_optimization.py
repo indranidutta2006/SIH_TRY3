@@ -545,3 +545,79 @@ def test_fleet_composition_full_5_fuel_decision_space_enumeration() -> None:
     assert total_fuel_vessels == total_size_vessels
 
 
+def test_fleet_composition_qpso_solver() -> None:
+    """Verify FleetCompositionOptimizer successfully executes with solver='qpso'.
+
+    Tests:
+    1. Direct invocation with solver='qpso'.
+    2. Verification of QPSO metadata (solver_name, iterations, n_evaluations, convergence_score).
+    3. Structural validity of output: all 8 keys present, size and fuel vessel counts match.
+    4. Compliance with cargo demand and max transition rate constraints.
+    """
+    optimizer = FleetCompositionOptimizer()
+    scenario = OptimizationScenario(
+        cargo_demand=120_000.0,
+        route_distance=3000.0,
+        deadline_hours=240.0,
+        scenario_id="SCEN-QPSO-COMP",
+        budget=150_000_000.0,
+        carbon_price=80.0,
+        max_transition_rate=0.50,
+    )
+
+    result = optimizer.optimize_composition(scenario, solver="qpso", population_size=20, max_iterations=30, seed=42)
+    assert isinstance(result, FleetCompositionResult)
+    assert result.status == OptimizationStatus.SUCCESS
+    assert result.metadata["solver_name"] == "qpso"
+    assert result.metadata["iterations"] == 30
+    assert result.metadata["n_evaluations"] == 20 * 30
+    assert "optimization_trace" in result.metadata
+    assert len(result.metadata["optimization_trace"]) == 30
+
+    # Verify keys
+    for k in ("feeder", "medium", "large", "diesel", "lng", "methanol", "hydrogen", "ammonia"):
+        assert k in result.fleet_mix
+
+    total_size = result.fleet_mix["feeder"] + result.fleet_mix["medium"] + result.fleet_mix["large"]
+    total_fuel = sum(result.fleet_mix[f] for f in ("diesel", "lng", "methanol", "hydrogen", "ammonia"))
+    assert total_size == total_fuel
+    assert total_size > 0
+
+    # Verify transition rate constraint
+    alt_count = total_fuel - result.fleet_mix["diesel"]
+    assert alt_count <= int(total_size * scenario.max_transition_rate)
+
+
+def test_fleet_strategy_qpso_integrated_solver() -> None:
+    """Verify FleetStrategyOptimizer orchestrates end-to-end with solver='qpso'.
+
+    Tests:
+    1. FleetStrategyOptimizer.optimize_strategy(scenario, solver='qpso').
+    2. Recommendation metadata accurately tags 'qpso' composition solver.
+    3. All downstream tiers (Capacity, Speed, Deployment, Reliability, Demand) succeed seamlessly.
+    """
+    optimizer = FleetStrategyOptimizer()
+    scenario = OptimizationScenario(
+        cargo_demand=150_000.0,
+        route_distance=3500.0,
+        deadline_hours=260.0,
+        scenario_id="SCEN-QPSO-STRAT",
+        budget=180_000_000.0,
+        carbon_price=80.0,
+        vessel_class="PANAMAX",
+        max_transition_rate=0.40,
+    )
+
+    rec = optimizer.optimize_strategy(scenario, solver="qpso", population_size=20, max_iterations=25, seed=101)
+    assert isinstance(rec, FleetStrategyRecommendation)
+    assert rec.status == OptimizationStatus.SUCCESS
+    assert rec.summary["composition_solver"] == "qpso"
+    assert rec.fleet_mix.metadata["solver_name"] == "qpso"
+    assert rec.cost_estimate > 0.0
+    assert rec.fuel_estimate > 0.0
+    assert rec.emissions_estimate > 0.0
+    assert rec.speed_recommendation.optimal_speed > 0.0
+    assert rec.demand_metrics.satisfaction_percentage >= 95.0
+
+
+

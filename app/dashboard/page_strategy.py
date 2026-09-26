@@ -114,6 +114,13 @@ def render_strategy_page() -> None:
                 step=0.01,
                 help="Contractual cargo fulfillment threshold.",
             )
+            solver_mode = st.selectbox(
+                "Fleet Composition Solver",
+                ["Deterministic MIP (Fast Enumeration)", "Quantum-Inspired QPSO (Metaheuristic)"],
+                index=0,
+                help="Optimization algorithm for the discrete fleet composition layer.",
+            )
+            solver_key = "qpso" if "QPSO" in solver_mode else "deterministic"
 
     scenario = OptimizationScenario(
         cargo_demand=float(cargo_demand),
@@ -135,15 +142,16 @@ def render_strategy_page() -> None:
 
     # State management for results
     if "current_recommendation" not in st.session_state or run_clicked:
-        with st.spinner("Optimizing Fleet Composition, Capacity Sizing, Eco-Speed, and Deployment Schedule..."):
-            rec = optimizer.optimize_strategy(scenario)
+        with st.spinner(f"Optimizing Fleet Composition ({solver_mode}), Capacity Sizing, Eco-Speed, and Deployment Schedule..."):
+            rec = optimizer.optimize_strategy(scenario, solver=solver_key)
             st.session_state["current_recommendation"] = rec
 
     rec = st.session_state["current_recommendation"]
 
     # 2. Status Banner
+    solver_badge = rec.summary.get("composition_solver", rec.fleet_mix.metadata.get("solver_name", "deterministic"))
     if rec.status == OptimizationStatus.SUCCESS:
-        st.success(f"✅ Strategy Optimization Converged Successfully [Status: {rec.status.value}]")
+        st.success(f"✅ Strategy Optimization Converged Successfully [Status: {rec.status.value} | Solver: {solver_badge}]")
     elif rec.status == OptimizationStatus.DEADLINE_VIOLATED:
         st.warning(f"⚠️ Transit Deadline Infeasible under safe maximum speed [Status: {rec.status.value}]")
     elif rec.status == OptimizationStatus.BUDGET_EXCEEDED:
@@ -292,6 +300,32 @@ def render_strategy_page() -> None:
 
     if deploy_rows:
         st.dataframe(pd.DataFrame(deploy_rows), use_container_width=True, hide_index=True)
+
+    # 6.1 QPSO Telemetry Expander (if QPSO solver selected)
+    if "qpso" in str(rec.fleet_mix.metadata.get("solver_name", "")).lower():
+        with st.expander("🔬 Quantum-Inspired Particle Swarm Convergence Telemetry", expanded=False):
+            trace_df = pd.DataFrame(rec.fleet_mix.metadata.get("optimization_trace", []))
+            if not trace_df.empty and "score" in trace_df.columns:
+                fig_trace = go.Figure()
+                fig_trace.add_trace(go.Scatter(
+                    x=trace_df["iteration"],
+                    y=trace_df["score"],
+                    mode="lines+markers",
+                    name="Global Best Score (gbest)",
+                    line=dict(color="#00CC96", width=2),
+                ))
+                fig_trace.update_layout(
+                    title="QPSO Delta-Potential Contraction-Expansion Convergence",
+                    xaxis_title="Swarm Iteration",
+                    yaxis_title="Scalarized Objective Score",
+                    margin=dict(l=20, r=20, t=40, b=20),
+                )
+                st.plotly_chart(fig_trace, use_container_width=True)
+            st.caption(
+                f"QPSO Evaluations: {rec.fleet_mix.metadata.get('n_evaluations', 0)} | "
+                f"Convergence Score: {rec.fleet_mix.metadata.get('convergence_score', 1.0)} | "
+                f"Solver Runtime: {rec.fleet_mix.metadata.get('runtime_ms', 0)}ms"
+            )
 
     # 7. Scenario JSON Persistence
     st.markdown("---")

@@ -758,10 +758,16 @@ scenario = OptimizationScenario(
 
 # 2. Execute end-to-end strategy optimization
 optimizer = FleetStrategyOptimizer()
-recommendation = optimizer.optimize_strategy(scenario)
+
+# Option A: Deterministic Combinatorial MIP (Default, branch-and-bound pruning)
+recommendation = optimizer.optimize_strategy(scenario, solver="deterministic")
+
+# Option B: Quantum-Inspired QPSO (Metaheuristic particle swarm with delta-potential well)
+# recommendation = optimizer.optimize_strategy(scenario, solver="qpso", population_size=25, max_iterations=40)
 
 # 3. Inspect results
 print("Status:", recommendation.status)
+print("Composition Solver:", recommendation.summary["composition_solver"])
 print("Recommended Fleet Mix:", recommendation.fleet_mix.fleet_mix)
 print("Recommended Capacity:", recommendation.capacity_recommendation.recommended_capacity, "DWT")
 print("Recommended Eco-Speed:", recommendation.speed_recommendation.optimal_speed, "knots")
@@ -770,6 +776,10 @@ print("Baseline Fuel Savings:", recommendation.baseline_comparison["deltas"]["fu
 # 4. Persist scenario to disk
 FleetStrategyOptimizer.save_scenario(recommendation, "outputs/scenarios/strategy_panamax.json")
 ```
+
+> [!NOTE]
+> **Architecture Discipline & Quantum Optimization Engine**:  
+> QPSO is the platform's quantum-inspired metaheuristic (featuring quantum delta-potential-well updates, $m_{\text{best}}$ coordinate contraction-expansion scheduling, and stochastic quantum tunneling) benchmarked against classical algorithms in Phase 3. The integrated fleet strategy orchestrator supports both the deterministic combinatorial search (`solver="deterministic"`, default) and the continuous-to-discrete quantum swarm optimizer (`solver="qpso"`) for the discrete fleet-composition layer. Both solvers evaluate the exact same naval architectural, economic, and statutory compliance objective functions.
 
 ---
 

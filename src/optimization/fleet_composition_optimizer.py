@@ -11,6 +11,8 @@ import logging
 import time
 from typing import Any, Final
 
+import numpy as np
+
 from contracts.constants import (
     DEFAULT_EUR_TO_USD_FX_RATE,
     FUEL_PRICES_USD_PER_TON,
@@ -22,6 +24,7 @@ from contracts.schemas import (
     OptimizationStatus,
 )
 from src.compliance.compliance_engine import MaritimeComplianceEngine
+from src.optimization.qpso import QPSOOptimizer
 from src.physics.fuel_physics_engine import MaritimeFuelPhysicsEngine
 from src.prediction.emission_engine import MaritimeEmissionEngine
 
@@ -43,8 +46,8 @@ VESSEL_SPECS: Final[dict[str, dict[str, Any]]] = {
         "design_speed_knots": 14.5,
         "admiralty_coeff": 520.0,
         "annual_voyages": 20,
-        "daily_charter_usd": 22000.0,
-        "capex_usd": 50_000_000.0,
+        "daily_charter_usd": 24000.0,
+        "capex_usd": 55_000_000.0,
         "max_available": 15,
     },
     "large": {
@@ -76,17 +79,21 @@ class FleetCompositionOptimizer:
         emission_engine: MaritimeEmissionEngine | None = None,
         physics_engine: MaritimeFuelPhysicsEngine | None = None,
         compliance_engine: MaritimeComplianceEngine | None = None,
+        default_solver: str = "deterministic",
     ) -> None:
         """Initialize fleet composition optimizer reusing existing engines."""
         self.emission_engine = emission_engine or MaritimeEmissionEngine()
         self.physics_engine = physics_engine or MaritimeFuelPhysicsEngine()
         self.compliance_engine = compliance_engine or MaritimeComplianceEngine()
+        self.default_solver = default_solver
         self.logger = logger
 
     def optimize_composition(
         self,
         scenario: OptimizationScenario,
         max_fleet_size: int = 25,
+        solver: str | None = None,
+        **kwargs: Any,
     ) -> FleetCompositionResult:
         """Determine optimal fleet mix satisfying scenario constraints and minimizing total cost.
 
@@ -103,10 +110,16 @@ class FleetCompositionOptimizer:
         Args:
             scenario: Comprehensive OptimizationScenario context.
             max_fleet_size: Upper limit on total active fleet size.
+            solver: Optimization solver to execute ('deterministic' or 'qpso').
+            **kwargs: Additional hyperparameters forwarded to the solver (e.g. population_size, max_iterations).
 
         Returns:
             FleetCompositionResult with status, fleet mix, costs, emissions, and metadata.
         """
+        chosen_solver = (solver or self.default_solver).lower()
+        if chosen_solver in ("qpso", "quantum", "quantum_pso"):
+            return self._optimize_with_qpso(scenario, max_fleet_size=max_fleet_size, **kwargs)
+
         start_time = time.perf_counter()
         self.logger.info(
             "Starting Fleet Composition Optimization for scenario '%s' (Demand: %.1f tons, Budget: $%.1fM)",
@@ -477,3 +490,283 @@ class FleetCompositionOptimizer:
             cum_reg_penalty += penalty_usd
 
         return cum_fuel, cum_emiss, cum_fuel_cost, cum_reg_penalty
+
+    def _optimize_with_qpso(
+        self,
+        scenario: OptimizationScenario,
+        max_fleet_size: int = 25,
+        population_size: int = 25,
+        max_iterations: int = 40,
+        seed: int = 42,
+    ) -> FleetCompositionResult:
+        """Optimize fleet composition using Quantum-Behaved Particle Swarm Optimization (QPSO).
+
+        Translates the discrete fleet-sizing and fuel allocation problem into a continuous
+        quantum delta-potential well search space, with particle discretization and
+        exact constraint evaluation.
+        """
+        start_time = time.perf_counter()
+
+        # Edge case: zero or negative demand
+        if scenario.cargo_demand <= 0.0:
+            elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+            return FleetCompositionResult(
+                status=OptimizationStatus.SUCCESS,
+                fleet_mix={"feeder": 0, "medium": 0, "large": 0, "diesel": 0, "lng": 0, "methanol": 0, "hydrogen": 0, "ammonia": 0},
+                total_capacity=0.0,
+                fuel_consumption=0.0,
+                emissions=0.0,
+                operational_cost=0.0,
+                carbon_cost=0.0,
+                optimization_score=0.0,
+                service_level_achieved=1.0,
+                metadata={
+                    "solver_name": "qpso",
+                    "runtime_ms": round(elapsed_ms, 2),
+                    "iterations": 1,
+                    "convergence_score": 1.0,
+                    "optimization_trace": [{"iteration": 1, "score": 0.0}],
+                    "regulatory_breakdown": {"cii_score": 0.0, "fuel_eu_score": 0.0, "compliance_penalty": 0.0},
+                },
+            )
+
+        fuel_prices = scenario.fuel_prices or FUEL_PRICES_USD_PER_TON
+        w_cost, w_fuel, w_emiss = scenario.weights
+        effective_demand = scenario.forecasted_demand if scenario.forecasted_demand is not None else scenario.cargo_demand
+        target_demand = effective_demand * scenario.service_level
+
+        # Cached unit metrics for (x_f, x_m, x_l)
+        cached_unit_metrics: dict[tuple[int, int, int], dict[str, tuple[float, float, float, float]]] = {}
+
+        best_eval: dict[str, Any] = {
+            "score": float("inf"),
+            "candidate": None,
+        }
+
+        infeasible_demand_flag = True
+        infeasible_budget_flag = False
+
+        bounds = {
+            "x_feeder": (0.0, float(min(VESSEL_SPECS["feeder"]["max_available"], max_fleet_size))),
+            "x_medium": (0.0, float(min(VESSEL_SPECS["medium"]["max_available"], max_fleet_size))),
+            "x_large": (0.0, float(min(VESSEL_SPECS["large"]["max_available"], max_fleet_size))),
+            "n_alt": (0.0, float(max_fleet_size)),
+            "w_lng": (0.0, 1.0),
+            "w_methanol": (0.0, 1.0),
+            "w_hydrogen": (0.0, 1.0),
+            "w_ammonia": (0.0, 1.0),
+        }
+
+        def decode_and_evaluate(vec: np.ndarray) -> float:
+            nonlocal infeasible_demand_flag, infeasible_budget_flag
+
+            x_f = int(round(vec[0]))
+            x_m = int(round(vec[1]))
+            x_l = int(round(vec[2]))
+            total_vessels = x_f + x_m + x_l
+
+            if total_vessels <= 0:
+                return 1e7
+            if total_vessels > max_fleet_size:
+                return 1e6 + 1e4 * (total_vessels - max_fleet_size)
+
+            # Annual capacity
+            ann_cap = (
+                x_f * VESSEL_SPECS["feeder"]["dwt"] * 0.85 * VESSEL_SPECS["feeder"]["annual_voyages"]
+                + x_m * VESSEL_SPECS["medium"]["dwt"] * 0.85 * VESSEL_SPECS["medium"]["annual_voyages"]
+                + x_l * VESSEL_SPECS["large"]["dwt"] * 0.85 * VESSEL_SPECS["large"]["annual_voyages"]
+            )
+            if ann_cap < target_demand:
+                shortfall = (target_demand - ann_cap) / max(target_demand, 1.0)
+                return 500.0 + 500.0 * shortfall
+
+            infeasible_demand_flag = False
+
+            # Base fleet capital
+            base_fleet_capital = (
+                x_f * VESSEL_SPECS["feeder"]["capex_usd"] * 0.10
+                + x_m * VESSEL_SPECS["medium"]["capex_usd"] * 0.10
+                + x_l * VESSEL_SPECS["large"]["capex_usd"] * 0.10
+            )
+
+            # Alternative fuel allocation
+            max_alt = min(total_vessels, int(total_vessels * scenario.max_transition_rate))
+            n_alt = min(max_alt, max(0, int(round(vec[3]))))
+
+            w = np.array(vec[4:8], dtype=float)
+            w_sum = float(np.sum(w))
+            if w_sum < 1e-9 or n_alt == 0:
+                y_L = y_M = y_H = y_A = 0
+            else:
+                shares = w / w_sum
+                raw = shares * n_alt
+                base_counts = np.floor(raw).astype(int)
+                rem = n_alt - int(np.sum(base_counts))
+                if rem > 0:
+                    fracs = raw - base_counts
+                    top_idx = np.argsort(-fracs)[:rem]
+                    base_counts[top_idx] += 1
+                y_L, y_M, y_H, y_A = int(base_counts[0]), int(base_counts[1]), int(base_counts[2]), int(base_counts[3])
+
+            y_D = total_vessels - (y_L + y_M + y_H + y_A)
+
+            weighted_multiplier = (
+                y_D * FUEL_CAPEX_MULTIPLIER["Diesel"]
+                + y_L * FUEL_CAPEX_MULTIPLIER["LNG"]
+                + y_M * FUEL_CAPEX_MULTIPLIER["Methanol"]
+                + y_H * FUEL_CAPEX_MULTIPLIER["Hydrogen"]
+                + y_A * FUEL_CAPEX_MULTIPLIER["Ammonia"]
+            ) / total_vessels
+            total_capital = base_fleet_capital * weighted_multiplier
+
+            if total_capital > scenario.budget:
+                infeasible_budget_flag = True
+                excess = (total_capital - scenario.budget) / max(scenario.budget, 1.0)
+                return 500.0 + 500.0 * excess
+
+            size_key = (x_f, x_m, x_l)
+            if size_key not in cached_unit_metrics:
+                cached_unit_metrics[size_key] = {
+                    f_key: self._evaluate_fleet_operational_costs(
+                        x_f, x_m, x_l, {f_key: 1}, scenario, fuel_prices
+                    )
+                    for f_key in ("diesel", "lng", "methanol", "hydrogen", "ammonia")
+                }
+            u = cached_unit_metrics[size_key]
+
+            fuel_tons = (
+                y_D * u["diesel"][0]
+                + y_L * u["lng"][0]
+                + y_M * u["methanol"][0]
+                + y_H * u["hydrogen"][0]
+                + y_A * u["ammonia"][0]
+            )
+            emissions_tons = (
+                y_D * u["diesel"][1]
+                + y_L * u["lng"][1]
+                + y_M * u["methanol"][1]
+                + y_H * u["hydrogen"][1]
+                + y_A * u["ammonia"][1]
+            )
+            fuel_cost = (
+                y_D * u["diesel"][2]
+                + y_L * u["lng"][2]
+                + y_M * u["methanol"][2]
+                + y_H * u["hydrogen"][2]
+                + y_A * u["ammonia"][2]
+            )
+            reg_penalty = (
+                y_D * u["diesel"][3]
+                + y_L * u["lng"][3]
+                + y_M * u["methanol"][3]
+                + y_H * u["hydrogen"][3]
+                + y_A * u["ammonia"][3]
+            )
+
+            carbon_cost = emissions_tons * scenario.carbon_price
+            total_cost = total_capital + fuel_cost + carbon_cost + reg_penalty
+
+            score = (
+                w_cost * (total_cost / 10_000_000.0)
+                + w_fuel * (fuel_tons / 10_000.0)
+                + w_emiss * (emissions_tons / 30_000.0)
+            )
+
+            if score < best_eval["score"]:
+                best_eval["score"] = score
+                best_eval["candidate"] = {
+                    "fleet_mix": {
+                        "feeder": x_f,
+                        "medium": x_m,
+                        "large": x_l,
+                        "diesel": y_D,
+                        "lng": y_L,
+                        "methanol": y_M,
+                        "hydrogen": y_H,
+                        "ammonia": y_A,
+                    },
+                    "total_capacity": ann_cap,
+                    "fuel_consumption": fuel_tons,
+                    "emissions": emissions_tons,
+                    "operational_cost": total_cost,
+                    "carbon_cost": carbon_cost,
+                    "optimization_score": score,
+                    "service_level_achieved": min(1.0, ann_cap / max(scenario.cargo_demand, 1.0)),
+                    "reg_breakdown": {
+                        "fuel_eu_score": round(reg_penalty, 2),
+                        "compliance_penalty": round(reg_penalty, 2),
+                        "cii_score": round(min(1.0, (emissions_tons * 1e6) / (ann_cap * scenario.route_distance + 1e-4)), 4),
+                    },
+                }
+
+            return score
+
+        qpso = QPSOOptimizer(random_state=seed)
+        qpso_res = qpso.optimize(
+            objective_function=decode_and_evaluate,
+            parameter_bounds=bounds,
+            hyperparameters={
+                "population_size": population_size,
+                "max_iterations": max_iterations,
+                "seed": seed,
+                "alpha_start": 1.0,
+                "alpha_end": 0.5,
+            },
+        )
+
+        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+
+        if best_eval["candidate"] is None:
+            if infeasible_demand_flag:
+                status = OptimizationStatus.DEMAND_UNSATISFIABLE
+                failure_reason = "DEMAND_NOT_MET"
+            elif infeasible_budget_flag:
+                status = OptimizationStatus.BUDGET_EXCEEDED
+                failure_reason = "BUDGET_EXCEEDED"
+            else:
+                status = OptimizationStatus.INFEASIBLE
+                failure_reason = "PORT_CONSTRAINT"
+
+            return FleetCompositionResult(
+                status=status,
+                fleet_mix={"feeder": 0, "medium": 0, "large": 0, "diesel": 0, "lng": 0, "methanol": 0, "hydrogen": 0, "ammonia": 0},
+                total_capacity=0.0,
+                fuel_consumption=0.0,
+                emissions=0.0,
+                operational_cost=0.0,
+                carbon_cost=0.0,
+                optimization_score=float("inf"),
+                service_level_achieved=0.0,
+                metadata={
+                    "solver_name": "qpso",
+                    "runtime_ms": round(elapsed_ms, 2),
+                    "iterations": qpso_res.iterations,
+                    "n_evaluations": qpso_res.n_evaluations,
+                    "convergence_score": 0.0,
+                    "failure_reason": failure_reason,
+                    "optimization_trace": [{"iteration": i, "score": float(s)} for i, s in enumerate(qpso_res.history)],
+                    "regulatory_breakdown": {"cii_score": 0.0, "fuel_eu_score": 0.0, "compliance_penalty": 0.0},
+                },
+            )
+
+        best = best_eval["candidate"]
+        return FleetCompositionResult(
+            status=OptimizationStatus.SUCCESS,
+            fleet_mix=best["fleet_mix"],
+            total_capacity=round(best["total_capacity"], 2),
+            fuel_consumption=round(best["fuel_consumption"], 2),
+            emissions=round(best["emissions"], 2),
+            operational_cost=round(best["operational_cost"], 2),
+            carbon_cost=round(best["carbon_cost"], 2),
+            optimization_score=round(best["optimization_score"], 4),
+            service_level_achieved=round(best["service_level_achieved"], 4),
+            metadata={
+                "solver_name": "qpso",
+                "runtime_ms": round(elapsed_ms, 2),
+                "iterations": qpso_res.iterations,
+                "n_evaluations": qpso_res.n_evaluations,
+                "convergence_score": 1.0 if qpso_res.converged else 0.90,
+                "optimization_trace": [{"iteration": i, "score": round(float(s), 4)} for i, s in enumerate(qpso_res.history)],
+                "regulatory_breakdown": best["reg_breakdown"],
+            },
+        )

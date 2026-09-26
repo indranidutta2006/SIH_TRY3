@@ -48,9 +48,11 @@ class FleetStrategyOptimizer:
         speed_optimizer: EcoSpeedOptimizer | None = None,
         demand_engine: CargoDemandSatisfactionEngine | None = None,
         reliability_engine: ScheduleReliabilityEngine | None = None,
+        default_solver: str = "deterministic",
     ) -> None:
         """Initialize fleet strategy orchestrator with underlying sub-optimizers."""
-        self.composition_optimizer = composition_optimizer or FleetCompositionOptimizer()
+        self.default_solver = default_solver
+        self.composition_optimizer = composition_optimizer or FleetCompositionOptimizer(default_solver=default_solver)
         self.capacity_optimizer = capacity_optimizer or VesselCapacityOptimizer()
         self.speed_optimizer = speed_optimizer or EcoSpeedOptimizer()
         self.demand_engine = demand_engine or CargoDemandSatisfactionEngine()
@@ -60,6 +62,8 @@ class FleetStrategyOptimizer:
     def optimize_strategy(
         self,
         scenario: OptimizationScenario,
+        solver: str | None = None,
+        **kwargs: Any,
     ) -> FleetStrategyRecommendation:
         """Execute end-to-end strategic fleet optimization across all decision tiers.
 
@@ -73,6 +77,8 @@ class FleetStrategyOptimizer:
 
         Args:
             scenario: Comprehensive OptimizationScenario context.
+            solver: Optimization solver for composition layer ('deterministic' or 'qpso').
+            **kwargs: Additional hyperparameters forwarded to the composition solver.
 
         Returns:
             FleetStrategyRecommendation ready for executive review and dashboard display.
@@ -83,10 +89,11 @@ class FleetStrategyOptimizer:
         if not scenario.created_at:
             scenario = replace(scenario, created_at=created_at)
 
-        self.logger.info("Executing Strategic Optimization for Scenario ID: %s", scenario.scenario_id)
+        chosen_solver = solver or self.default_solver
+        self.logger.info("Executing Strategic Optimization for Scenario ID: %s (Solver: %s)", scenario.scenario_id, chosen_solver)
 
         # 1. Tier 1: Fleet Composition Optimization
-        comp_res = self.composition_optimizer.optimize_composition(scenario)
+        comp_res = self.composition_optimizer.optimize_composition(scenario, solver=chosen_solver, **kwargs)
 
         # 2. Tier 2: Vessel Capacity Optimization
         primary_fuel = self._identify_primary_fuel(comp_res.fleet_mix)
@@ -214,6 +221,7 @@ class FleetStrategyOptimizer:
             summary={
                 "total_vessels": sum(v for k, v in comp_res.fleet_mix.items() if k in {"feeder", "medium", "large"}),
                 "primary_fuel": primary_fuel,
+                "composition_solver": comp_res.metadata.get("solver_name", chosen_solver),
                 "recommended_dwt": cap_res.recommended_capacity,
                 "recommended_speed_knots": speed_res.optimal_speed,
                 "transit_eta_hours": speed_res.estimated_eta,
