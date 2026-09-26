@@ -35,6 +35,17 @@ VESSEL_CLASS_PROFILES: Final[dict[str, dict[str, Any]]] = {
         "port_turnaround_hours": 16.0,
         "daily_time_charter_usd": 12000.0,
     },
+    "HANDYMAX": {
+        "min_dwt": 20000.0,
+        "max_dwt": 40000.0,
+        "default_dwt": 35000.0,
+        "teu_ratio": 13.8,
+        "max_draft_m": 10.5,
+        "admiralty_coeff": 470.0,
+        "design_speed_knots": 14.0,
+        "port_turnaround_hours": 20.0,
+        "daily_time_charter_usd": 17000.0,
+    },
     "PANAMAX": {
         "min_dwt": 25000.0,
         "max_dwt": 55000.0,

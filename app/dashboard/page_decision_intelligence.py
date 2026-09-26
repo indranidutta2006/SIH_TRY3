@@ -81,6 +81,12 @@ def render_decision_intelligence_page() -> None:
             )
         with c3:
             vessel_class = st.selectbox("Vessel Class", ["PANAMAX", "HANDYMAX", "CAPESIZE"], index=0)
+            vessel_type = st.selectbox(
+                "IMO Vessel Type",
+                ["Bulk carrier", "Containership", "Tanker", "General cargo ship", "Gas carrier", "LNG carrier"],
+                index=0,
+                help="IMO Resolution MEPC.353(78) vessel category determining statutory CII reference lines and rating boundaries."
+            )
             primary_green_fuel = st.selectbox("Primary Transition Fuel", ["Methanol", "LNG", "Hydrogen", "Ammonia"], index=0)
             pathway_options = {
                 "Methanol": ["e_methanol", "bio_methanol", "fossil"],
@@ -111,6 +117,7 @@ def render_decision_intelligence_page() -> None:
         budget=120_000_000.0,
         carbon_price=carbon_price,
         vessel_class=vessel_class,
+        vessel_type=vessel_type,
         scenario_id="SCEN-DECISION-INTEL",
         max_transition_rate=0.50,
         target_reliability=90.0,
@@ -118,10 +125,19 @@ def render_decision_intelligence_page() -> None:
 
     # 2. Run Engines
     strat_rec = optimizer.optimize_strategy(scenario)
+    opt_scenario = strat_rec.scenario  # Parameters derived from naval-architecture capacity optimizer
     fleet_mix_res = strat_rec.fleet_mix
     total_vessels = strat_rec.summary.get("total_vessels", sum(v for k, v in fleet_mix_res.fleet_mix.items() if k in {"feeder", "medium", "large"}))
     if total_vessels <= 0:
         total_vessels = max(1, sum(fleet_mix_res.fleet_mix.values()))
+
+    st.caption(
+        f"🧭 **Strategy Derived Parameters:** Class: `{opt_scenario.vessel_class}` | "
+        f"IMO Category: `{opt_scenario.vessel_type}` | "
+        f"Capacity: `{opt_scenario.capacity_dwt:,.0f} DWT` | "
+        f"Operational Frequency: `{opt_scenario.annual_voyages} voyages/year` | "
+        f"Annual Operating Distance: `{opt_scenario.annual_distance:,.0f} nm`"
+    )
 
     # Extract normalized fuel shares from fleet_mix
     fuel_tokens = ["diesel", "lng", "methanol", "hydrogen", "ammonia"]
@@ -143,17 +159,17 @@ def render_decision_intelligence_page() -> None:
     }
 
     roadmap = transition_planner.plan_transition(
-        scenario=scenario,
+        scenario=opt_scenario,
         vessel_class=vessel_class,
         primary_green_fuel=primary_green_fuel,
         secondary_green_fuel=secondary_green_fuel,
         fuel_pathways=fuel_pathways,
     )
     forecast = reg_engine.forecast_compliance_trajectory(
-        vessel_type="Bulk carrier",
-        capacity_dwt=45000.0 if vessel_class == "PANAMAX" else 25000.0,
+        vessel_type=opt_scenario.vessel_type,
+        capacity_dwt=opt_scenario.capacity_dwt,
         annual_fuel_consumption_tons=fleet_mix_res.fuel_consumption / max(total_vessels, 1),
-        annual_distance_nm=route_distance * 20,
+        annual_distance_nm=opt_scenario.annual_distance,
         fuel_shares=fuel_shares,
         start_year=2026,
         end_year=2040,
@@ -161,7 +177,7 @@ def render_decision_intelligence_page() -> None:
     )
     rec = exec_engine.generate_recommendation(
         strategy_recommendation=strat_rec,
-        scenario=scenario,
+        scenario=opt_scenario,
         roadmap=roadmap,
         forecast=forecast,
         investment_horizon_years=horizon_years,

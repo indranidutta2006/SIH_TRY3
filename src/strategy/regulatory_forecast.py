@@ -437,6 +437,7 @@ class RegulatoryForecastEngine:
             metadata={
                 "vessel_type": vessel_type,
                 "capacity_dwt": capacity_dwt,
+                "annual_distance_nm": annual_distance_nm,
                 "monte_carlo_trials": monte_carlo_trials,
                 "random_seed": random_seed,
                 "confidence_interval": "95% empirical bootstrap",

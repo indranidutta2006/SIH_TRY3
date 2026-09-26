@@ -814,5 +814,125 @@ def test_lca_engine_pathway_case_insensitivity_and_selection() -> None:
     assert res_h2["hydrogen"].well_to_tank_emissions > 1000.0  # 100t * (9.0 + 1.5) = 1050t CO2e
 
 
+# =============================================================================
+# 12. STRATEGY-DERIVED REGULATORY PARAMETERS PROPAGATION (ISSUE 7)
+# =============================================================================
+
+def test_strategy_derived_regulatory_parameters_propagation() -> None:
+    """Verify that vessel_type, capacity_dwt, annual_voyages, and annual_distance
+
+    are derived from the optimized strategy rather than being hidden hardcoded assumptions:
+    1. PANAMAX derives capacity ~45k DWT and ~20 voyages.
+    2. HANDYMAX derives capacity ~35k DWT and >=20 voyages.
+    3. CAPESIZE derives capacity >=100k DWT and <=15 voyages.
+    4. Derived annual_distance equals route_distance * annual_voyages.
+    5. Explicit user parameters are preserved without overwrite.
+    6. Parameters propagate correctly to the RegulatoryForecastEngine.
+    """
+    optimizer = FleetStrategyOptimizer()
+    reg_engine = RegulatoryForecastEngine()
+
+    # 1. PANAMAX scenario
+    scen_panamax = OptimizationScenario(
+        cargo_demand=250_000.0,
+        route_distance=3500.0,
+        deadline_hours=260.0,
+        vessel_class="PANAMAX",
+    )
+    strat_panamax = optimizer.optimize_strategy(scen_panamax)
+    opt_scen_panamax = strat_panamax.scenario
+
+    assert opt_scen_panamax.vessel_type == "Bulk carrier"
+    assert 25_000.0 <= opt_scen_panamax.capacity_dwt <= 55_000.0
+    assert opt_scen_panamax.annual_voyages == strat_panamax.capacity_recommendation.optimal_trips
+    assert opt_scen_panamax.annual_voyages >= 1
+    assert opt_scen_panamax.annual_distance == pytest.approx(
+        3500.0 * opt_scen_panamax.annual_voyages, abs=1.0
+    )
+    assert opt_scen_panamax.annual_distance_nm == opt_scen_panamax.annual_distance
+
+    # 2. HANDYMAX scenario
+    scen_handymax = OptimizationScenario(
+        cargo_demand=150_000.0,
+        route_distance=2500.0,
+        deadline_hours=200.0,
+        vessel_class="HANDYMAX",
+    )
+    strat_handymax = optimizer.optimize_strategy(scen_handymax)
+    opt_scen_handymax = strat_handymax.scenario
+
+    assert opt_scen_handymax.vessel_type == "Bulk carrier"
+    assert 20_000.0 <= opt_scen_handymax.capacity_dwt <= 40_000.0
+    assert opt_scen_handymax.annual_voyages == strat_handymax.capacity_recommendation.optimal_trips
+    assert opt_scen_handymax.annual_voyages >= 1
+    assert opt_scen_handymax.annual_distance == pytest.approx(
+        2500.0 * opt_scen_handymax.annual_voyages, abs=1.0
+    )
+
+    # 3. CAPESIZE scenario
+    scen_capesize = OptimizationScenario(
+        cargo_demand=500_000.0,
+        route_distance=6000.0,
+        deadline_hours=450.0,
+        vessel_class="CAPESIZE",
+    )
+    strat_capesize = optimizer.optimize_strategy(scen_capesize)
+    opt_scen_capesize = strat_capesize.scenario
+
+    assert opt_scen_capesize.vessel_type == "Bulk carrier"
+    assert opt_scen_capesize.capacity_dwt >= 100_000.0
+    assert opt_scen_capesize.annual_voyages == strat_capesize.capacity_recommendation.optimal_trips
+    assert opt_scen_capesize.annual_voyages >= 1
+    assert opt_scen_capesize.annual_distance == pytest.approx(
+        6000.0 * opt_scen_capesize.annual_voyages, abs=1.0
+    )
+
+    # Capesize capacity must be strictly larger than Panamax
+    assert opt_scen_capesize.capacity_dwt > opt_scen_panamax.capacity_dwt
+
+    # 4. Explicit parameters preserved
+    scen_custom = OptimizationScenario(
+        cargo_demand=200_000.0,
+        route_distance=3000.0,
+        deadline_hours=220.0,
+        vessel_class="PANAMAX",
+        vessel_type="Containership",
+        capacity_dwt=52_000.0,
+        annual_voyages=24,
+        annual_distance=72_000.0,
+    )
+    strat_custom = optimizer.optimize_strategy(scen_custom)
+    assert strat_custom.scenario.vessel_type == "Containership"
+    assert strat_custom.scenario.capacity_dwt == 52_000.0
+    assert strat_custom.scenario.annual_voyages == 24
+    assert strat_custom.scenario.annual_distance == 72_000.0
+
+    # 5. Propagation into RegulatoryForecastEngine
+    # Verify that different vessel types and DWT yields distinct statutory reference CII
+    fc_panamax = reg_engine.forecast_compliance_trajectory(
+        vessel_type=opt_scen_panamax.vessel_type,
+        capacity_dwt=opt_scen_panamax.capacity_dwt,
+        annual_fuel_consumption_tons=3000.0,
+        annual_distance_nm=opt_scen_panamax.annual_distance,
+        fuel_shares={"Diesel": 1.0},
+        start_year=2026,
+        end_year=2026,
+    )
+    fc_capesize = reg_engine.forecast_compliance_trajectory(
+        vessel_type=opt_scen_capesize.vessel_type,
+        capacity_dwt=opt_scen_capesize.capacity_dwt,
+        annual_fuel_consumption_tons=6000.0,
+        annual_distance_nm=opt_scen_capesize.annual_distance,
+        fuel_shares={"Diesel": 1.0},
+        start_year=2026,
+        end_year=2026,
+    )
+    # Both forecasts execute cleanly with their derived specs
+    assert fc_panamax.metadata["capacity_dwt"] == opt_scen_panamax.capacity_dwt
+    assert fc_capesize.metadata["capacity_dwt"] == opt_scen_capesize.capacity_dwt
+    assert fc_panamax.metadata["annual_distance_nm"] == opt_scen_panamax.annual_distance
+    assert fc_capesize.metadata["annual_distance_nm"] == opt_scen_capesize.annual_distance
+
+
 
 

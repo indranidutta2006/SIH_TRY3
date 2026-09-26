@@ -97,8 +97,23 @@ class FuelTransitionPlanner:
         self.logger.info("Generating Fuel Transition Roadmap for vessel class: %s", vessel_class)
 
         # Baseline fleet sizing to satisfy scenario cargo demand
-        nominal_capacity = 45000.0 if vessel_class == "PANAMAX" else (25000.0 if vessel_class == "HANDYMAX" else 95000.0)
-        annual_voyages = 20
+        v_class_clean = vessel_class.upper() if vessel_class.upper() in RETROFIT_CAPEX_USD else "PANAMAX"
+        v_type = scenario.vessel_type or "Bulk carrier"
+        nominal_capacity = (
+            scenario.capacity_dwt
+            if (scenario.capacity_dwt is not None and scenario.capacity_dwt > 0)
+            else (45000.0 if v_class_clean == "PANAMAX" else (35000.0 if v_class_clean == "HANDYMAX" else 120000.0))
+        )
+        annual_voyages = (
+            scenario.annual_voyages
+            if (scenario.annual_voyages is not None and scenario.annual_voyages > 0)
+            else (20 if v_class_clean == "PANAMAX" else (25 if v_class_clean == "HANDYMAX" else 10))
+        )
+        annual_distance = (
+            scenario.annual_distance
+            if (scenario.annual_distance is not None and scenario.annual_distance > 0)
+            else (scenario.route_distance * annual_voyages)
+        )
         required_vessels = max(4, int(np.ceil(scenario.cargo_demand / (nominal_capacity * annual_voyages))))
 
         milestones: list[TransitionMilestone] = []
@@ -177,10 +192,10 @@ class FuelTransitionPlanner:
 
             # 5. Regulatory Checkpoint
             reg_res = self.regulatory_engine.forecast_compliance_trajectory(
-                vessel_type="Bulk carrier",
+                vessel_type=v_type,
                 capacity_dwt=nominal_capacity,
                 annual_fuel_consumption_tons=base_annual_fuel_per_vessel,
-                annual_distance_nm=scenario.route_distance * annual_voyages,
+                annual_distance_nm=annual_distance,
                 fuel_shares=fuel_shares,
                 start_year=yr,
                 end_year=yr,

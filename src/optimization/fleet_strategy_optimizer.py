@@ -10,6 +10,7 @@ Produces unified FleetStrategyRecommendation, Baseline vs. Optimized comparisons
 and JSON scenario persistence (save_scenario / load_scenario).
 """
 
+from dataclasses import replace
 from datetime import UTC, datetime
 import json
 import logging
@@ -17,7 +18,7 @@ from pathlib import Path
 import time
 from typing import Any, Final
 
-from contracts.constants import FUEL_PRICES_USD_PER_TON, FuelType
+from contracts.constants import FUEL_PRICES_USD_PER_TON, FuelType, VESSEL_CLASS_SPECS
 from contracts.schemas import (
     CapacityOptimizationResult,
     DemandSatisfactionMetrics,
@@ -80,26 +81,7 @@ class FleetStrategyOptimizer:
         # Ensure timestamp is set
         created_at = scenario.created_at or datetime.now(UTC).isoformat()
         if not scenario.created_at:
-            scenario = OptimizationScenario(
-                cargo_demand=scenario.cargo_demand,
-                route_distance=scenario.route_distance,
-                deadline_hours=scenario.deadline_hours,
-                scenario_id=scenario.scenario_id,
-                created_at=created_at,
-                carbon_price=scenario.carbon_price,
-                budget=scenario.budget,
-                weather_factor=scenario.weather_factor,
-                vessel_class=scenario.vessel_class,
-                service_level=scenario.service_level,
-                max_transition_rate=scenario.max_transition_rate,
-                fuel_prices=scenario.fuel_prices,
-                routes=scenario.routes,
-                weights=scenario.weights,
-                target_reliability=scenario.target_reliability,
-                port_delay_factor=scenario.port_delay_factor,
-                forecasted_demand=scenario.forecasted_demand,
-                regulation_factor=scenario.regulation_factor,
-            )
+            scenario = replace(scenario, created_at=created_at)
 
         self.logger.info("Executing Strategic Optimization for Scenario ID: %s", scenario.scenario_id)
 
@@ -116,11 +98,12 @@ class FleetStrategyOptimizer:
         # 3. Tier 3: Eco-Speed Optimization
         vessel_type_map = {
             "FEEDER": "General Cargo",
+            "HANDYMAX": "Bulk Carrier",
             "PANAMAX": "Bulk Carrier",
             "POST_PANAMAX": "Container Ship",
             "CAPESIZE": "Bulk Carrier",
         }
-        v_type = vessel_type_map.get(scenario.vessel_class.upper(), "Bulk Carrier")
+        v_type = scenario.vessel_type or vessel_type_map.get(scenario.vessel_class.upper(), "Bulk Carrier")
         speed_res = self.speed_optimizer.optimize_speed(
             scenario=scenario,
             cargo_load=cap_res.recommended_capacity if cap_res.recommended_capacity > 0 else scenario.cargo_demand,
@@ -183,9 +166,40 @@ class FleetStrategyOptimizer:
         reliability = max(0.0, min(1.0, reliability_metrics.reliability_score / 100.0))
         total_runtime_ms = (time.perf_counter() - t_start) * 1000.0
 
+        # 9. Derive Operational & Regulatory Scenario Parameters from Optimized Strategy
+        derived_capacity = scenario.capacity_dwt
+        if derived_capacity is None or derived_capacity <= 0:
+            derived_capacity = cap_res.recommended_capacity
+        if derived_capacity <= 0:
+            derived_capacity = VESSEL_CLASS_SPECS.get(scenario.vessel_class.upper(), {}).get("default_dwt", 45_000.0)
+
+        derived_voyages = scenario.annual_voyages
+        if derived_voyages is None or derived_voyages <= 0:
+            derived_voyages = cap_res.optimal_trips
+        if derived_voyages <= 0:
+            derived_voyages = VESSEL_CLASS_SPECS.get(scenario.vessel_class.upper(), {}).get("default_annual_voyages", 20)
+
+        derived_distance = scenario.annual_distance
+        if derived_distance is None or derived_distance <= 0:
+            derived_distance = round(scenario.route_distance * derived_voyages, 2)
+
+        derived_vessel_type = scenario.vessel_type
+        if not derived_vessel_type or derived_vessel_type == "Bulk carrier":
+            spec_type = VESSEL_CLASS_SPECS.get(scenario.vessel_class.upper(), {}).get("vessel_type")
+            if spec_type and scenario.vessel_class.upper() in {"FEEDER", "POST_PANAMAX"}:
+                derived_vessel_type = spec_type
+
+        opt_scenario = replace(
+            scenario,
+            vessel_type=derived_vessel_type,
+            capacity_dwt=round(float(derived_capacity), 1),
+            annual_voyages=int(derived_voyages),
+            annual_distance=round(float(derived_distance), 1),
+        )
+
         recommendation = FleetStrategyRecommendation(
             status=overall_status,
-            scenario=scenario,
+            scenario=opt_scenario,
             fleet_mix=comp_res,
             capacity_recommendation=cap_res,
             speed_recommendation=speed_res,

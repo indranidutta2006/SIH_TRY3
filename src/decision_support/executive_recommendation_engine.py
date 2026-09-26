@@ -46,15 +46,19 @@ UNIT_RETROFIT_CAPEX_FALLBACK_USD: Final[float] = 7_500_000.0
 # Vessel class DWT assumptions for per-vessel regulatory forecast generation.
 _VESSEL_CLASS_DWT: Final[dict[str, float]] = {
     "PANAMAX": 45_000.0,
-    "HANDYMAX": 25_000.0,
-    "CAPESIZE": 95_000.0,
+    "HANDYMAX": 35_000.0,
+    "CAPESIZE": 120_000.0,
+    "FEEDER": 12_000.0,
+    "POST_PANAMAX": 80_000.0,
 }
 
 # Annual voyages used for baseline distance estimate when generating baseline penalty forecast.
 _VESSEL_CLASS_ANNUAL_VOYAGES: Final[dict[str, int]] = {
     "PANAMAX": 20,
-    "HANDYMAX": 35,
+    "HANDYMAX": 25,
     "CAPESIZE": 10,
+    "FEEDER": 35,
+    "POST_PANAMAX": 15,
 }
 
 
@@ -130,13 +134,26 @@ class ExecutiveRecommendationEngine:
             Empty dict on failure (caller handles gracefully).
         """
         v_class = (scenario.vessel_class or "PANAMAX").upper()
-        capacity_dwt = _VESSEL_CLASS_DWT.get(v_class, 45_000.0)
-        annual_voyages = _VESSEL_CLASS_ANNUAL_VOYAGES.get(v_class, 20)
-        annual_distance_nm = scenario.route_distance * annual_voyages
+        capacity_dwt = (
+            scenario.capacity_dwt
+            if (scenario.capacity_dwt is not None and scenario.capacity_dwt > 0)
+            else _VESSEL_CLASS_DWT.get(v_class, 45_000.0)
+        )
+        annual_voyages = (
+            scenario.annual_voyages
+            if (scenario.annual_voyages is not None and scenario.annual_voyages > 0)
+            else _VESSEL_CLASS_ANNUAL_VOYAGES.get(v_class, 20)
+        )
+        annual_distance_nm = (
+            scenario.annual_distance
+            if (scenario.annual_distance is not None and scenario.annual_distance > 0)
+            else (scenario.route_distance * annual_voyages)
+        )
+        vessel_type = scenario.vessel_type or "Bulk carrier"
 
         try:
             baseline_fc = self._reg_engine.forecast_compliance_trajectory(
-                vessel_type="Bulk carrier",
+                vessel_type=vessel_type,
                 capacity_dwt=capacity_dwt,
                 annual_fuel_consumption_tons=baseline_fuel_per_vessel_tons,
                 annual_distance_nm=annual_distance_nm,

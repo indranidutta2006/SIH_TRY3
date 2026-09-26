@@ -396,6 +396,18 @@ class OptimizationScenario:
     port_delay_factor: float = 1.0  # Port congestion / turn-around delay multiplier (>= 1.0)
     forecasted_demand: float | None = None  # Optional forecasted cargo demand
     regulation_factor: float = 1.0  # Regulatory stringency multiplier for compliance penalties (default: 1.0)
+    vessel_type: str = "Bulk carrier"  # IMO Resolution MEPC.353(78) statutory vessel category
+    capacity_dwt: float | None = None  # Sized vessel deadweight tonnage (DWT)
+    annual_voyages: int | None = None  # Annual voyages / round-trips derived from strategy
+    annual_distance: float | None = None  # Cumulative annual operating distance (nm)
+
+    @property
+    def annual_distance_nm(self) -> float:
+        """Cumulative annual distance; falls back to route_distance * annual_voyages."""
+        if self.annual_distance is not None and self.annual_distance > 0.0:
+            return self.annual_distance
+        voyages = self.annual_voyages if (self.annual_voyages is not None and self.annual_voyages > 0) else 20
+        return self.route_distance * voyages
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize dataclass to dictionary."""

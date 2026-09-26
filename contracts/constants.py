@@ -6,7 +6,7 @@ are centrally defined here to avoid hardcoding strings across downstream modules
 """
 
 from enum import StrEnum
-from typing import Final
+from typing import Any, Final
 
 
 class FuelType(StrEnum):
@@ -82,6 +82,45 @@ SHORE_POWER_PRICE_USD_PER_MWH: Final[float] = 300.0
 STANDARD_FUEL_PRICES_USD: Final[dict[str, float]] = {
     **FUEL_PRICES_USD_PER_TON,
     FuelType.SHORE_POWER.value: SHORE_POWER_PRICE_USD_PER_MWH,
+}
+
+# Standard naval architectural baseline specifications by vessel class
+VESSEL_CLASS_SPECS: Final[dict[str, dict[str, Any]]] = {
+    "HANDYMAX": {
+        "vessel_type": "Bulk carrier",
+        "default_dwt": 35_000.0,
+        "min_dwt": 20_000.0,
+        "max_dwt": 40_000.0,
+        "default_annual_voyages": 25,
+    },
+    "PANAMAX": {
+        "vessel_type": "Bulk carrier",
+        "default_dwt": 45_000.0,
+        "min_dwt": 25_000.0,
+        "max_dwt": 55_000.0,
+        "default_annual_voyages": 20,
+    },
+    "CAPESIZE": {
+        "vessel_type": "Bulk carrier",
+        "default_dwt": 120_000.0,
+        "min_dwt": 100_000.0,
+        "max_dwt": 200_000.0,
+        "default_annual_voyages": 10,
+    },
+    "FEEDER": {
+        "vessel_type": "Containership",
+        "default_dwt": 12_000.0,
+        "min_dwt": 5_000.0,
+        "max_dwt": 15_000.0,
+        "default_annual_voyages": 35,
+    },
+    "POST_PANAMAX": {
+        "vessel_type": "Containership",
+        "default_dwt": 80_000.0,
+        "min_dwt": 60_000.0,
+        "max_dwt": 100_000.0,
+        "default_annual_voyages": 15,
+    },
 }
 
 
