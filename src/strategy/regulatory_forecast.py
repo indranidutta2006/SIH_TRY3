@@ -69,58 +69,155 @@ class RegulatoryForecastEngine:
         self.eur_to_usd_rate = eur_to_usd_rate
         self.logger = logger
 
-    def resolve_fuel_intensity_and_energy(
+    def calculate_operational_energy_balance(
         self,
-        annual_fuel_consumption_tons: float,
-        fuel_shares: dict[str, float],
+        annual_fuel_consumption_tons: float = 0.0,
+        fuel_shares: dict[str, float] | None = None,
+        fuel_consumption: dict[str, float] | None = None,
         fuel_pathways: dict[str, str] | None = None,
         lifecycle_profiles: Sequence[FuelLifecycleProfile] | dict[str, FuelLifecycleProfile] | None = None,
-        custom_ghg_intensities: dict[str, float] | None = None,
-        override_wtw_ghg_intensity: float | None = None,
-        override_annual_energy_mj: float | None = None,
-    ) -> tuple[float, float, float, float, dict[str, FuelLifecycleProfile], dict[str, float]]:
-        """Resolve granular Well-to-Wake (WTW) GHG intensities, TTW CO2 factors, and total delivered energy.
+    ) -> tuple[float, float, dict[str, float], dict[str, float], dict[str, FuelLifecycleProfile]]:
+        """Calculate total operational energy supplied using fuel mass and fuel-specific Lower Heating Values (LHV).
 
-        Grounds FuelEU Maritime intensity calculations in specific production pathways (Regulation (EU) 2023/1805
-        Annex I) and aligns with FuelLifecycleProfile definitions (IMO 4th GHG Study).
+        Statutory and thermodynamic formulation:
+            E = sum_i (m_i * LHV_i)
+
+        where:
+            m_i = fuel mass consumed of fuel type i (metric tons)
+            LHV_i = Lower Heating Value from LCA profile (MJ / ton)
+
+        Args:
+            annual_fuel_consumption_tons: Nominal annual fuel consumption if passing shares.
+            fuel_shares: Fractional fuel shares mapping.
+            fuel_consumption: Direct mapping of fuel masses in metric tons {fuel: tons}.
+            fuel_pathways: Production pathway overrides per fuel.
+            lifecycle_profiles: Custom FuelLifecycleProfile instances.
 
         Returns:
-            Tuple of (eff_ghg_intensity, eff_co2_factor, annual_energy_mj, weighted_energy_density,
-                      resolved_profiles, per_fuel_intensities).
+            Tuple of:
+                - total_energy_mj: float, total energy supplied E = sum(m_i * LHV_i)
+                - weighted_energy_density_mj_per_ton: float, mass-weighted LHV (MJ / ton)
+                - energy_by_fuel_mj: dict[str, float], energy supplied per fuel
+                - fuel_masses_tons: dict[str, float], mass consumed per fuel
+                - resolved_profiles: dict[str, FuelLifecycleProfile]
         """
-        resolved_profiles: dict[str, FuelLifecycleProfile] = {}
-        per_fuel_intensities: dict[str, float] = {}
-        per_fuel_ttw: dict[str, float] = {}
-
         pathway_map = fuel_pathways or {}
-        custom_map = custom_ghg_intensities or {}
+        resolved_profiles: dict[str, FuelLifecycleProfile] = {}
+        fuel_masses_tons: dict[str, float] = {}
 
-        for raw_fuel in fuel_shares:
-            norm_f = normalize_fuel_name(raw_fuel)
+        if fuel_consumption is not None and len(fuel_consumption) > 0:
+            for raw_f, m in fuel_consumption.items():
+                norm_f = normalize_fuel_name(raw_f)
+                fuel_masses_tons[norm_f] = fuel_masses_tons.get(norm_f, 0.0) + float(m)
+        else:
+            shares = fuel_shares or {"Diesel": 1.0}
+            tot_share = sum(shares.values())
+            if tot_share <= 0.0:
+                tot_share = 1.0
+            for raw_f, sh in shares.items():
+                norm_f = normalize_fuel_name(raw_f)
+                mass = float(annual_fuel_consumption_tons) * (float(sh) / tot_share)
+                fuel_masses_tons[norm_f] = fuel_masses_tons.get(norm_f, 0.0) + mass
+
+        # Resolve profiles and fuel-specific LHV
+        for norm_f in fuel_masses_tons:
             prof: FuelLifecycleProfile | None = None
-
-            # 1. Check direct lifecycle profile injection
             if lifecycle_profiles is not None:
                 if isinstance(lifecycle_profiles, dict):
-                    prof = lifecycle_profiles.get(raw_fuel) or lifecycle_profiles.get(norm_f)
+                    prof = lifecycle_profiles.get(norm_f)
                 elif isinstance(lifecycle_profiles, Sequence):
                     for p in lifecycle_profiles:
                         if normalize_fuel_name(p.fuel_name) == norm_f:
                             prof = p
                             break
-
-            # 2. Lookup via LCA engine with pathway
             if prof is None:
-                pw = pathway_map.get(raw_fuel) or pathway_map.get(norm_f)
+                pw = pathway_map.get(norm_f)
                 prof = self.lca_engine.get_profile(norm_f, pw)
-
             resolved_profiles[norm_f] = prof
+
+        # Calculate fuel mass * fuel-specific LHV: E_i = m_i * LHV_i
+        energy_by_fuel_mj: dict[str, float] = {}
+        for norm_f, mass in fuel_masses_tons.items():
+            lhv = resolved_profiles[norm_f].energy_density_mj_per_ton
+            energy_by_fuel_mj[norm_f] = mass * lhv
+
+        total_energy_mj = sum(energy_by_fuel_mj.values())
+        tot_mass = sum(fuel_masses_tons.values())
+        weighted_energy_density = (
+            total_energy_mj / tot_mass
+            if tot_mass > 0.0
+            else 42700.0
+        )
+
+        return (
+            total_energy_mj,
+            weighted_energy_density,
+            energy_by_fuel_mj,
+            fuel_masses_tons,
+            resolved_profiles,
+        )
+
+    def resolve_fuel_intensity_and_energy(
+        self,
+        annual_fuel_consumption_tons: float = 0.0,
+        fuel_shares: dict[str, float] | None = None,
+        fuel_pathways: dict[str, str] | None = None,
+        lifecycle_profiles: Sequence[FuelLifecycleProfile] | dict[str, FuelLifecycleProfile] | None = None,
+        custom_ghg_intensities: dict[str, float] | None = None,
+        override_wtw_ghg_intensity: float | None = None,
+        override_annual_energy_mj: float | None = None,
+        fuel_consumption: dict[str, float] | None = None,
+    ) -> tuple[float, float, float, float, dict[str, FuelLifecycleProfile], dict[str, float], dict[str, float], dict[str, float]]:
+        """Resolve granular Well-to-Wake (WTW) GHG intensities, TTW CO2 factors, and total delivered energy.
+
+        Operational energy balance:
+            E = sum_i (m_i * LHV_i)
+
+        where m_i is the mass of fuel i and LHV_i is its fuel-specific Lower Heating Value.
+
+        Returns:
+            Tuple of:
+                - eff_ghg_intensity: float (gCO2eq / MJ)
+                - eff_co2_factor: float (tCO2 / t fuel)
+                - annual_energy_mj: float (MJ)
+                - weighted_energy_density: float (MJ / t)
+                - resolved_profiles: dict[str, FuelLifecycleProfile]
+                - per_fuel_intensities: dict[str, float] (gCO2eq / MJ)
+                - energy_by_fuel_mj: dict[str, float] (MJ)
+                - fuel_masses_tons: dict[str, float] (metric tons)
+        """
+        custom_map = custom_ghg_intensities or {}
+
+        # 1. Operational Energy Balance: E = sum(m_i * LHV_i)
+        (
+            computed_energy_mj,
+            weighted_energy_density,
+            energy_by_fuel_mj,
+            fuel_masses_tons,
+            resolved_profiles,
+        ) = self.calculate_operational_energy_balance(
+            annual_fuel_consumption_tons=annual_fuel_consumption_tons,
+            fuel_shares=fuel_shares,
+            fuel_consumption=fuel_consumption,
+            fuel_pathways=fuel_pathways,
+            lifecycle_profiles=lifecycle_profiles,
+        )
+
+        annual_energy_mj = (
+            float(override_annual_energy_mj)
+            if override_annual_energy_mj is not None
+            else computed_energy_mj
+        )
+
+        # 2. Resolve per-fuel GHG intensities and TTW emission factors
+        per_fuel_intensities: dict[str, float] = {}
+        per_fuel_ttw: dict[str, float] = {}
+
+        for norm_f, prof in resolved_profiles.items():
             per_fuel_ttw[norm_f] = prof.tank_to_wake_factor
 
-            # 3. Resolve WTW GHG Intensity (gCO2eq / MJ)
-            if raw_fuel in custom_map:
-                ghg_int = float(custom_map[raw_fuel])
-            elif norm_f in custom_map:
+            # Resolve WTW GHG Intensity (gCO2eq / MJ)
+            if norm_f in custom_map:
                 ghg_int = float(custom_map[norm_f])
             else:
                 wtt = (
@@ -128,7 +225,7 @@ class RegulatoryForecastEngine:
                     + prof.transport_emission_factor
                     + prof.storage_emission_factor
                 )
-                # In FuelEU Maritime Annex I, biogenic and RFNBO circular CO2 in TTW is counted as atmospheric neutral
+                # Under FuelEU Maritime Annex I, biogenic and RFNBO circular CO2 in TTW is counted as atmospheric neutral
                 ttw_fossil = prof.tank_to_wake_factor * max(0.0, 1.0 - prof.renewable_fraction)
                 wtw_factor = wtt + ttw_fossil
                 lhv = max(prof.energy_density_mj_per_ton, 1e-4)
@@ -136,38 +233,11 @@ class RegulatoryForecastEngine:
 
             per_fuel_intensities[norm_f] = ghg_int
 
-        total_share = sum(fuel_shares.values())
-        if total_share <= 0:
-            total_share = 1.0
-
-        # Mass-weighted energy density (MJ / ton)
-        weighted_energy_density = sum(
-            (share / total_share) * resolved_profiles[normalize_fuel_name(f)].energy_density_mj_per_ton
-            for f, share in fuel_shares.items()
-            if normalize_fuel_name(f) in resolved_profiles
-        )
-        if weighted_energy_density <= 0:
-            weighted_energy_density = 41000.0
-
-        annual_energy_mj = (
-            float(override_annual_energy_mj)
-            if override_annual_energy_mj is not None
-            else annual_fuel_consumption_tons * weighted_energy_density
-        )
-
-        # Energy-weighted GHG intensity for FuelEU (gCO2eq / MJ) under Annex I statutory methodology
-        total_energy_units = sum(
-            (share / total_share) * resolved_profiles[normalize_fuel_name(f)].energy_density_mj_per_ton
-            for f, share in fuel_shares.items()
-            if normalize_fuel_name(f) in resolved_profiles
-        )
-
-        if total_energy_units > 0:
+        # 3. Energy-weighted GHG intensity under FuelEU Maritime Annex I: sum_i (E_i * GHGIE_i) / E
+        if computed_energy_mj > 0.0:
             computed_eff_ghg = sum(
-                (((share / total_share) * resolved_profiles[normalize_fuel_name(f)].energy_density_mj_per_ton) / total_energy_units)
-                * per_fuel_intensities[normalize_fuel_name(f)]
-                for f, share in fuel_shares.items()
-                if normalize_fuel_name(f) in resolved_profiles
+                (energy_by_fuel_mj[f] / computed_energy_mj) * per_fuel_intensities[f]
+                for f in energy_by_fuel_mj
             )
         else:
             computed_eff_ghg = 91.16
@@ -178,12 +248,15 @@ class RegulatoryForecastEngine:
             else computed_eff_ghg
         )
 
-        # Weighted Tank-to-Wake CO2 emission factor for IMO CII (tCO2 / t fuel)
-        eff_co2_factor = sum(
-            (share / total_share) * per_fuel_ttw[normalize_fuel_name(f)]
-            for f, share in fuel_shares.items()
-            if normalize_fuel_name(f) in per_fuel_ttw
-        )
+        # 4. Weighted Tank-to-Wake CO2 emission factor for IMO CII: sum_i (m_i * C_F,i) / M
+        tot_mass = sum(fuel_masses_tons.values())
+        if tot_mass > 0.0:
+            eff_co2_factor = sum(
+                (m / tot_mass) * per_fuel_ttw[f]
+                for f, m in fuel_masses_tons.items()
+            )
+        else:
+            eff_co2_factor = 3.206
 
         return (
             eff_ghg_intensity,
@@ -192,15 +265,17 @@ class RegulatoryForecastEngine:
             weighted_energy_density,
             resolved_profiles,
             per_fuel_intensities,
+            energy_by_fuel_mj,
+            fuel_masses_tons,
         )
 
     def forecast_compliance_trajectory(
         self,
         vessel_type: str,
         capacity_dwt: float,
-        annual_fuel_consumption_tons: float,
-        annual_distance_nm: float,
-        fuel_shares: dict[str, float],
+        annual_fuel_consumption_tons: float = 0.0,
+        annual_distance_nm: float = 0.0,
+        fuel_shares: dict[str, float] | None = None,
         start_year: int = 2026,
         end_year: int = 2040,
         monte_carlo_trials: int = 500,
@@ -210,8 +285,13 @@ class RegulatoryForecastEngine:
         custom_ghg_intensities: dict[str, float] | None = None,
         wtw_ghg_intensity: float | None = None,
         annual_energy_mj: float | None = None,
+        fuel_consumption: dict[str, float] | None = None,
     ) -> RegulatoryForecastResult:
         """Forecast forward compliance trajectory across IMO CII and EU FuelEU Maritime.
+
+        Computes operational energy supplied using fuel mass and fuel-specific LHV (E = sum(m_i * LHV_i))
+        and applies the statutory 41,000 MJ/ton VLSFO equivalent conversion strictly within the Article 23
+        penalty conversion formula.
 
         Args:
             vessel_type: Vessel category (e.g. 'Bulk carrier', 'Containership', 'Tanker').
@@ -228,6 +308,7 @@ class RegulatoryForecastEngine:
             custom_ghg_intensities: Direct override for per-fuel GHG intensity (gCO2eq/MJ).
             wtw_ghg_intensity: Direct fleet-wide override for effective WTW GHG intensity.
             annual_energy_mj: Direct override for total delivered energy in MJ.
+            fuel_consumption: Direct mapping of fuel masses in metric tons {fuel: tons}.
 
         Returns:
             RegulatoryForecastResult capturing year-by-year ratings, penalties, and probability.
@@ -239,7 +320,7 @@ class RegulatoryForecastEngine:
         projected_penalties_usd: dict[int, float] = {}
         estimated_compliance_prob: dict[int, float] = {}
 
-        # Resolve granular LCA profiles, WTW GHG intensity, TTW CO2 factor, and delivered energy
+        # Resolve granular operational energy supplied (E = sum(m_i * LHV_i)) and GHG intensity
         (
             eff_ghg_intensity,
             eff_co2_factor,
@@ -247,15 +328,22 @@ class RegulatoryForecastEngine:
             weighted_energy_density,
             resolved_profiles,
             per_fuel_intensities,
+            energy_by_fuel_mj,
+            fuel_masses_tons,
         ) = self.resolve_fuel_intensity_and_energy(
             annual_fuel_consumption_tons=annual_fuel_consumption_tons,
-            fuel_shares=fuel_shares,
+            fuel_shares=fuel_shares or {},
             fuel_pathways=fuel_pathways,
             lifecycle_profiles=lifecycle_profiles,
             custom_ghg_intensities=custom_ghg_intensities,
             override_wtw_ghg_intensity=wtw_ghg_intensity,
             override_annual_energy_mj=annual_energy_mj,
+            fuel_consumption=fuel_consumption,
         )
+
+        total_fuel_mass_tons = sum(fuel_masses_tons.values())
+        if total_fuel_mass_tons <= 0.0:
+            total_fuel_mass_tons = max(annual_fuel_consumption_tons, 1e-4)
 
         rng = np.random.default_rng(random_seed)
         consecutive_deficit_count = 0
@@ -267,13 +355,13 @@ class RegulatoryForecastEngine:
             z_factor, z_ev = self.resolve_cii_reduction_factor(yr)
             evidence_log[yr] = {"cii_evidence": z_ev.value}
 
-            cii_actual = (annual_fuel_consumption_tons * eff_co2_factor * 1e6) / max(capacity_dwt * annual_distance_nm, 1e-4)
+            cii_actual = (total_fuel_mass_tons * eff_co2_factor * 1e6) / max(capacity_dwt * annual_distance_nm, 1e-4)
 
             try:
                 cii_assessment = self.compliance_engine.evaluate_cii(
                     vessel_type=vessel_type,
                     capacity=capacity_dwt,
-                    fuel_consumption=annual_fuel_consumption_tons,
+                    fuel_consumption=total_fuel_mass_tons,
                     distance_nm=annual_distance_nm,
                     year=min(yr, 2030),  # Use statutory formula base
                     fuel_type="Diesel",
@@ -290,6 +378,7 @@ class RegulatoryForecastEngine:
             evidence_log[yr]["fueleu_evidence"] = feu_ev.value
 
             target_intensity = 91.16 * (1.0 - fueleu_red_pct)
+            # Compliance balance (gCO2eq) = (Target - Actual) * Operational Energy (MJ)
             compliance_balance = (target_intensity - eff_ghg_intensity) * tot_energy_mj
 
             if compliance_balance < 0.0:
@@ -297,6 +386,7 @@ class RegulatoryForecastEngine:
                 consecutive_deficit_count += 1
                 multiplier = 1.0 + (consecutive_deficit_count - 1) / 10.0
                 safe_intensity = max(eff_ghg_intensity, 1e-4)
+                # Statutory formula: (|Compliance Balance| / (GHGIE_actual * 41,000 MJ/t)) * 2,400 EUR/t
                 base_pen_eur = (abs(compliance_balance) / (safe_intensity * 41000.0)) * 2400.0
                 pen_eur = base_pen_eur * multiplier
                 status = "DEFICIT"
@@ -315,9 +405,12 @@ class RegulatoryForecastEngine:
             speed_noise = rng.normal(1.0, 0.05, size=monte_carlo_trials)
             load_noise = rng.normal(1.0, 0.06, size=monte_carlo_trials)
 
-            mc_fuel = annual_fuel_consumption_tons * (weather_noise * (speed_noise ** 3) * load_noise)
+            # Operational mass and energy scale under uncertainty
+            mc_mass_scale = weather_noise * (speed_noise ** 3) * load_noise
+            mc_fuel = total_fuel_mass_tons * mc_mass_scale
             mc_dist = annual_distance_nm * speed_noise
-            mc_energy = mc_fuel * weighted_energy_density
+            # Operational energy balance under uncertainty: E_mc = sum_i (m_i * LHV_i) * scale
+            mc_energy = tot_energy_mj * mc_mass_scale
 
             # CII pass = rating in ('A', 'B', 'C')
             mc_cii = (mc_fuel * eff_co2_factor * 1e6) / np.maximum(capacity_dwt * mc_dist, 1e-4)
@@ -357,7 +450,12 @@ class RegulatoryForecastEngine:
                 "fuel_pathways": {f: p.production_pathway for f, p in resolved_profiles.items()},
                 "fuel_ghg_intensities_g_per_mj": {f: round(per_fuel_intensities[f], 2) for f in per_fuel_intensities},
                 "effective_ghg_intensity_g_per_mj": round(eff_ghg_intensity, 2),
+                "operational_energy_mj": round(tot_energy_mj, 1),
+                "energy_by_fuel_mj": {f: round(e, 1) for f, e in energy_by_fuel_mj.items()},
+                "fuel_mass_tons": {f: round(m, 2) for f, m in fuel_masses_tons.items()},
+                "fuel_lhv_mj_per_ton": {f: round(p.energy_density_mj_per_ton, 1) for f, p in resolved_profiles.items()},
                 "weighted_energy_density_mj_per_ton": round(weighted_energy_density, 1),
+                "statutory_penalty_vlsfo_equivalent_factor_mj_per_ton": 41000.0,
             },
         )
 

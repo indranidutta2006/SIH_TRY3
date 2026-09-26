@@ -514,3 +514,91 @@ def test_regulatory_forecast_profile_and_intensity_overrides() -> None:
     assert res_direct.future_fueleu_status[2030] == "COMPLIANT"
 
 
+# =============================================================================
+# 10. OPERATIONAL ENERGY BALANCE & LHV RECONCILIATION TESTS (ISSUE 4)
+# =============================================================================
+
+def test_regulatory_forecast_operational_energy_balance() -> None:
+    """Verify operational energy balance E = sum(m_i * LHV_i) using fuel-specific LHV.
+
+    Proves that 41,000 MJ/t is not used as the operational fuel energy input, but is strictly
+    reserved for the statutory Article 23 / Annex IV penalty conversion formula.
+    """
+    engine = RegulatoryForecastEngine()
+
+    # 1. Verification of standalone calculate_operational_energy_balance for individual fuels
+    fuels_and_lhv = {
+        "Hydrogen": 120000.0,
+        "Methanol": 19900.0,
+        "LNG": 49100.0,
+        "Ammonia": 18600.0,
+        "Diesel": 42700.0,
+    }
+    for fuel, expected_lhv in fuels_and_lhv.items():
+        tot_e, weighted_lhv, e_map, m_map, profiles = engine.calculate_operational_energy_balance(
+            fuel_consumption={fuel: 1000.0}
+        )
+        assert m_map[fuel] == 1000.0
+        assert weighted_lhv == pytest.approx(expected_lhv, abs=1e-2)
+        assert tot_e == pytest.approx(1000.0 * expected_lhv, abs=1e-2)
+        assert e_map[fuel] == pytest.approx(1000.0 * expected_lhv, abs=1e-2)
+        # Ensure it is NOT the default 41,000 MJ/t (unless fuel happened to be exactly 41,000)
+        assert tot_e != 41_000_000.0
+
+    # 2. Heterogeneous multi-fuel mix: 600t Diesel + 400t LNG
+    # E = 600 * 42,700 + 400 * 49,100 = 25,620,000 + 19,640,000 = 45,260,000 MJ
+    tot_e, weighted_lhv, e_map, m_map, _ = engine.calculate_operational_energy_balance(
+        fuel_consumption={"Diesel": 600.0, "LNG": 400.0}
+    )
+    expected_energy = (600.0 * 42700.0) + (400.0 * 49100.0)
+    assert tot_e == pytest.approx(expected_energy, abs=1e-2)
+    assert weighted_lhv == pytest.approx(expected_energy / 1000.0, abs=1e-2)
+    assert e_map["Diesel"] == pytest.approx(600.0 * 42700.0, abs=1e-2)
+    assert e_map["LNG"] == pytest.approx(400.0 * 49100.0, abs=1e-2)
+
+    # 3. Forecast compliance trajectory using direct fuel_consumption mapping
+    forecast = engine.forecast_compliance_trajectory(
+        vessel_type="Bulk carrier",
+        capacity_dwt=45000.0,
+        annual_distance_nm=50000.0,
+        fuel_consumption={"Diesel": 600.0, "LNG": 400.0},
+        start_year=2030,
+        end_year=2030,
+    )
+    meta = forecast.metadata
+    assert meta["operational_energy_mj"] == pytest.approx(expected_energy, abs=1.0)
+    assert meta["energy_by_fuel_mj"]["Diesel"] == pytest.approx(600.0 * 42700.0, abs=1.0)
+    assert meta["energy_by_fuel_mj"]["LNG"] == pytest.approx(400.0 * 49100.0, abs=1.0)
+    assert meta["fuel_mass_tons"]["Diesel"] == 600.0
+    assert meta["fuel_mass_tons"]["LNG"] == 400.0
+    assert meta["fuel_lhv_mj_per_ton"]["Diesel"] == 42700.0
+    assert meta["fuel_lhv_mj_per_ton"]["LNG"] == 49100.0
+    assert meta["statutory_penalty_vlsfo_equivalent_factor_mj_per_ton"] == 41000.0
+
+    # 4. Strict verification of decoupling: Operational energy vs Statutory penalty conversion
+    # For 1,000 tons of Fossil Methanol in 2040:
+    # Target intensity (2040: -31%) = 91.16 * 0.69 = 62.9004 g/MJ
+    # Actual intensity (fossil methanol) = 89.196 g/MJ
+    # Deficit intensity = 89.196 - 62.9004 = 26.2956 g/MJ
+    # Operational energy supplied: E = 1,000 * 19,900 = 19,900,000 MJ (NOT 41,000,000 MJ!)
+    # Compliance balance = -26.2956 * 19,900,000 = -523,282,440 g
+    # Statutory penalty (Article 23): (|balance| / (actual * 41,000)) * 2,400
+    # = (523,282,440 / (89.196 * 41,000)) * 2,400
+    # = (523,282,440 / 3,657,036) * 2,400 = 143.089 * 2,400 = 343,414 EUR
+    forecast_meth = engine.forecast_compliance_trajectory(
+        vessel_type="Bulk carrier",
+        capacity_dwt=45000.0,
+        annual_distance_nm=50000.0,
+        fuel_consumption={"Methanol": 1000.0},
+        fuel_pathways={"Methanol": "fossil"},
+        start_year=2040,
+        end_year=2040,
+    )
+    # Check operational energy is exactly 1,000 t * 19,900 MJ/t = 19.9M MJ
+    assert forecast_meth.metadata["operational_energy_mj"] == 19_900_000.0
+    # Check penalty calculation reflects true operational energy combined with 41,000 penalty denominator
+    expected_pen_eur = (523_282_440 / (89.196 * 41000.0)) * 2400.0
+    assert forecast_meth.projected_penalties_eur[2040] == pytest.approx(expected_pen_eur, rel=1e-2)
+
+
+
