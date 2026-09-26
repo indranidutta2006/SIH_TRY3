@@ -10,7 +10,11 @@ from typing import Any
 import numpy as np
 
 from contracts.schemas import BenchmarkResult, OptimizationScenario
-from src.benchmarking.solvers.base_solver import BaseBenchmarkSolver, VESSEL_SPECS
+from src.benchmarking.solvers.base_solver import (
+    BaseBenchmarkSolver,
+    BenchmarkEvaluationCache,
+    VESSEL_SPECS,
+)
 
 
 class ClassicalPSOSolver(BaseBenchmarkSolver):
@@ -29,6 +33,9 @@ class ClassicalPSOSolver(BaseBenchmarkSolver):
         """Execute classical PSO search over fleet decision variables."""
         start_time = time.perf_counter()
         rng = np.random.default_rng(seed)
+
+        # Isolated evaluation cache for this single solver run (no cross-solver sharing)
+        cache = BenchmarkEvaluationCache()
 
         # Dimension 9: [x_f, x_m, x_l, alt_ratio, s_lng, s_methanol, s_hydrogen, s_ammonia, speed]
         lb = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 9.5], dtype=float)
@@ -55,28 +62,14 @@ class ClassicalPSOSolver(BaseBenchmarkSolver):
         pbest = X.copy()
         pbest_scores = np.full(self.population_size, float("inf"))
         eval_count = 0
+        repair_distances: list[float] = []
 
         def decode_and_eval(vec: np.ndarray) -> tuple[float, dict[str, Any]]:
             nonlocal eval_count
             eval_count += 1
-            xf = int(round(vec[0]))
-            xm = int(round(vec[1]))
-            xl = int(round(vec[2]))
-            tot = xf + xm + xl
-            if tot == 0:
-                tot = 1
-                xm = 1
-
-            alt_ratio = float(np.clip(vec[3], 0.0, scenario.max_transition_rate))
-            alt_count = int(round(tot * alt_ratio))
-            if len(vec) >= 9:
-                shares = [float(vec[4]), float(vec[5]), float(vec[6]), float(vec[7])]
-                speed = float(np.clip(vec[8], 9.5, 17.5))
-            else:
-                shares = None
-                speed = float(np.clip(vec[4], 9.5, 17.5))
-            fuel_mix = self.allocate_fuel_mix(tot, alt_count, scenario, shares=shares)
-            res = self.evaluate_candidate(xf, xm, xl, fuel_mix, speed, scenario)
+            xf, xm, xl, fuel_mix, speed, rep_dist = self.decode_and_repair(vec, scenario)
+            repair_distances.append(rep_dist)
+            res = self.evaluate_candidate(xf, xm, xl, fuel_mix, speed, scenario, cache=cache)
             return res["objective_score"], res
 
         best_eval_dict = None
@@ -150,5 +143,11 @@ class ClassicalPSOSolver(BaseBenchmarkSolver):
                 "fleet_mix": best_eval_dict["fleet_mix"],
                 "speed_knots": best_eval_dict["speed_knots"],
                 "history": history,
+                "cache_hits": cache.hits,
+                "cache_misses": cache.misses,
+                "cache_hit_rate": cache.hit_rate,
+                "unique_evaluations": cache.misses,
+                "mean_repair_distance": round(float(np.mean(repair_distances)), 4) if repair_distances else 0.0,
+                "is_quantum": False,
             },
         )

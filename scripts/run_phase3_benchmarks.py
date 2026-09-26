@@ -22,6 +22,7 @@ import sys
 import time
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 # Ensure project root in sys.path
@@ -37,11 +38,14 @@ from src.benchmarking.statistical_stability import StatisticalStabilityEvaluator
 from src.benchmarking.prediction_benchmark import PredictionModelBenchmarker
 from src.benchmarking.workflow_benchmark import WorkflowBenchmarker
 from src.benchmarking.pareto_analysis import ParetoAnalyzer
+from src.benchmarking.qpso_ablation import run_ablation_study
+from src.benchmarking.qpso_benchmark_adapter import QPSOBenchmarkAdapter
+from src.benchmarking.solvers.classical_pso_solver import ClassicalPSOSolver
 
 # ReportLab imports for PDF generation
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 logger = logging.getLogger("maritime_system")
@@ -195,6 +199,115 @@ def run_phase3_benchmarks(
     logger.info("Statistical stability exported to %s", stability_json_path)
 
     # -------------------------------------------------------------------------
+    # 4b. QPSO Algorithmic Enhancement Ablation Study (Variants A through G)
+    # -------------------------------------------------------------------------
+    logger.info(">>> Step 4b/6: Running QPSO Enhancement Ablation Study (Variants A-G)...")
+    ablation_res = run_ablation_study(
+        scenario=base_scenario,
+        seeds=range(100, 100 + (10 if quick_mode else num_stability_seeds)),
+        max_iterations=15 if quick_mode else 30,
+        population_size=20,
+    )
+    abl_json_path = out_path / "qpso_ablation_study.json"
+    abl_json_path.write_text(json.dumps(ablation_res, indent=2), encoding="utf-8")
+
+    abl_rows = [v for v in ablation_res["variants"].values()]
+    abl_df = pd.DataFrame(abl_rows)
+    abl_csv_path = out_path / "qpso_ablation_study.csv"
+    abl_df.to_csv(abl_csv_path, index=False)
+    summary_outputs["ablation_json"] = abl_json_path
+    summary_outputs["ablation_csv"] = abl_csv_path
+    logger.info("QPSO ablation study exported to %s", abl_json_path)
+
+    # -------------------------------------------------------------------------
+    # 4c. QPSO vs Classical PSO Head-to-Head Comparison (Exact Budget Parity)
+    # -------------------------------------------------------------------------
+    logger.info(">>> Step 4c/6: Running QPSO vs Classical PSO Head-to-Head Comparison (N=%d seeds)...", num_stability_seeds)
+    qpso_solver = QPSOBenchmarkAdapter(population_size=20)
+    pso_solver = ClassicalPSOSolver(population_size=20)
+    h2h_seeds = list(range(100, 100 + (10 if quick_mode else num_stability_seeds)))
+    h2h_iter = 25 if quick_mode else 50
+
+    q_results = [qpso_solver.solve(base_scenario, max_iterations=h2h_iter, seed=s) for s in h2h_seeds]
+    p_results = [pso_solver.solve(base_scenario, max_iterations=h2h_iter, seed=s) for s in h2h_seeds]
+
+    q_objs = [r.objective_score for r in q_results]
+    p_objs = [r.objective_score for r in p_results]
+    q_wins = sum(1 for q, p in zip(q_objs, p_objs) if q < p - 1e-4)
+    p_wins = sum(1 for q, p in zip(q_objs, p_objs) if p < q - 1e-4)
+    h2h_ties = len(h2h_seeds) - q_wins - p_wins
+
+    h2h_summary = {
+        "n_seeds": len(h2h_seeds),
+        "seeds": h2h_seeds,
+        "max_iterations": h2h_iter,
+        "qpso_wins": q_wins,
+        "pso_wins": p_wins,
+        "ties": h2h_ties,
+        "qpso_mean_obj": round(float(np.mean(q_objs)), 4),
+        "qpso_std_obj": round(float(np.std(q_objs)), 4),
+        "qpso_best_obj": round(float(np.min(q_objs)), 4),
+        "qpso_worst_obj": round(float(np.max(q_objs)), 4),
+        "pso_mean_obj": round(float(np.mean(p_objs)), 4),
+        "pso_std_obj": round(float(np.std(p_objs)), 4),
+        "pso_best_obj": round(float(np.min(p_objs)), 4),
+        "pso_worst_obj": round(float(np.max(p_objs)), 4),
+        "qpso_mean_fuel": round(float(np.mean([r.fuel_consumption for r in q_results])), 2),
+        "pso_mean_fuel": round(float(np.mean([r.fuel_consumption for r in p_results])), 2),
+        "qpso_mean_cost": round(float(np.mean([r.operational_cost for r in q_results])), 2),
+        "pso_mean_cost": round(float(np.mean([r.operational_cost for r in p_results])), 2),
+        "qpso_mean_emiss": round(float(np.mean([r.emissions for r in q_results])), 2),
+        "pso_mean_emiss": round(float(np.mean([r.emissions for r in p_results])), 2),
+        "qpso_mean_time": round(float(np.mean([r.runtime_seconds for r in q_results])), 4),
+        "pso_mean_time": round(float(np.mean([r.runtime_seconds for r in p_results])), 4),
+        "qpso_mean_evals": round(float(np.mean([r.n_evaluations for r in q_results])), 1),
+        "pso_mean_evals": round(float(np.mean([r.n_evaluations for r in p_results])), 1),
+        "qpso_mean_cache_hit_rate": round(float(np.mean([r.metadata.get("cache_hit_rate", 0.0) for r in q_results])), 2),
+        "pso_mean_cache_hit_rate": round(float(np.mean([r.metadata.get("cache_hit_rate", 0.0) for r in p_results])), 2),
+    }
+
+    h2h_json_path = out_path / "qpso_vs_pso_head_to_head.json"
+    h2h_json_path.write_text(json.dumps(h2h_summary, indent=2), encoding="utf-8")
+    summary_outputs["h2h_json"] = h2h_json_path
+    logger.info("Head-to-head comparison exported to %s", h2h_json_path)
+
+    # Append Head-to-Head and Ablation to benchmark_report.md
+    md_report_file = out_path / "benchmark_report.md"
+    if md_report_file.exists():
+        h2h_md = f"""
+
+---
+
+## 4. QPSO vs Classical PSO Head-to-Head Comparison (N={len(h2h_seeds)} Seeds)
+
+| Metric | Observed QPSO Result | Observed Classical PSO Result | Difference / Gap |
+|:---|:---:|:---:|:---:|
+| **Mean Objective Score** | {h2h_summary['qpso_mean_obj']:.4f} ± {h2h_summary['qpso_std_obj']:.4f} | {h2h_summary['pso_mean_obj']:.4f} ± {h2h_summary['pso_std_obj']:.4f} | {h2h_summary['qpso_mean_obj'] - h2h_summary['pso_mean_obj']:+.4f} |
+| **Best Objective Score** | {h2h_summary['qpso_best_obj']:.4f} | {h2h_summary['pso_best_obj']:.4f} | {h2h_summary['qpso_best_obj'] - h2h_summary['pso_best_obj']:+.4f} |
+| **Worst Objective Score** | {h2h_summary['qpso_worst_obj']:.4f} | {h2h_summary['pso_worst_obj']:.4f} | {h2h_summary['qpso_worst_obj'] - h2h_summary['pso_worst_obj']:+.4f} |
+| **Mean Fuel (tons)** | {h2h_summary['qpso_mean_fuel']:.1f} t | {h2h_summary['pso_mean_fuel']:.1f} t | {h2h_summary['qpso_mean_fuel'] - h2h_summary['pso_mean_fuel']:+.1f} t |
+| **Mean Cost ($M)** | ${h2h_summary['qpso_mean_cost']/1e6:.2f}M | ${h2h_summary['pso_mean_cost']/1e6:.2f}M | ${(h2h_summary['qpso_mean_cost'] - h2h_summary['pso_mean_cost'])/1e6:+.2f}M |
+| **Mean GHG Emissions (t)** | {h2h_summary['qpso_mean_emiss']:.1f} t | {h2h_summary['pso_mean_emiss']:.1f} t | {h2h_summary['qpso_mean_emiss'] - h2h_summary['pso_mean_emiss']:+.1f} t |
+| **Mean Runtime (seconds)** | {h2h_summary['qpso_mean_time']:.4f} s | {h2h_summary['pso_mean_time']:.4f} s | {h2h_summary['qpso_mean_time'] - h2h_summary['pso_mean_time']:+.4f} s |
+| **Evaluations / Run** | {h2h_summary['qpso_mean_evals']:.0f} | {h2h_summary['pso_mean_evals']:.0f} | 0 (Exact Parity) |
+| **Cache Hit Rate (%)** | {h2h_summary['qpso_mean_cache_hit_rate']:.1f}% | {h2h_summary['pso_mean_cache_hit_rate']:.1f}% | {h2h_summary['qpso_mean_cache_hit_rate'] - h2h_summary['pso_mean_cache_hit_rate']:+.1f}% |
+| **Win / Loss / Tie Tally** | **{q_wins} Wins** | **{p_wins} Wins** | **{h2h_ties} Ties** |
+
+---
+
+## 5. QPSO Enhancement Ablation Study (Variants A through G)
+
+| Variant | Architecture / Enhancements | Mean Obj | Std Dev | Best Obj | Feasible (%) | Unique Evals | Runtime (s) |
+|:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|
+"""
+        for vid, v in ablation_res["variants"].items():
+            h2h_md += f"| **{vid}** | {v['name']} ({v['description'][:40]}...) | {v['mean_objective']:.4f} | {v['std_objective']:.4f} | {v['best_objective']:.4f} | {v['feasible_rate']:.1f}% | {v['mean_unique_evals']:.1f} | {v['mean_runtime_s']:.4f}s |\n"
+
+        current_md = md_report_file.read_text(encoding="utf-8")
+        md_report_file.write_text(current_md + h2h_md, encoding="utf-8")
+        logger.info("Updated %s with Head-to-Head and Ablation study", md_report_file)
+
+    # -------------------------------------------------------------------------
     # 5. Predictive Model Benchmarking with Bias & Residual Variance
     # -------------------------------------------------------------------------
     logger.info(">>> Step 5/6: Running Predictive Model Benchmarking...")
@@ -228,6 +341,8 @@ def run_phase3_benchmarks(
         stability_results=stability_results,
         pred_results=pred_results,
         workflow_res=workflow_res,
+        ablation_res=ablation_res,
+        h2h_data=h2h_summary,
         output_path=pdf_output,
     )
     summary_outputs["pdf"] = pdf_path
@@ -263,6 +378,8 @@ def generate_phase3_pdf_report(
     stability_results: dict[str, Any],
     pred_results: list[Any],
     workflow_res: Any,
+    ablation_res: dict[str, Any] | None = None,
+    h2h_data: dict[str, Any] | None = None,
     output_path: str = "outputs/reports/SIH26138_Phase3_Quantum_Benchmarking_Decisions.pdf",
 ) -> Path:
     """Generate high-density executive PDF document for Phase 3 benchmarking."""
@@ -409,6 +526,71 @@ def generate_phase3_pdf_report(
     ]))
     elements.append(t_stab)
     elements.append(Spacer(1, 6))
+
+    # Section 3b: QPSO vs Classical PSO Head-to-Head Parity
+    if h2h_data:
+        elements.append(Paragraph("3b. QPSO vs Classical PSO: Head-to-Head Multi-Seed Parity (N=30 Seeds)", section_style))
+        h2h_table_data = [
+            ["Metric", "Observed QPSO Result", "Observed Classical PSO", "Difference / Gap"],
+            ["Mean Objective Score", f"{h2h_data.get('qpso_mean_obj', 0):.4f} ± {h2h_data.get('qpso_std_obj', 0):.4f}", f"{h2h_data.get('pso_mean_obj', 0):.4f} ± {h2h_data.get('pso_std_obj', 0):.4f}", f"{h2h_data.get('qpso_mean_obj', 0) - h2h_data.get('pso_mean_obj', 0):+.4f}"],
+            ["Best Objective Score", f"{h2h_data.get('qpso_best_obj', 0):.4f}", f"{h2h_data.get('pso_best_obj', 0):.4f}", f"{h2h_data.get('qpso_best_obj', 0) - h2h_data.get('pso_best_obj', 0):+.4f}"],
+            ["Worst Objective Score", f"{h2h_data.get('qpso_worst_obj', 0):.4f}", f"{h2h_data.get('pso_worst_obj', 0):.4f}", f"{h2h_data.get('qpso_worst_obj', 0) - h2h_data.get('pso_worst_obj', 0):+.4f}"],
+            ["Mean Fuel (tons)", f"{h2h_data.get('qpso_mean_fuel', 0):.1f} t", f"{h2h_data.get('pso_mean_fuel', 0):.1f} t", f"{h2h_data.get('qpso_mean_fuel', 0) - h2h_data.get('pso_mean_fuel', 0):+.1f} t"],
+            ["Mean Cost ($M)", f"${h2h_data.get('qpso_mean_cost', 0)/1e6:.2f}M", f"${h2h_data.get('pso_mean_cost', 0)/1e6:.2f}M", f"${(h2h_data.get('qpso_mean_cost', 0) - h2h_data.get('pso_mean_cost', 0))/1e6:+.2f}M"],
+            ["Mean GHG Emissions (t)", f"{h2h_data.get('qpso_mean_emiss', 0):.1f} t", f"{h2h_data.get('pso_mean_emiss', 0):.1f} t", f"{h2h_data.get('qpso_mean_emiss', 0) - h2h_data.get('pso_mean_emiss', 0):+.1f} t"],
+            ["Mean Runtime (s)", f"{h2h_data.get('qpso_mean_time', 0):.4f} s", f"{h2h_data.get('pso_mean_time', 0):.4f} s", f"{h2h_data.get('qpso_mean_time', 0) - h2h_data.get('pso_mean_time', 0):+.4f} s"],
+            ["Evaluations / Run", f"{h2h_data.get('qpso_mean_evals', 0):.0f}", f"{h2h_data.get('pso_mean_evals', 0):.0f}", "0 (Exact Parity)"],
+            ["Cache Hit Rate (%)", f"{h2h_data.get('qpso_mean_cache_hit_rate', 0):.1f}%", f"{h2h_data.get('pso_mean_cache_hit_rate', 0):.1f}%", f"{h2h_data.get('qpso_mean_cache_hit_rate', 0) - h2h_data.get('pso_mean_cache_hit_rate', 0):+.1f}%"],
+            ["Win / Loss / Tie Tally", f"{h2h_data.get('qpso_wins', 0)} Wins", f"{h2h_data.get('pso_wins', 0)} Wins", f"{h2h_data.get('ties', 0)} Ties"],
+        ]
+        t_h2h = Table(h2h_table_data, colWidths=[150, 130, 130, 138])
+        t_h2h.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#047857')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 7.0),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2.0),
+            ('TOPPADDING', (0, 0), (-1, -1), 2.0),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
+        ]))
+        elements.append(t_h2h)
+        elements.append(Spacer(1, 6))
+
+    # Section 3c: QPSO Enhancement Ablation Study
+    if ablation_res and "variants" in ablation_res:
+        elements.append(Paragraph("3c. QPSO Enhancement Ablation Study (Variants A through G)", section_style))
+        abl_table_data = [
+            ["Var", "Name", "Mean Obj", "Std Dev", "Best", "Feasible", "Unique Evals", "Runtime"]
+        ]
+        for vid, v in ablation_res["variants"].items():
+            abl_table_data.append([
+                vid,
+                v["name"][:28],
+                f"{v['mean_objective']:.4f}",
+                f"{v['std_objective']:.4f}",
+                f"{v['best_objective']:.4f}",
+                f"{v['feasible_rate']:.0f}%",
+                f"{v['mean_unique_evals']:.1f}",
+                f"{v['mean_runtime_s']:.3f}s",
+            ])
+        t_abl = Table(abl_table_data, colWidths=[25, 175, 60, 50, 55, 55, 65, 63])
+        t_abl.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#334155')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 7.0),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2.0),
+            ('TOPPADDING', (0, 0), (-1, -1), 2.0),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
+        ]))
+        elements.append(t_abl)
+        elements.append(Spacer(1, 6))
 
     # Section 4: Predictive Hydrodynamic Model Benchmarking
     elements.append(Paragraph("4. Hydrodynamic Fuel Consumption Prediction Benchmarking", section_style))

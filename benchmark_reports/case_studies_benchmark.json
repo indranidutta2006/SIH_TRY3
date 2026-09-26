@@ -3,24 +3,24 @@
     "Case Study":"Case A: Conventional Diesel Fleet",
     "Scenario ID":"CASE-A-DIESEL",
     "Solver":"Quantum-Inspired PSO (QPSO)",
-    "Fuel (t)":200.42,
+    "Fuel (t)":200.6,
     "Cost ($M)":2.69,
-    "Emissions (t CO2e)":770.62,
+    "Emissions (t CO2e)":771.31,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.358,
+    "Runtime (s)":0.335,
     "Feasible":true
   },
   {
     "Case Study":"Case A: Conventional Diesel Fleet",
     "Scenario ID":"CASE-A-DIESEL",
     "Solver":"Classical PSO",
-    "Fuel (t)":200.41,
+    "Fuel (t)":200.45,
     "Cost ($M)":2.69,
-    "Emissions (t CO2e)":770.61,
+    "Emissions (t CO2e)":770.74,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.359,
+    "Runtime (s)":0.277,
     "Feasible":true
   },
   {
@@ -32,7 +32,7 @@
     "Emissions (t CO2e)":831.22,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.404,
+    "Runtime (s)":0.571,
     "Feasible":true
   },
   {
@@ -44,7 +44,7 @@
     "Emissions (t CO2e)":53154.4,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.037,
+    "Runtime (s)":0.027,
     "Feasible":false
   },
   {
@@ -56,7 +56,7 @@
     "Emissions (t CO2e)":1649.97,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.004,
+    "Runtime (s)":0.005,
     "Feasible":true
   },
   {
@@ -68,31 +68,31 @@
     "Emissions (t CO2e)":1753.54,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.0,
+    "Runtime (s)":0.001,
     "Feasible":true
   },
   {
     "Case Study":"Case B: 50% LNG Dual-Fuel Fleet",
     "Scenario ID":"CASE-B-LNG",
     "Solver":"Quantum-Inspired PSO (QPSO)",
-    "Fuel (t)":221.45,
+    "Fuel (t)":221.56,
     "Cost ($M)":2.71,
-    "Emissions (t CO2e)":851.51,
+    "Emissions (t CO2e)":851.9,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.375,
+    "Runtime (s)":0.484,
     "Feasible":true
   },
   {
     "Case Study":"Case B: 50% LNG Dual-Fuel Fleet",
     "Scenario ID":"CASE-B-LNG",
     "Solver":"Classical PSO",
-    "Fuel (t)":221.45,
+    "Fuel (t)":221.65,
     "Cost ($M)":2.71,
-    "Emissions (t CO2e)":851.5,
+    "Emissions (t CO2e)":852.26,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.328,
+    "Runtime (s)":0.381,
     "Feasible":true
   },
   {
@@ -104,7 +104,7 @@
     "Emissions (t CO2e)":918.59,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.467,
+    "Runtime (s)":0.828,
     "Feasible":true
   },
   {
@@ -116,7 +116,7 @@
     "Emissions (t CO2e)":42394.17,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.023,
+    "Runtime (s)":0.034,
     "Feasible":false
   },
   {
@@ -128,7 +128,7 @@
     "Emissions (t CO2e)":1823.48,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.002,
+    "Runtime (s)":0.005,
     "Feasible":true
   },
   {
@@ -140,31 +140,31 @@
     "Emissions (t CO2e)":1939.79,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.0,
+    "Runtime (s)":0.001,
     "Feasible":true
   },
   {
     "Case Study":"Case C: Methanol Green Transition",
     "Scenario ID":"CASE-C-METHANOL",
     "Solver":"Quantum-Inspired PSO (QPSO)",
-    "Fuel (t)":250.52,
+    "Fuel (t)":250.62,
     "Cost ($M)":2.75,
-    "Emissions (t CO2e)":963.26,
+    "Emissions (t CO2e)":963.67,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.507,
+    "Runtime (s)":0.458,
     "Feasible":true
   },
   {
     "Case Study":"Case C: Methanol Green Transition",
     "Scenario ID":"CASE-C-METHANOL",
     "Solver":"Classical PSO",
-    "Fuel (t)":250.52,
+    "Fuel (t)":250.56,
     "Cost ($M)":2.75,
-    "Emissions (t CO2e)":963.26,
+    "Emissions (t CO2e)":963.43,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.375,
+    "Runtime (s)":0.319,
     "Feasible":true
   },
   {
@@ -176,7 +176,7 @@
     "Emissions (t CO2e)":1030.19,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.584,
+    "Runtime (s)":0.75,
     "Feasible":true
   },
   {
@@ -188,7 +188,7 @@
     "Emissions (t CO2e)":55701.15,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.025,
+    "Runtime (s)":0.035,
     "Feasible":false
   },
   {
@@ -200,7 +200,7 @@
     "Emissions (t CO2e)":2062.46,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.003,
+    "Runtime (s)":0.006,
     "Feasible":true
   },
   {
@@ -212,31 +212,31 @@
     "Emissions (t CO2e)":2191.92,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.0,
+    "Runtime (s)":0.001,
     "Feasible":true
   },
   {
     "Case Study":"Case D: Hydrogen Zero-Carbon Future",
     "Scenario ID":"CASE-D-HYDROGEN",
     "Solver":"Quantum-Inspired PSO (QPSO)",
-    "Fuel (t)":298.95,
+    "Fuel (t)":299.11,
     "Cost ($M)":2.81,
-    "Emissions (t CO2e)":1149.49,
+    "Emissions (t CO2e)":1150.12,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.527,
+    "Runtime (s)":0.513,
     "Feasible":true
   },
   {
     "Case Study":"Case D: Hydrogen Zero-Carbon Future",
     "Scenario ID":"CASE-D-HYDROGEN",
     "Solver":"Classical PSO",
-    "Fuel (t)":298.95,
+    "Fuel (t)":299.11,
     "Cost ($M)":2.81,
-    "Emissions (t CO2e)":1149.5,
+    "Emissions (t CO2e)":1150.09,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.565,
+    "Runtime (s)":0.327,
     "Feasible":true
   },
   {
@@ -248,7 +248,7 @@
     "Emissions (t CO2e)":1287.22,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.681,
+    "Runtime (s)":0.639,
     "Feasible":true
   },
   {
@@ -260,7 +260,7 @@
     "Emissions (t CO2e)":58953.57,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.04,
+    "Runtime (s)":0.037,
     "Feasible":true
   },
   {
@@ -272,7 +272,7 @@
     "Emissions (t CO2e)":2463.53,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.004,
+    "Runtime (s)":0.005,
     "Feasible":true
   },
   {
@@ -284,7 +284,7 @@
     "Emissions (t CO2e)":2631.72,
     "Reliability (%)":100.0,
     "Demand Met (%)":100.0,
-    "Runtime (s)":0.002,
+    "Runtime (s)":0.001,
     "Feasible":true
   }
 ]

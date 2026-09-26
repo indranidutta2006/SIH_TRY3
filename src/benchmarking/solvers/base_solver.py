@@ -7,6 +7,8 @@ and regulatory compliance models.
 """
 
 from abc import ABC, abstractmethod
+import hashlib
+import json
 import logging
 import time
 from collections.abc import Sequence
@@ -30,6 +32,58 @@ from src.physics.fuel_physics_engine import MaritimeFuelPhysicsEngine
 from src.prediction.emission_engine import MaritimeEmissionEngine
 
 logger = logging.getLogger("maritime_system")
+
+
+def compute_scenario_fingerprint(scenario: OptimizationScenario) -> str:
+    """Compute an immutable deterministic SHA-256 fingerprint for scenario physics and economics."""
+    payload = {
+        "demand": float(scenario.forecasted_demand if scenario.forecasted_demand is not None else scenario.cargo_demand),
+        "distance": float(scenario.route_distance),
+        "deadline": float(scenario.deadline_hours),
+        "weather": float(scenario.weather_factor),
+        "carbon": float(scenario.carbon_price),
+        "budget": float(scenario.budget),
+        "weights": tuple(float(w) for w in scenario.weights),
+        "service_level": float(scenario.service_level),
+        "max_transition": float(scenario.max_transition_rate),
+        "reliability": float(scenario.target_reliability),
+        "port_delay": float(scenario.port_delay_factor),
+        "scenario_id": str(scenario.scenario_id or ""),
+    }
+    raw = json.dumps(payload, sort_keys=True)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
+
+class BenchmarkEvaluationCache:
+    """Isolated evaluation cache for an individual solver execution.
+
+    Cross-solver cache sharing is prohibited to preserve fair runtime and search comparison.
+    """
+
+    def __init__(self) -> None:
+        self._cache: dict[tuple[Any, ...], dict[str, Any]] = {}
+        self.hits: int = 0
+        self.misses: int = 0
+
+    def get(self, key: tuple[Any, ...]) -> dict[str, Any] | None:
+        if key in self._cache:
+            self.hits += 1
+            return self._cache[key]
+        self.misses += 1
+        return None
+
+    def put(self, key: tuple[Any, ...], value: dict[str, Any]) -> None:
+        self._cache[key] = value
+
+    @property
+    def hit_rate(self) -> float:
+        total = self.hits + self.misses
+        return round((self.hits / total) * 100.0, 2) if total > 0 else 0.0
+
+    def clear(self) -> None:
+        self._cache.clear()
+        self.hits = 0
+        self.misses = 0
 
 VESSEL_SPECS: Final[dict[str, dict[str, Any]]] = {
     "feeder": {
@@ -213,6 +267,61 @@ class BaseBenchmarkSolver(ABC):
 
         return allocated
 
+    @classmethod
+    def decode_and_repair(
+        cls,
+        vec: np.ndarray,
+        scenario: OptimizationScenario,
+    ) -> tuple[int, int, int, dict[str, int], float, float]:
+        """Canonical 9D continuous-to-discrete decoding and deterministic repair operator.
+
+        Returns:
+            (x_feeder, x_medium, x_large, fuel_mix, speed_knots, repair_distance)
+        """
+        # 1. Bounds clipping & integer rounding
+        raw_f = float(vec[0])
+        raw_m = float(vec[1])
+        raw_l = float(vec[2])
+        xf = int(np.clip(round(raw_f), 0, VESSEL_SPECS["feeder"]["max_available"]))
+        xm = int(np.clip(round(raw_m), 0, VESSEL_SPECS["medium"]["max_available"]))
+        xl = int(np.clip(round(raw_l), 0, VESSEL_SPECS["large"]["max_available"]))
+
+        # 2. Total fleet repair (at least 1 vessel if all rounded to zero)
+        tot = xf + xm + xl
+        if tot == 0:
+            xm = 1
+            tot = 1
+
+        # 3. Alternative fuel count & 5-fuel allocation
+        alt_ratio = float(np.clip(vec[3], 0.0, scenario.max_transition_rate))
+        alt_count = int(round(tot * alt_ratio))
+
+        if len(vec) >= 9:
+            raw_shares = [float(vec[4]), float(vec[5]), float(vec[6]), float(vec[7])]
+            speed = float(np.clip(vec[8], 9.5, 17.5))
+        else:
+            raw_shares = None
+            speed = float(np.clip(vec[4], 9.5, 17.5))
+
+        fuel_mix = cls.allocate_fuel_mix(tot, alt_count, scenario, shares=raw_shares)
+
+        # 4. Compute repair distance: L2 distance between raw continuous coordinates and decoded discrete coordinates
+        repaired_coords = [
+            float(xf),
+            float(xm),
+            float(xl),
+            float(sum(fuel_mix[k] for k in ("lng", "methanol", "hydrogen", "ammonia")) / tot),
+            float(fuel_mix["lng"] / max(1, alt_count)),
+            float(fuel_mix["methanol"] / max(1, alt_count)),
+            float(fuel_mix["hydrogen"] / max(1, alt_count)),
+            float(fuel_mix["ammonia"] / max(1, alt_count)),
+            speed,
+        ]
+        raw_coords = [float(vec[i]) if i < len(vec) else 0.0 for i in range(9)]
+        repair_distance = float(np.linalg.norm(np.array(repaired_coords) - np.array(raw_coords)))
+
+        return xf, xm, xl, fuel_mix, speed, round(repair_distance, 4)
+
     def evaluate_candidate(
         self,
         x_f: int,
@@ -221,6 +330,7 @@ class BaseBenchmarkSolver(ABC):
         fuel_mix: dict[str, int],
         speed_knots: float,
         scenario: OptimizationScenario,
+        cache: BenchmarkEvaluationCache | None = None,
     ) -> dict[str, Any]:
         """Unified candidate evaluation under exact maritime physical and operational constraints.
 
@@ -228,6 +338,27 @@ class BaseBenchmarkSolver(ABC):
             objective_score, fuel_tons, cost_usd, emissions_tons,
             reliability_score, demand_satisfaction_rate, is_feasible, penalties.
         """
+        fp = compute_scenario_fingerprint(scenario)
+        speed = float(np.clip(speed_knots, 9.0, 18.0))
+        speed_rounded = round(speed, 2)
+
+        cache_key = (
+            int(x_f),
+            int(x_m),
+            int(x_l),
+            int(fuel_mix.get("diesel", 0)),
+            int(fuel_mix.get("lng", 0)),
+            int(fuel_mix.get("methanol", 0)),
+            int(fuel_mix.get("hydrogen", 0)),
+            int(fuel_mix.get("ammonia", 0)),
+            speed_rounded,
+            fp,
+        )
+
+        if cache is not None:
+            cached_val = cache.get(cache_key)
+            if cached_val is not None:
+                return cached_val
         total_vessels = x_f + x_m + x_l
         fuel_prices = scenario.fuel_prices or FUEL_PRICES_USD_PER_TON
         w_cost, w_fuel, w_emiss = scenario.weights
@@ -390,7 +521,7 @@ class BaseBenchmarkSolver(ABC):
             and reliability_deficit <= 1e-4
         )
 
-        return {
+        res_dict = {
             "objective_score": round(composite_score, 4),
             "fuel_consumption": round(total_fuel, 2),
             "operational_cost": round(total_operational_cost, 2),
@@ -402,3 +533,8 @@ class BaseBenchmarkSolver(ABC):
             "speed_knots": speed,
             "ann_capacity": round(ann_capacity, 2),
         }
+
+        if cache is not None:
+            cache.put(cache_key, res_dict)
+
+        return res_dict

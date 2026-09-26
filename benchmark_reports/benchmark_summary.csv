@@ -1,7 +1,7 @@
 Solver Name,Runtime (s),Iterations,Evaluations,Objective Score,Fuel Consumption (t),Operational Cost ($),Emissions (t CO2e),Reliability (/100),Demand Satisfaction (%),Feasible
-Quantum-Inspired PSO (QPSO),0.3941,50,1000,7.7649,221.45,2712061.71,851.5,100.0,100.0,True
-Classical PSO,0.3685,50,1000,7.7649,221.45,2712062.0,851.5,100.0,100.0,True
-Genetic Algorithm,0.5733,50,1200,7.8098,223.34,2713872.55,858.77,100.0,100.0,True
-Simulated Annealing,0.0317,50,51,594.57,15286.09,151043014.72,48574.8,100.0,100.0,False
-Linear Programming (Relaxed),0.0067,1,1,16.2747,474.23,5454130.28,1823.48,100.0,100.0,True
-Greedy Allocation,0.0004,1,1,16.9939,504.48,5483097.15,1939.79,100.0,100.0,True
+Quantum-Inspired PSO (QPSO),0.4434,50,1000,7.7654,221.47,2712081.92,851.58,100.0,100.0,True
+Classical PSO,0.3064,50,1000,7.7665,221.52,2712126.93,851.76,100.0,100.0,True
+Genetic Algorithm,0.8044,50,1200,7.8098,223.34,2713872.55,858.77,100.0,100.0,True
+Simulated Annealing,0.0375,50,51,594.57,15286.09,151043014.72,48574.8,100.0,100.0,False
+Linear Programming (Relaxed),0.0336,1,1,16.2747,474.23,5454130.28,1823.48,100.0,100.0,True
+Greedy Allocation,0.001,1,1,16.9939,504.48,5483097.15,1939.79,100.0,100.0,True

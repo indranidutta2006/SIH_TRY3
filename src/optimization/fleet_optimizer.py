@@ -19,6 +19,7 @@ from src.optimization.fleet_objective import fleet_objective, get_cached_engines
 from src.optimization.pso_baseline import PSOOptimizer
 from src.optimization.qpso import QPSOOptimizer
 from src.scheduler.fleet_scheduler import FleetScheduler
+from src.benchmarking.benchmark_utils import decode_and_repair, BenchmarkEvaluationCache, scenario_fingerprint
 
 logger = logging.getLogger("maritime_system")
 

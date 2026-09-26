@@ -10,6 +10,9 @@ Phase 3 Deliverable: Comprehensive executive validation dashboard presenting:
 6. Statistical Stability & Repeatability (Multi-seed Monte Carlo distributions).
 """
 
+import json
+from pathlib import Path
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -173,12 +176,13 @@ def render_benchmarking_page() -> None:
     st.markdown("---")
 
     # 3. Tabbed Analytical Deep Dives
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "📋 Full Solver Matrix",
         "📉 Convergence Dynamics",
         "📈 Scalability Curves",
         "🎯 Prediction Accuracy",
         "🎲 Statistical Stability",
+        "⚛️ QPSO vs Classical PSO & Ablation",
     ])
 
     with tab1:
@@ -365,3 +369,146 @@ def render_benchmarking_page() -> None:
             margin=dict(l=20, r=20, t=50, b=20),
         )
         st.plotly_chart(fig_box, use_container_width=True)
+
+    with tab6:
+        st.subheader("⚛️ QPSO vs Classical PSO: Head-to-Head Comparison & Ablation")
+        st.markdown(
+            """
+            **Empirical Evaluation Parity:**
+            - **Decision Problem:** Identical 9-dimensional mixed discrete/continuous search space.
+            - **Bounds & Constraints:** Identical vessel caps, fuel constraints, and speed bounds `[9.5, 17.5]` kn.
+            - **Evaluation Budget:** Equal population size ($P$) and maximum iterations ($T$), producing identical $P \\times T$ candidate evaluations.
+            - **Candidate Cache:** Independent, isolated `BenchmarkEvaluationCache()` instances per solver run (zero cross-solver bleed).
+            - **Discrete Repair:** Canonical `decode_and_repair()` operator applied consistently across solvers.
+            """
+        )
+
+        # 1. Check for precomputed head-to-head report or run on current scenario
+        h2h_file = Path("benchmark_reports/qpso_vs_pso_head_to_head.json")
+        if h2h_file.exists():
+            try:
+                h2h_data = json.loads(h2h_file.read_text(encoding="utf-8"))
+            except Exception:
+                h2h_data = None
+        else:
+            h2h_data = None
+
+        if h2h_data:
+            st.markdown("### 1. Multi-Seed Head-to-Head Summary (30 Independent Seeds)")
+            c_h1, c_h2, c_h3, c_h4 = st.columns(4)
+            with c_h1:
+                st.metric("QPSO Wins", f"{h2h_data.get('qpso_wins', 0)} / {h2h_data.get('n_seeds', 30)}")
+            with c_h2:
+                st.metric("Classical PSO Wins", f"{h2h_data.get('pso_wins', 0)} / {h2h_data.get('n_seeds', 30)}")
+            with c_h3:
+                st.metric("Ties", f"{h2h_data.get('ties', 0)}")
+            with c_h4:
+                st.metric("Evaluation Parity", f"{h2h_data.get('qpso_mean_evals', 0):.0f} vs {h2h_data.get('pso_mean_evals', 0):.0f}")
+
+            h2h_table_data = [
+                {
+                    "Metric": "Mean Objective Score",
+                    "Observed QPSO Result": f"{h2h_data.get('qpso_mean_obj', 0):.4f} ± {h2h_data.get('qpso_std_obj', 0):.4f}",
+                    "Observed Classical PSO Result": f"{h2h_data.get('pso_mean_obj', 0):.4f} ± {h2h_data.get('pso_std_obj', 0):.4f}",
+                    "Difference / Gap": f"{h2h_data.get('qpso_mean_obj', 0) - h2h_data.get('pso_mean_obj', 0):+.4f}",
+                },
+                {
+                    "Metric": "Best Objective Score",
+                    "Observed QPSO Result": f"{h2h_data.get('qpso_best_obj', 0):.4f}",
+                    "Observed Classical PSO Result": f"{h2h_data.get('pso_best_obj', 0):.4f}",
+                    "Difference / Gap": f"{h2h_data.get('qpso_best_obj', 0) - h2h_data.get('pso_best_obj', 0):+.4f}",
+                },
+                {
+                    "Metric": "Worst Objective Score",
+                    "Observed QPSO Result": f"{h2h_data.get('qpso_worst_obj', 0):.4f}",
+                    "Observed Classical PSO Result": f"{h2h_data.get('pso_worst_obj', 0):.4f}",
+                    "Difference / Gap": f"{h2h_data.get('qpso_worst_obj', 0) - h2h_data.get('pso_worst_obj', 0):+.4f}",
+                },
+                {
+                    "Metric": "Mean Fuel Consumption (tons)",
+                    "Observed QPSO Result": f"{h2h_data.get('qpso_mean_fuel', 0):.1f} t",
+                    "Observed Classical PSO Result": f"{h2h_data.get('pso_mean_fuel', 0):.1f} t",
+                    "Difference / Gap": f"{h2h_data.get('qpso_mean_fuel', 0) - h2h_data.get('pso_mean_fuel', 0):+.1f} t",
+                },
+                {
+                    "Metric": "Mean Operational Cost ($M)",
+                    "Observed QPSO Result": f"${h2h_data.get('qpso_mean_cost', 0) / 1e6:.2f}M",
+                    "Observed Classical PSO Result": f"${h2h_data.get('pso_mean_cost', 0) / 1e6:.2f}M",
+                    "Difference / Gap": f"${(h2h_data.get('qpso_mean_cost', 0) - h2h_data.get('pso_mean_cost', 0)) / 1e6:+.2f}M",
+                },
+                {
+                    "Metric": "Mean GHG Emissions (t CO2e)",
+                    "Observed QPSO Result": f"{h2h_data.get('qpso_mean_emiss', 0):.1f} t",
+                    "Observed Classical PSO Result": f"{h2h_data.get('pso_mean_emiss', 0):.1f} t",
+                    "Difference / Gap": f"{h2h_data.get('qpso_mean_emiss', 0) - h2h_data.get('pso_mean_emiss', 0):+.1f} t",
+                },
+                {
+                    "Metric": "Mean Computational Runtime (s)",
+                    "Observed QPSO Result": f"{h2h_data.get('qpso_mean_time', 0):.4f} s",
+                    "Observed Classical PSO Result": f"{h2h_data.get('pso_mean_time', 0):.4f} s",
+                    "Difference / Gap": f"{h2h_data.get('qpso_mean_time', 0) - h2h_data.get('pso_mean_time', 0):+.4f} s",
+                },
+                {
+                    "Metric": "Cache Hit Rate (%)",
+                    "Observed QPSO Result": f"{h2h_data.get('qpso_mean_cache_hit_rate', 0):.1f}%",
+                    "Observed Classical PSO Result": f"{h2h_data.get('pso_mean_cache_hit_rate', 0):.1f}%",
+                    "Difference / Gap": f"{h2h_data.get('qpso_mean_cache_hit_rate', 0) - h2h_data.get('pso_mean_cache_hit_rate', 0):+.1f}%",
+                },
+            ]
+            st.dataframe(pd.DataFrame(h2h_table_data), use_container_width=True, hide_index=True)
+
+        # 2. Check for precomputed ablation study
+        ablation_file = Path("benchmark_reports/qpso_ablation_study.json")
+        if ablation_file.exists():
+            try:
+                abl_data = json.loads(ablation_file.read_text(encoding="utf-8"))
+            except Exception:
+                abl_data = None
+        else:
+            abl_data = None
+
+        if abl_data and "variants" in abl_data:
+            st.markdown("---")
+            st.markdown("### 2. Algorithmic Enhancement Ablation Study (Variants A through G)")
+            st.markdown(
+                "Isolating the contribution of each algorithmic modification across 30 seeds:"
+            )
+            abl_rows = []
+            for vid, v in abl_data["variants"].items():
+                abl_rows.append({
+                    "Variant": vid,
+                    "Name": v.get("name"),
+                    "Description": v.get("description"),
+                    "Mean Obj": v.get("mean_objective"),
+                    "Std Dev": v.get("std_objective"),
+                    "Best Obj": v.get("best_objective"),
+                    "Worst Obj": v.get("worst_objective"),
+                    "Feasible (%)": f"{v.get('feasible_rate', 100):.1f}%",
+                    "Unique Evals": v.get("mean_unique_evals"),
+                    "Runtime (s)": v.get("mean_runtime_s"),
+                })
+            df_abl = pd.DataFrame(abl_rows)
+            st.dataframe(df_abl, use_container_width=True, hide_index=True)
+
+            col_ab1, col_ab2 = st.columns(2)
+            with col_ab1:
+                fig_abl_obj = px.bar(
+                    df_abl,
+                    x="Variant",
+                    y="Mean Obj",
+                    color="Variant",
+                    title="Mean Objective Score by Variant (Lower is Better)",
+                )
+                fig_abl_obj.update_layout(showlegend=False, height=340, margin=dict(l=20, r=20, t=40, b=20))
+                st.plotly_chart(fig_abl_obj, use_container_width=True)
+            with col_ab2:
+                fig_abl_eval = px.bar(
+                    df_abl,
+                    x="Variant",
+                    y="Unique Evals",
+                    color="Variant",
+                    title="Mean Unique Candidate Evaluations (Search Diversity)",
+                )
+                fig_abl_eval.update_layout(showlegend=False, height=340, margin=dict(l=20, r=20, t=40, b=20))
+                st.plotly_chart(fig_abl_eval, use_container_width=True)
+

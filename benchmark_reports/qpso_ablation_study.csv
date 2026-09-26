@@ -1,0 +1,8 @@
+variant_id,name,description,runs,mean_objective,std_objective,best_objective,worst_objective,feasible_rate,mean_fuel_t,mean_cost_usd,mean_emissions_tco2e,mean_runtime_s,mean_total_evals,mean_unique_evals
+A,Baseline QPSO,"Linear alpha decay, standard delta-potential, naive rounding",30,7.7673,0.0017,7.7649,7.7705,100.0,221.55,2712159.98,851.89,1.2519,600.0,394.3
+B,Adaptive Alpha,Diversity- & stagnation-modulated contraction-expansion alpha,30,7.7675,0.0015,7.765,7.7702,100.0,221.56,2712169.03,851.93,1.752,600.0,455.8
+C,Adaptive Alpha + Re-exploration,Stagnation-triggered quantum re-exploration of worst particles,30,7.7678,0.0023,7.765,7.7747,100.0,221.57,2712178.1,851.96,2.1878,600.0,457.5
+D,Adaptive Alpha + Re-expl + Elite Archive,Elite archive tracking diverse feasible discrete states,30,7.7676,0.002,7.7649,7.7725,100.0,221.57,2712173.73,851.95,2.2926,600.0,471.0
+E,Adaptive Alpha + Re-expl + Archive + Repair,Canonical discrete repair operator with minimum fleet guarantee,30,7.7676,0.002,7.7649,7.7725,100.0,221.57,2712173.73,851.95,2.6291,600.0,471.0
+F,Full Enhanced QPSO,Full production QPSO with isolated candidate evaluation cache,30,7.7676,0.002,7.7649,7.7725,100.0,221.57,2712173.73,851.95,3.0174,600.0,471.0
+G,Full Enhanced QPSO + Local Refinement,Full Enhanced QPSO with post-hoc deterministic 1-opt local search,30,7.7676,0.002,7.7649,7.7725,100.0,221.57,2712173.73,851.95,3.1821,608.0,475.3
