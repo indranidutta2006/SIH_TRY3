@@ -194,6 +194,14 @@ DEFAULT_LIFECYCLE_PROFILES: Final[dict[str, dict[str, FuelLifecycleProfile]]] = 
 }
 
 
+def normalize_fuel_name(fuel_name: str) -> str:
+    """Normalize fuel name string to canonical casing."""
+    f = str(fuel_name).strip()
+    if f.upper() == "LNG":
+        return "LNG"
+    return f.capitalize()
+
+
 class MaritimeLifecycleAssessmentEngine:
     """Computes comprehensive Well-to-Wake lifecycle footprints across maritime fuel pathways."""
 
@@ -213,18 +221,37 @@ class MaritimeLifecycleAssessmentEngine:
         self.logger = logger
 
     def get_profile(self, fuel_name: str, pathway: str | None = None) -> FuelLifecycleProfile:
-        """Retrieve the FuelLifecycleProfile for given fuel and pathway."""
-        norm_fuel = fuel_name.capitalize()
-        if norm_fuel == "Lng":
-            norm_fuel = "LNG"
+        """Retrieve the FuelLifecycleProfile for given fuel and pathway with alias and casing resilience."""
+        norm_fuel = normalize_fuel_name(fuel_name)
 
         if norm_fuel not in self.profiles:
             # Fallback to Diesel fossil
             norm_fuel = "Diesel"
 
         pathways = self.profiles[norm_fuel]
-        if pathway and pathway.lower() in pathways:
-            return pathways[pathway.lower()]
+        if pathway:
+            pw_key = str(pathway).strip().lower().replace("-", "_").replace(" ", "_")
+            if pw_key in pathways:
+                return pathways[pw_key]
+
+            # Alias checking for alternative fuel terminology
+            aliases: dict[str, str] = {
+                "e_fuel": "e_methanol",
+                "efuel": "e_methanol",
+                "emethanol": "e_methanol",
+                "biomethanol": "bio_methanol",
+                "biolng": "bio_lng",
+                "bio_fuel": "bio_methanol" if norm_fuel == "Methanol" else "bio_lng",
+                "fossil_lng": "fossil",
+                "fossil_diesel": "fossil",
+                "fossil_methanol": "fossil",
+                "smr": "grey",
+                "electrolysis": "green",
+                "renewable": "green",
+            }
+            mapped_pw = aliases.get(pw_key)
+            if mapped_pw and mapped_pw in pathways:
+                return pathways[mapped_pw]
 
         # Return default pathway for fuel
         default_keys = {"Diesel": "fossil", "LNG": "fossil", "Methanol": "fossil", "Hydrogen": "green", "Ammonia": "green"}
@@ -286,14 +313,29 @@ class MaritimeLifecycleAssessmentEngine:
         carbon_price_usd: float = 80.0,
         fueleu_penalties: Mapping[str, float] | None = None,
     ) -> dict[str, LifecycleAssessmentResult]:
-        """Compute multi-fuel lifecycle assessments for an entire fleet or voyage profile."""
+        """Compute multi-fuel lifecycle assessments for an entire fleet or voyage profile with casing-resilient pathway mapping."""
         results: dict[str, LifecycleAssessmentResult] = {}
         path_map = pathways or {}
         pen_map = fueleu_penalties or {}
 
+        # Pre-normalize pathways map for flexible lookup
+        norm_path_map: dict[str, str] = {}
+        for k, v in path_map.items():
+            norm_path_map[k] = v
+            norm_path_map[k.lower()] = v
+            norm_path_map[normalize_fuel_name(k)] = v
+
+        norm_pen_map: dict[str, float] = {}
+        for k, v in pen_map.items():
+            val = float(v)
+            norm_pen_map[k] = val
+            norm_pen_map[k.lower()] = val
+            norm_pen_map[normalize_fuel_name(k)] = val
+
         for fuel, tons in fuel_consumption.items():
-            pw = path_map.get(fuel)
-            pen = pen_map.get(fuel, 0.0)
+            norm_f = normalize_fuel_name(fuel)
+            pw = norm_path_map.get(fuel) or norm_path_map.get(norm_f) or norm_path_map.get(fuel.lower())
+            pen = norm_pen_map.get(fuel) or norm_pen_map.get(norm_f) or norm_pen_map.get(fuel.lower(), 0.0)
             results[fuel] = self.assess_fuel_lifecycle(
                 fuel_name=fuel,
                 consumption_tons=tons,

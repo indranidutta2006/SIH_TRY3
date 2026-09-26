@@ -89,13 +89,19 @@ def render_decision_intelligence_page() -> None:
                 "Ammonia": ["green", "blue", "grey"],
             }
             primary_pathway = st.selectbox(
-                "Feedstock Pathway",
+                "Primary Feedstock Pathway",
                 pathway_options.get(primary_green_fuel, ["green", "fossil"]),
                 index=0,
                 help="Granular LCA production pathway affecting FuelEU GHG intensity and compliance penalties."
             )
         with c4:
             secondary_green_fuel = st.selectbox("Secondary Fuel (Post-2032)", ["Hydrogen", "Ammonia", "Methanol"], index=0)
+            secondary_pathway = st.selectbox(
+                "Secondary Feedstock Pathway",
+                pathway_options.get(secondary_green_fuel, ["green", "fossil"]),
+                index=0,
+                help="Granular LCA production pathway for secondary fuel post-2032."
+            )
             horizon_years = st.slider("Investment Horizon (years)", 5, 20, 10)
 
     scenario = OptimizationScenario(
@@ -127,8 +133,13 @@ def render_decision_intelligence_page() -> None:
 
     fuel_pathways = {
         "Diesel": "fossil",
+        "diesel": "fossil",
         primary_green_fuel: primary_pathway,
-        secondary_green_fuel: "green",
+        primary_green_fuel.lower(): primary_pathway,
+        primary_green_fuel.capitalize(): primary_pathway,
+        secondary_green_fuel: secondary_pathway,
+        secondary_green_fuel.lower(): secondary_pathway,
+        secondary_green_fuel.capitalize(): secondary_pathway,
     }
 
     roadmap = transition_planner.plan_transition(
@@ -216,12 +227,27 @@ def render_decision_intelligence_page() -> None:
 
     # 5. Lifecycle Assessment (LCA) Breakdown
     st.subheader("🌿 Well-to-Wake (WTW) Lifecycle Emissions Decomposition")
+
+    # Milestone year options from transition roadmap
+    milestone_years = [m.year for m in roadmap.milestones]
+    default_lca_idx = milestone_years.index(2030) if 2030 in milestone_years else (len(milestone_years) - 1)
+
+    lca_milestone_year = st.selectbox(
+        "Evaluation Milestone Year for LCA Decomposition",
+        milestone_years,
+        index=default_lca_idx,
+        help="Select which roadmap milestone year to evaluate under full Well-to-Wake LCA with chosen feedstock pathways."
+    )
+
+    target_milestone = next((m for m in roadmap.milestones if m.year == lca_milestone_year), roadmap.milestones[0])
+    eval_fuel_shares = {f: sh for f, sh in target_milestone.fuel_shares.items() if sh > 0.0}
+
     c_lca1, c_lca2 = st.columns(2)
     with c_lca1:
-        # Assess fuel mix under LCA engine
+        # Assess fuel mix under LCA engine with user-selected pathways
         fuel_split = {
             f: fleet_mix_res.fuel_consumption * sh
-            for f, sh in fuel_shares.items()
+            for f, sh in eval_fuel_shares.items()
             if sh > 0.0
         }
         lca_res = lca_engine.assess_fleet_lifecycle(
@@ -231,11 +257,12 @@ def render_decision_intelligence_page() -> None:
         )
         lca_rows = []
         for f, res in lca_res.items():
-            lca_rows.append({"Fuel": f, "Stage": "Tank-to-Wake (Direct Combustion)", "CO2e (tons)": res.tank_to_wake_emissions})
-            lca_rows.append({"Fuel": f, "Stage": "Well-to-Tank (Upstream Feedstock & Prod)", "CO2e (tons)": res.fuel_production_emissions})
-            lca_rows.append({"Fuel": f, "Stage": "Well-to-Tank (Transport & Logistics)", "CO2e (tons)": res.fuel_transport_emissions})
+            fuel_label = f"{f} ({res.pathway})"
+            lca_rows.append({"Fuel": fuel_label, "Stage": "Tank-to-Wake (Direct Combustion)", "CO2e (tons)": res.tank_to_wake_emissions})
+            lca_rows.append({"Fuel": fuel_label, "Stage": "Well-to-Tank (Upstream Feedstock & Prod)", "CO2e (tons)": res.fuel_production_emissions})
+            lca_rows.append({"Fuel": fuel_label, "Stage": "Well-to-Tank (Transport & Logistics)", "CO2e (tons)": res.fuel_transport_emissions})
             if res.fuel_storage_emissions > 0:
-                lca_rows.append({"Fuel": f, "Stage": "Well-to-Tank (Methane Slip / Fugitive)", "CO2e (tons)": res.fuel_storage_emissions})
+                lca_rows.append({"Fuel": fuel_label, "Stage": "Well-to-Tank (Methane Slip / Fugitive)", "CO2e (tons)": res.fuel_storage_emissions})
 
         df_lca = pd.DataFrame(lca_rows)
         fig_lca = px.bar(
@@ -243,7 +270,7 @@ def render_decision_intelligence_page() -> None:
             x="Fuel",
             y="CO2e (tons)",
             color="Stage",
-            title="Well-to-Wake Lifecycle Footprint Breakdown",
+            title=f"Well-to-Wake Lifecycle Footprint Breakdown ({lca_milestone_year} Milestone)",
             barmode="stack",
             color_discrete_sequence=["#EF4444", "#3B82F6", "#10B981", "#F59E0B"],
         )
@@ -252,7 +279,11 @@ def render_decision_intelligence_page() -> None:
     with c_lca2:
         # Carbon cost & FuelEU penalty intensity
         intensities = [
-            {"Fuel": f, "WTW Intensity (gCO2e/MJ)": res.emission_intensity_g_per_mj, "Cost ($/t)": res.lifecycle_cost / max(res.fuel_consumption_tons, 1e-4)}
+            {
+                "Fuel": f"{f} ({res.pathway})",
+                "WTW Intensity (gCO2e/MJ)": res.emission_intensity_g_per_mj,
+                "Cost ($/t)": res.lifecycle_cost / max(res.fuel_consumption_tons, 1e-4),
+            }
             for f, res in lca_res.items()
         ]
         df_int = pd.DataFrame(intensities)

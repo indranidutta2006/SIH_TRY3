@@ -363,13 +363,28 @@ def test_page_decision_intelligence_render(tmp_path: Path) -> None:
     from unittest.mock import MagicMock, patch
     from app.dashboard.page_decision_intelligence import render_decision_intelligence_page
 
+    def mock_sb(label, options, index=0, **kwargs):
+        if "Vessel Class" in label:
+            return "PANAMAX"
+        if "Primary Transition" in label:
+            return "Methanol"
+        if "Primary Feedstock" in label or "Feedstock Pathway" in label:
+            return "e_methanol"
+        if "Secondary Fuel" in label:
+            return "Hydrogen"
+        if "Secondary Feedstock" in label:
+            return "green"
+        if "Milestone" in label or "LCA" in label:
+            return 2030 if 2030 in options else options[0]
+        return options[index] if options else None
+
     with patch("streamlit.title"), \
          patch("streamlit.markdown"), \
          patch("streamlit.expander") as mock_exp, \
          patch("streamlit.columns", side_effect=lambda n: [MagicMock() for _ in range(n if isinstance(n, int) else len(n))]), \
          patch("streamlit.number_input", side_effect=[250000.0, 3500.0, 260.0]), \
          patch("streamlit.slider", side_effect=[80.0, 10]), \
-         patch("streamlit.selectbox", side_effect=["PANAMAX", "Methanol", "e_methanol", "Hydrogen"]), \
+         patch("streamlit.selectbox", side_effect=mock_sb), \
          patch("streamlit.subheader"), \
          patch("streamlit.metric"), \
          patch("streamlit.info"), \
@@ -599,6 +614,57 @@ def test_regulatory_forecast_operational_energy_balance() -> None:
     # Check penalty calculation reflects true operational energy combined with 41,000 penalty denominator
     expected_pen_eur = (523_282_440 / (89.196 * 41000.0)) * 2400.0
     assert forecast_meth.projected_penalties_eur[2040] == pytest.approx(expected_pen_eur, rel=1e-2)
+
+
+# =============================================================================
+# 11. LCA PATHWAY BINDING & CASE-INSENSITIVITY TESTS (ISSUE 5)
+# =============================================================================
+
+def test_lca_engine_pathway_case_insensitivity_and_selection() -> None:
+    """Verify that LCA engine and assess_fleet_lifecycle respect selected pathways and handle case/alias variations."""
+    engine = MaritimeLifecycleAssessmentEngine()
+
+    # 1. Lowercase fuel tokens with TitleCase pathways map
+    fuel_consumption = {"methanol": 500.0, "diesel": 500.0}
+    pathways = {"Methanol": "e_methanol", "Diesel": "fossil"}
+    res = engine.assess_fleet_lifecycle(fuel_consumption=fuel_consumption, pathways=pathways)
+
+    assert "methanol" in res
+    assert "diesel" in res
+    # Ensure it resolved to e_methanol, not the default fossil methanol fallback
+    assert res["methanol"].pathway == "e_methanol"
+    # E-Methanol gross WTW intensity is 74.12 gCO2e/MJ, strictly lower than fossil methanol (89.20 gCO2e/MJ) and diesel (78.36 gCO2e/MJ)
+    assert res["methanol"].emission_intensity_g_per_mj == pytest.approx(74.12, abs=0.1)
+    assert res["methanol"].well_to_tank_emissions == pytest.approx(50.0, abs=0.1)  # 500t * (0.040 + 0.060)
+    assert res["diesel"].pathway == "fossil"
+
+    # 2. Bio-methanol selection
+    res_bio = engine.assess_fleet_lifecycle(
+        fuel_consumption={"methanol": 500.0},
+        pathways={"methanol": "bio_methanol"},
+    )
+    assert res_bio["methanol"].pathway == "bio_methanol"
+    assert res_bio["methanol"].emission_intensity_g_per_mj == pytest.approx(79.15, abs=0.1)
+    assert res_bio["methanol"].well_to_tank_emissions == pytest.approx(100.0, abs=0.1)  # 500t * (0.120 + 0.080)
+
+    # 3. Pathway aliases: 'bio-methanol', 'bio-lng', 'e-fuel'
+    prof_alias1 = engine.get_profile("methanol", "bio-methanol")
+    assert prof_alias1.production_pathway == "bio_methanol"
+
+    prof_alias2 = engine.get_profile("LNG", "bio-lng")
+    assert prof_alias2.production_pathway == "bio_lng"
+
+    prof_alias3 = engine.get_profile("Methanol", "e-fuel")
+    assert prof_alias3.production_pathway == "e_methanol"
+
+    # 4. Hydrogen pathway selection
+    res_h2 = engine.assess_fleet_lifecycle(
+        fuel_consumption={"hydrogen": 100.0},
+        pathways={"Hydrogen": "grey"},
+    )
+    assert res_h2["hydrogen"].pathway == "grey"
+    assert res_h2["hydrogen"].well_to_tank_emissions > 1000.0  # 100t * (9.0 + 1.5) = 1050t CO2e
+
 
 
 
