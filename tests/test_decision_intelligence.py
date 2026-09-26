@@ -84,6 +84,15 @@ def test_lca_engine_default_profiles() -> None:
     assert blue_h2.production_emission_factor > green_h2.production_emission_factor
     assert green_h2.renewable_fraction == 1.0
 
+    # Evidence classification discipline: all fuel lifecycle emission factors are MODELLED
+    # from engineering literature/IMO studies, reserving STATUTORY exclusively for actual
+    # statutory legal targets (MEPC.400(83) Z-factors, FuelEU Annex I targets).
+    for fuel, pathways in DEFAULT_LIFECYCLE_PROFILES.items():
+        for pathway_name, prof in pathways.items():
+            assert prof.metadata.get("evidence") == EvidenceCategory.MODELLED.value, (
+                f"Profile {fuel} ({pathway_name}) evidence is '{prof.metadata.get('evidence')}'; must be MODELLED"
+            )
+
 
 def test_lca_engine_calculations() -> None:
     """Verify Well-to-Wake (WTW) equals Well-to-Tank (WTT) plus Tank-to-Wake (TTW)."""

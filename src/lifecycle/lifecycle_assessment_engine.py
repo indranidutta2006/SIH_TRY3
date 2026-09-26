@@ -36,7 +36,7 @@ DEFAULT_LIFECYCLE_PROFILES: Final[dict[str, dict[str, FuelLifecycleProfile]]] = 
             energy_density_mj_per_ton=42700.0, # Lower Heating Value
             renewable_fraction=0.0,
             cost_per_ton_usd=650.0,
-            metadata={"evidence": EvidenceCategory.STATUTORY.value},
+            metadata={"evidence": EvidenceCategory.MODELLED.value},
         ),
         "biodiesel": FuelLifecycleProfile(
             fuel_name="Diesel",
@@ -62,7 +62,7 @@ DEFAULT_LIFECYCLE_PROFILES: Final[dict[str, dict[str, FuelLifecycleProfile]]] = 
             energy_density_mj_per_ton=49100.0,
             renewable_fraction=0.0,
             cost_per_ton_usd=800.0,
-            metadata={"evidence": EvidenceCategory.STATUTORY.value},
+            metadata={"evidence": EvidenceCategory.MODELLED.value},
         ),
         "bio_lng": FuelLifecycleProfile(
             fuel_name="LNG",
@@ -88,7 +88,7 @@ DEFAULT_LIFECYCLE_PROFILES: Final[dict[str, dict[str, FuelLifecycleProfile]]] = 
             energy_density_mj_per_ton=19900.0,
             renewable_fraction=0.0,
             cost_per_ton_usd=550.0,
-            metadata={"evidence": EvidenceCategory.STATUTORY.value},
+            metadata={"evidence": EvidenceCategory.MODELLED.value},
         ),
         "bio_methanol": FuelLifecycleProfile(
             fuel_name="Methanol",
