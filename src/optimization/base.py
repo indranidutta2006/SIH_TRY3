@@ -101,21 +101,36 @@ class SwarmOptimizationEngine(OptimizationEngine, ABC):
     def optimize(
         self,
         objective_function: Any,
-        parameter_bounds: dict[str, tuple[float, float]] | Sequence[tuple[float, float]],
+        parameter_bounds: dict[str, tuple[float, float]] | Sequence[tuple[float, float]] | None = None,
         hyperparameters: dict[str, Any] | None = None,
+        **legacy_kwargs,
     ) -> OptimizationResult:
-        """Execute heuristic or quantum-inspired search to minimize objective.
+        """Execute heuristic or quantum‑inspired search to minimize objective.
+
+        Supports both the modern signature (``parameter_bounds``) and the legacy
+        signature used by older test code, which passes ``lb``, ``ub`` and other
+        hyper‑parameters as separate keyword arguments.
+
+        The legacy call pattern is::
+
+            optimizer.optimize(
+                objective_function=my_obj,
+                lb=lb_array,
+                ub=ub_array,
+                population_size=10,
+                max_iterations=20,
+                seed=0,
+                hyperparameters={},
+            )
 
         Args:
-            objective_function: Callable mapping 1D numpy array to scalar cost.
-            parameter_bounds: Mapping or sequence defining (min, max) bounds.
-            hyperparameters: Optional dictionary with population_size, max_iterations, seed, etc.
+            objective_function: Callable mapping a 1‑D numpy array to a scalar cost.
+            parameter_bounds: Mapping or sequence defining ``(min, max)`` bounds **or** ``None`` when using the legacy signature.
+            hyperparameters: Optional dictionary with ``population_size``, ``max_iterations``, ``seed``, etc.
+            **legacy_kwargs: Captures ``lb``, ``ub`` and other legacy arguments.
 
         Returns:
-            OptimizationResult containing optimal score, runtime, iterations, history, and evaluations.
-
-        Raises:
-            OptimizationError: If bounds or execution fails.
+            OptimizationResult containing the optimal score, runtime, iterations, history, and evaluations.
         """
         if not callable(objective_function):
             raise OptimizationError(
@@ -123,8 +138,32 @@ class SwarmOptimizationEngine(OptimizationEngine, ABC):
                 details={"provided_type": type(objective_function).__name__},
             )
 
-        lb, ub, _ = self._parse_bounds(parameter_bounds)
-        params = hyperparameters or {}
+        # ---------------------------------------------------------------------
+        # Detect legacy signature: ``parameter_bounds`` is None and ``lb`` / ``ub``
+        # are supplied via ``legacy_kwargs``.
+        # ---------------------------------------------------------------------
+        if parameter_bounds is None and "lb" in legacy_kwargs and "ub" in legacy_kwargs:
+            lb = legacy_kwargs["lb"]
+            ub = legacy_kwargs["ub"]
+            # Build a hyperparameters dict from the legacy fields, falling back to
+            # defaults that match the modern implementation.
+            params = {
+                "population_size": legacy_kwargs.get("population_size", 20),
+                "max_iterations": legacy_kwargs.get("max_iterations", 50),
+                "seed": legacy_kwargs.get("seed", self.random_state),
+                "problem_size": legacy_kwargs.get("problem_size", ""),
+            }
+            # Merge any explicit hyperparameters dict provided alongside the legacy args.
+            if hyperparameters:
+                params.update(hyperparameters)
+            # Parse bounds using the (lb, ub) pair.
+            # Build a bounds dict from the numpy arrays for legacy signature
+            bounds_dict = {f"param_{i}": (float(lb[i]), float(ub[i])) for i in range(len(lb))}
+            lb, ub, _ = self._parse_bounds(bounds_dict)
+        else:
+            # Modern signature – parse the provided ``parameter_bounds``.
+            lb, ub, _ = self._parse_bounds(parameter_bounds)
+            params = hyperparameters or {}
 
         population_size = int(params.get("population_size", 20))
         max_iterations = int(params.get("max_iterations", 50))

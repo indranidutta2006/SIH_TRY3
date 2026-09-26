@@ -88,7 +88,9 @@ class QPSOOptimizer(SwarmOptimizationEngine):
             "reinit_fraction": float(hyperparameters.get("reinit_fraction", 0.25)),
             "early_stop_patience": int(hyperparameters.get("early_stop_patience", 15)),
             "improvement_tolerance": float(hyperparameters.get("improvement_tolerance", 1e-4)),
+            "early_stopping": bool(hyperparameters.get("early_stopping", False)),
         }
+        early_stopping = bool(hyperparams["early_stopping"])
         # Run the shared QPSO kernel.
         gbest, gbest_score, n_evaluations, history, meta = run_qpso(
             objective_function=objective_function,
@@ -103,105 +105,8 @@ class QPSOOptimizer(SwarmOptimizationEngine):
         )
         converged = meta.get("converged", False)
         return gbest, gbest_score, n_evaluations, tuple(history), converged
-# Legacy implementation removed after delegating to qpso_kernel
-# Legacy implementation removed after delegating to qpso_kernel
-        alpha_end = float(hyperparameters.get("alpha_end", 0.5))
-        alpha_min = float(hyperparameters.get("alpha_min", 0.35))
-        alpha_max = float(hyperparameters.get("alpha_max", 1.25))
-        use_adaptive_alpha = bool(hyperparameters.get("adaptive_alpha", True))
-        stagnation_patience = int(hyperparameters.get("stagnation_patience", 5))
-        reinit_fraction = float(hyperparameters.get("reinit_fraction", 0.25))
-        early_stopping = bool(hyperparameters.get("early_stopping", False))
-        early_stop_patience = int(hyperparameters.get("early_stop_patience", 15))
-        tolerance = float(hyperparameters.get("improvement_tolerance", 1e-4))
 
-        # 1. Initialize swarm positions uniformly within parameter bounds
-        X = rng.uniform(lb, ub, size=(population_size, dim))
 
-        # 2. Initial evaluation of population (population_size evaluations)
-        pbest = X.copy()
-        pbest_scores = np.empty(population_size, dtype=float)
-        for i in range(population_size):
-            pbest_scores[i] = float(objective_function(X[i]))
 
-        n_evaluations = population_size
-        best_idx = int(np.argmin(pbest_scores))
-        gbest = pbest[best_idx].copy()
-        gbest_score = float(pbest_scores[best_idx])
 
-        history: list[float] = [gbest_score]
-        alpha_history: list[float] = [alpha_start]
-        diversity_history: list[float] = []
-        stagnation_counter = 0
-
-        # 3. Iterative quantum delta-potential updates (max_iterations - 1 iterations)
-        for t in range(1, max_iterations):
-            mbest = np.mean(pbest, axis=0)
-            div = calculate_swarm_diversity(X, mbest, lb, ub)
-            diversity_history.append(div)
-
-            if use_adaptive_alpha:
-                alpha = compute_adaptive_alpha(
-                    t=t,
-                    max_iterations=max_iterations,
-                    diversity=div,
-                    stagnation_count=stagnation_counter,
-                    alpha_start=alpha_start,
-                    alpha_end=alpha_end,
-                    alpha_min=alpha_min,
-                    alpha_max=alpha_max,
-                )
-            else:
-                alpha = float(np.clip(
-                    alpha_start - (t / max_iterations) * (alpha_start - alpha_end),
-                    alpha_min,
-                    alpha_max,
-                ))
-
-            alpha_history.append(alpha)
-
-            # Vectorized quantum update for all particles
-            phi = rng.uniform(0.0, 1.0, size=(population_size, dim))
-            p = phi * pbest + (1.0 - phi) * gbest
-            u = rng.uniform(1e-12, 1.0, size=(population_size, dim))
-            signs = rng.choice(np.array([-1.0, 1.0]), size=(population_size, dim))
-            step = signs * alpha * np.abs(mbest - X) * np.log(1.0 / u)
-            X_new = np.clip(p + step, lb, ub)
-
-            # Stagnation re-exploration: replace worst particles' update with quantum exploration around gbest
-            if stagnation_counter >= stagnation_patience and reinit_fraction > 0:
-                n_reinit = max(1, int(round(reinit_fraction * population_size)))
-                worst_indices = np.argsort(pbest_scores)[-n_reinit:]
-                for idx in worst_indices:
-                    s_u = rng.uniform(1e-12, 1.0, size=dim)
-                    s_signs = rng.choice(np.array([-1.0, 1.0]), size=dim)
-                    s_step = s_signs * alpha * np.abs(mbest - X[idx]) * np.log(1.0 / s_u)
-                    X_new[idx] = np.clip(gbest + s_step, lb, ub)
-
-            X = X_new
-            improved = False
-
-            for i in range(population_size):
-                score = float(objective_function(X[i]))
-                n_evaluations += 1
-
-                if score < pbest_scores[i]:
-                    pbest_scores[i] = score
-                    pbest[i] = X[i].copy()
-                    if score < gbest_score - tolerance:
-                        gbest_score = score
-                        gbest = X[i].copy()
-                        improved = True
-
-            if improved:
-                stagnation_counter = 0
-            else:
-                stagnation_counter += 1
-
-            history.append(gbest_score)
-
-            if early_stopping and stagnation_counter >= early_stop_patience:
-                break
-
-        converged = bool(len(history) >= 5 and abs(history[-1] - history[-5]) < 1e-4)
-        return gbest, gbest_score, n_evaluations, tuple(history), converged
+        # Legacy implementation removed

@@ -11,7 +11,7 @@ The primary callable is `run_qpso`, which returns the best position, its score,
 the number of evaluations, the convergence history, and a dictionary of extra
 metadata (alpha history, diversity history, stagnation counters, elite archive,
 cache statistics, etc.).
-'''[\n]
+'''
 
 from __future__ import annotations
 

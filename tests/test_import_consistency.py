@@ -9,6 +9,7 @@ Verifies that:
 
 import importlib
 import sys
+import subprocess
 
 
 def test_schema_import_consistency() -> None:
@@ -205,10 +206,13 @@ def test_independent_module_importability() -> None:
     ]
 
     for mod_name in module_names:
-        # Evict from sys.modules to simulate cold import
-        sys.modules.pop(mod_name, None)
-        imported = importlib.import_module(mod_name)
-        assert imported is not None
+        # Run a cold import in a separate subprocess to avoid mutating pytest's module cache.
+        proc = subprocess.run(
+            [sys.executable, "-c", f"import importlib; importlib.import_module('{mod_name}')"],
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode == 0, f"Import of {mod_name} failed:\n{proc.stderr}"
 
 
 def test_all_schema_classes_identity() -> None:
