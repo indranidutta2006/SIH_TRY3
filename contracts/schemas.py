@@ -998,6 +998,20 @@ class TransitionMilestone:
         """Serialize dataclass to dictionary."""
         return asdict(self)
 
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into a TransitionMilestone instance."""
+        return cls(**data)
+
+    @classmethod
+    def from_json(cls, json_str: str) -> Self:
+        """Deserialize JSON string into a TransitionMilestone instance."""
+        return cls.from_dict(json.loads(json_str))
+
 
 @dataclass(frozen=True, slots=True)
 class TransitionRoadmap:

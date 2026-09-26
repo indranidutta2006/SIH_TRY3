@@ -209,3 +209,68 @@ def test_independent_module_importability() -> None:
         sys.modules.pop(mod_name, None)
         imported = importlib.import_module(mod_name)
         assert imported is not None
+
+
+def test_all_schema_classes_identity() -> None:
+    """Verify all 34 classes in contracts.schemas match schemas by object identity."""
+    import contracts.schemas as direct_schemas
+    import schemas as root_schemas
+
+    classes_tested = 0
+    for attr in dir(direct_schemas):
+        if not attr.startswith("_"):
+            obj = getattr(direct_schemas, attr)
+            if isinstance(obj, type) and obj.__module__ == "contracts.schemas":
+                assert getattr(root_schemas, attr, None) is obj
+                classes_tested += 1
+    assert classes_tested == 34
+
+
+def test_package_bridge_import_consistency() -> None:
+    """Verify root compatibility packages (optimization, operations, benchmarking) re-export identical src objects."""
+    import optimization as root_opt
+    import src.optimization as src_opt
+    for name in root_opt.__all__:
+        assert getattr(root_opt, name) is getattr(src_opt, name)
+
+    import operations as root_ops
+    import src.operations as src_ops
+    for name in ["CargoDemandSatisfactionEngine", "ScheduleReliabilityEngine"]:
+        assert getattr(root_ops, name) is getattr(src_ops, name)
+
+    import benchmarking as root_bmk
+    import src.benchmarking as src_bmk
+    for name in root_bmk.__all__:
+        assert getattr(root_bmk, name) is getattr(src_bmk, name)
+
+
+def test_transition_milestone_serialization() -> None:
+    """Verify TransitionMilestone serialization and deserialization symmetry."""
+    from contracts.schemas import TransitionMilestone
+
+    milestone = TransitionMilestone(
+        year=2030,
+        fleet_mix={"diesel": 6, "lng": 2},
+        fuel_shares={"diesel": 0.75, "lng": 0.25},
+        avg_speed_knots=13.5,
+        capex_usd=12_000_000.0,
+        opex_usd=3_500_000.0,
+        annual_emissions_tons=28_500.0,
+        cii_rating="B",
+        fueleu_penalty_usd=0.0,
+        metadata={"source": "test"},
+    )
+
+    d = milestone.to_dict()
+    assert d["year"] == 2030
+    assert d["cii_rating"] == "B"
+
+    j = milestone.to_json()
+    assert '"year": 2030' in j
+
+    m_from_dict = TransitionMilestone.from_dict(d)
+    assert m_from_dict == milestone
+
+    m_from_json = TransitionMilestone.from_json(j)
+    assert m_from_json == milestone
+

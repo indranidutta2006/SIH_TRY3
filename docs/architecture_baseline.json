@@ -1,0 +1,99 @@
+{
+  "repository": "SIH_TRY3",
+  "branch": "main",
+  "git_commit": "fe6c358fd476ec8af2e27d9746f4f6eb5de40903",
+  "date": "2026-09-26",
+  "environment": {
+    "python_version": "3.12.10",
+    "os": "Windows 11 (10.0.26200)",
+    "cpu": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+    "logical_cores": 6,
+    "physical_cores": 5,
+    "ram_gb": 7.69
+  },
+  "contracts": {
+    "total_classes": 34,
+    "dataclasses": 32,
+    "enums": 2,
+    "all_dataclasses_serializable": true
+  },
+  "test_baseline": {
+    "total_collected": 329,
+    "passed": 329,
+    "failed": 0,
+    "skipped": 0,
+    "full_test_runtime_seconds": 29.40
+  },
+  "runtime_baseline": {
+    "prediction_latency_ms": 20.19,
+    "deterministic_optimizer_ms": 10.74,
+    "qpso_ms": 78.13,
+    "benchmark_suite_seconds": 0.3708,
+    "streamlit_startup_seconds": 2.6094
+  },
+  "measurement_conditions": {
+    "prediction": {
+      "model": "hist_gradient_boosting",
+      "artifact": "artifacts/models/hist_gradient_boosting.pkl",
+      "batch_size": 1,
+      "repetitions": 100,
+      "warmup": 1,
+      "mean_latency_ms": 20.19
+    },
+    "deterministic_optimizer": {
+      "scenario_id": "SCEN-BASE-BENCHMARK",
+      "cargo_demand_tons": 250000.0,
+      "budget_usd": 120000000.0,
+      "service_level": 0.95,
+      "max_transition_rate": 0.40,
+      "solver": "deterministic_combinatorial_mip"
+    },
+    "qpso_optimizer": {
+      "scenario_id": "SCEN-BASE-BENCHMARK",
+      "solver": "qpso",
+      "dimension": 8,
+      "dimensions_definition": [
+        "x_feeder (Feeder count)",
+        "x_medium (Panamax count)",
+        "x_large (Capesize count)",
+        "n_alt (Alternative fuel vessel count)",
+        "w_lng (LNG preference weight)",
+        "w_methanol (Methanol preference weight)",
+        "w_hydrogen (Hydrogen preference weight)",
+        "w_ammonia (Ammonia preference weight)"
+      ],
+      "population_size": 25,
+      "max_iterations": 40,
+      "alpha_start": 1.0,
+      "alpha_end": 0.5,
+      "random_seed": 42
+    },
+    "benchmark_suite": {
+      "solvers": [
+        "QPSO",
+        "Classical PSO",
+        "GA",
+        "SA",
+        "LP",
+        "Greedy"
+      ],
+      "iterations_per_solver": 50,
+      "scenario_id": "SCEN-BASE-BENCHMARK"
+    },
+    "streamlit_startup": {
+      "command": "python -c 'import streamlit; import app.dashboard'",
+      "latency_seconds": 2.6094
+    }
+  },
+  "legacy_stubs": {
+    "status": "LEGACY / COMPATIBILITY SCAFFOLD",
+    "packages": [
+      "app/compliance/",
+      "app/emissions/",
+      "app/optimization/",
+      "app/physics/",
+      "app/prediction/",
+      "app/scheduler/"
+    ]
+  }
+}
