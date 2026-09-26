@@ -1096,5 +1096,51 @@ def test_strategy_derived_regulatory_parameters_propagation() -> None:
     assert fc_capesize.metadata["annual_distance_nm"] == opt_scen_capesize.annual_distance
 
 
+def test_regulatory_forecast_statutory_vs_projected_cii_pipeline(base_scenario: OptimizationScenario) -> None:
+    """Verify that 2026-2030 uses statutory CII and 2031-2040 uses projected Z-factor scenario pipeline."""
+    reg_engine = RegulatoryForecastEngine()
+    fc = reg_engine.forecast_compliance_trajectory(
+        vessel_type="Bulk Carrier",
+        capacity_dwt=60000.0,
+        annual_fuel_consumption_tons=4000.0,
+        annual_distance_nm=45000.0,
+        fuel_shares={"Diesel": 1.0},
+        start_year=2026,
+        end_year=2040,
+    )
 
+    details = fc.metadata["cii_details"]
+    labels = fc.metadata["cii_rating_labels"]
 
+    # 1. Statutory 2026-2030 verification
+    for yr in range(2026, 2031):
+        assert details[yr]["cii_evidence"] == "STATUTORY"
+        assert details[yr]["cii_rating_label"] == "STATUTORY CII RATING"
+        assert labels[yr] == "STATUTORY CII RATING"
+        assert fc.future_cii_ratings[yr] in ("A", "B", "C", "D", "E")
+
+    # 2. Scenario 2031-2040 verification
+    req_2030 = details[2030]["required_cii"]
+    ratio_2030 = details[2030]["cii_ratio"]
+
+    for yr in range(2031, 2041):
+        assert details[yr]["cii_evidence"] == "SCENARIO"
+        assert details[yr]["cii_rating_label"] == "PROJECTED CII RATING"
+        assert labels[yr] == "PROJECTED CII RATING"
+        # Projected Z-factor is strictly higher than 2030 Z-factor (0.215)
+        assert details[yr]["cii_z_factor"] > 0.215
+        # Projected required CII is strictly tighter than 2030 required CII
+        assert details[yr]["required_cii"] < req_2030
+        # For unchanged diesel fuel consumption, CII ratio is strictly higher
+        assert details[yr]["cii_ratio"] > ratio_2030
+        # Displayed rating is derived from projected ratio
+        assert fc.future_cii_ratings[yr] in ("A", "B", "C", "D", "E")
+
+    # 3. Transition Milestone labeling
+    planner = FuelTransitionPlanner(regulatory_engine=reg_engine)
+    roadmap = planner.plan_transition(scenario=base_scenario, target_years=(2026, 2030, 2035, 2040))
+    for m in roadmap.milestones:
+        if m.year <= 2030:
+            assert m.metadata["cii_rating_label"] == "STATUTORY CII RATING"
+        else:
+            assert m.metadata["cii_rating_label"] == "PROJECTED CII RATING"

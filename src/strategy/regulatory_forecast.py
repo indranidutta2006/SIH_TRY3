@@ -351,27 +351,48 @@ class RegulatoryForecastEngine:
         evidence_log: dict[int, dict[str, str]] = {}
 
         for yr in horizon:
-            # A. IMO CII Evaluation
+            # A. IMO Carbon Intensity Indicator (CII) Evaluation
             z_factor, z_ev = self.resolve_cii_reduction_factor(yr)
-            evidence_log[yr] = {"cii_evidence": z_ev.value}
+            direct_co2_tons = total_fuel_mass_tons * eff_co2_factor
+            attained_cii = (direct_co2_tons * 1e6) / max(capacity_dwt * annual_distance_nm, 1e-4)
 
-            cii_actual = (total_fuel_mass_tons * eff_co2_factor * 1e6) / max(capacity_dwt * annual_distance_nm, 1e-4)
-
-            try:
+            if yr <= 2030 and z_ev == EvidenceCategory.STATUTORY:
+                # 2026–2030: STATUTORY under IMO Resolution MEPC.400(83)
                 cii_assessment = self.compliance_engine.evaluate_cii(
                     vessel_type=vessel_type,
                     capacity=capacity_dwt,
-                    fuel_consumption=total_fuel_mass_tons,
+                    co2_emissions=direct_co2_tons,
                     distance_nm=annual_distance_nm,
-                    year=min(yr, 2030),  # Use statutory formula base
-                    fuel_type="Diesel",
+                    year=yr,
                 )
-                rating = cii_assessment.rating
-            except Exception:
-                # Approximate boundaries if year exceeds statutory MEPC.400(83) table
-                rating = "B" if cii_actual < 5.0 else ("C" if cii_actual < 8.0 else ("D" if cii_actual < 11.0 else "E"))
+                rating = cii_assessment.cii_rating
+                rating_label = "STATUTORY CII RATING"
+                required_cii = cii_assessment.required_cii
+                cii_ratio = cii_assessment.cii_ratio
+            else:
+                # 2031–2040: SCENARIO PROJECTION
+                # Pipeline: Scenario Z-factor -> Projected required CII -> Projected CII ratio -> Scenario-equivalent rating
+                cii_assessment = self.compliance_engine.evaluate_projected_cii(
+                    vessel_type=vessel_type,
+                    capacity=capacity_dwt,
+                    co2_emissions=direct_co2_tons,
+                    distance_nm=annual_distance_nm,
+                    projected_z_factor=z_factor,
+                )
+                rating = cii_assessment.cii_rating
+                rating_label = "PROJECTED CII RATING"
+                required_cii = cii_assessment.required_cii
+                cii_ratio = cii_assessment.cii_ratio
 
             future_cii_ratings[yr] = rating
+            evidence_log[yr] = {
+                "cii_evidence": z_ev.value,
+                "cii_rating_label": rating_label,
+                "cii_z_factor": z_factor,
+                "attained_cii": round(attained_cii, 4),
+                "required_cii": round(required_cii, 4),
+                "cii_ratio": round(cii_ratio, 4),
+            }
 
             # B. EU FuelEU Maritime Evaluation
             fueleu_red_pct, feu_ev = self.resolve_fueleu_target_reduction(yr)
@@ -414,8 +435,12 @@ class RegulatoryForecastEngine:
 
             # CII pass = rating in ('A', 'B', 'C')
             mc_cii = (mc_fuel * eff_co2_factor * 1e6) / np.maximum(capacity_dwt * mc_dist, 1e-4)
-            # Threshold for C/D boundary approximation
-            mc_cii_pass = mc_cii <= (8.5 * (1.0 - z_factor))
+            # Threshold for C/D boundary under MEPC.354(78)
+            d1, d2, d3, d4 = self.compliance_engine.resolve_cii_rating_boundaries(
+                vessel_type=vessel_type,
+                capacity=capacity_dwt,
+            )
+            mc_cii_pass = mc_cii <= (required_cii * d3)
 
             # FuelEU pass = compliance balance >= 0
             mc_balance = (target_intensity - eff_ghg_intensity) * mc_energy
@@ -448,6 +473,8 @@ class RegulatoryForecastEngine:
                     "Port turnaround congestion & waiting buffers (Gaussian sigma=0.10)",
                 ],
                 "evidence_classification": evidence_log,
+                "cii_rating_labels": {y: evidence_log[y]["cii_rating_label"] for y in horizon},
+                "cii_details": evidence_log,
                 "fuel_pathways": {f: p.production_pathway for f, p in resolved_profiles.items()},
                 "fuel_ghg_intensities_g_per_mj": {f: round(per_fuel_intensities[f], 2) for f in per_fuel_intensities},
                 "effective_ghg_intensity_g_per_mj": round(eff_ghg_intensity, 2),

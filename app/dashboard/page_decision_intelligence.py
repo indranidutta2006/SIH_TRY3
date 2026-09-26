@@ -344,6 +344,10 @@ def render_decision_intelligence_page() -> None:
     st.caption("Constraint-based transition heuristic bounded by Technology Readiness Levels (TRL) and drydock conversion limits.")
     milestone_rows = []
     for m in roadmap.milestones:
+        cii_label = m.metadata.get(
+            "cii_rating_label",
+            "STATUTORY CII RATING" if m.year <= 2030 else "PROJECTED CII RATING",
+        )
         for f, sh in m.fuel_shares.items():
             if sh > 0:
                 milestone_rows.append({
@@ -352,7 +356,8 @@ def render_decision_intelligence_page() -> None:
                     "Share (%)": sh * 100.0,
                     "Emissions (t)": m.annual_emissions_tons,
                     "Capex ($M)": m.capex_usd / 1e6,
-                    "CII Rating": m.cii_rating,
+                    "CII Rating": f"{m.cii_rating} ({'Statutory' if m.year <= 2030 else 'Projected'})",
+                    "CII Classification": cii_label,
                 })
     df_m = pd.DataFrame(milestone_rows)
     fig_roadmap = px.bar(
@@ -479,6 +484,32 @@ def render_decision_intelligence_page() -> None:
             yaxis=dict(range=[0, 105]),
         )
         st.plotly_chart(fig_prob, use_container_width=True)
+
+    with st.expander("🏛️ IMO Carbon Intensity Indicator (CII) Trajectory (2026–2040)", expanded=True):
+        st.caption(
+            "Statutory 2026–2030 ratings enforced under IMO Resolution MEPC.400(83); "
+            "2031–2040 ratings evaluated via projected Z-factor scenario extrapolation."
+        )
+        cii_details = forecast.metadata.get("evidence_classification", {})
+        cii_table_rows = []
+        for y in years_list:
+            ev = cii_details.get(y, {})
+            rating = forecast.future_cii_ratings.get(y, "C")
+            lbl = ev.get("cii_rating_label", "STATUTORY CII RATING" if y <= 2030 else "PROJECTED CII RATING")
+            z_val = ev.get("cii_z_factor", 0.0)
+            req_c = ev.get("required_cii", 0.0)
+            att_c = ev.get("attained_cii", 0.0)
+            c_ratio = ev.get("cii_ratio", 0.0)
+            cii_table_rows.append({
+                "Year": str(y),
+                "CII Rating": f"Grade {rating}",
+                "Rating Classification": lbl,
+                "Reduction Factor Z": f"{z_val * 100:.2f}%",
+                "Attained CII (gCO2/dwt·nm)": f"{att_c:.2f}",
+                "Required Target CII": f"{req_c:.2f}",
+                "CII Ratio (Attained/Required)": f"{c_ratio:.3f}",
+            })
+        st.dataframe(pd.DataFrame(cii_table_rows), use_container_width=True, hide_index=True)
 
     # 7. Multi-Scenario Stress Test Sensitivity Matrix
     st.subheader("🌪️ Multi-Scenario Stress Test Sensitivity Analysis")

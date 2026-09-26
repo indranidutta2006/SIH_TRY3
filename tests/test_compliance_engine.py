@@ -673,5 +673,18 @@ def test_all_supported_vessel_types_resolve_without_error(
     assert d1 < d2 < d3 < d4
 
 
-
-
+def test_evaluate_projected_cii_pipeline() -> None:
+    """Verify that evaluate_projected_cii computes scenario ratings with projected Z factor."""
+    engine = MaritimeComplianceEngine()
+    # Bulk Carrier 60,000 DWT, 10,000 t CO2, 45,000 nm
+    res_proj = engine.evaluate_projected_cii(
+        vessel_type="Bulk Carrier",
+        capacity=60000.0,
+        co2_emissions=10000.0,
+        distance_nm=45000.0,
+        projected_z_factor=0.315,
+    )
+    assert isinstance(res_proj, ComplianceResult)
+    assert res_proj.cii_rating in ("A", "B", "C", "D", "E")
+    assert res_proj.required_cii < 4.0
+    assert res_proj.rating == res_proj.cii_rating

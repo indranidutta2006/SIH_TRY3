@@ -211,6 +211,9 @@ class FuelTransitionPlanner:
             )
 
             cii_rate = reg_res.future_cii_ratings.get(yr, "C")
+            cii_label = reg_res.metadata.get("cii_rating_labels", {}).get(
+                yr, "STATUTORY CII RATING" if yr <= 2030 else "PROJECTED CII RATING"
+            )
             pen_usd = reg_res.projected_penalties_usd.get(yr, 0.0) * required_vessels
 
             milestone = TransitionMilestone(
@@ -228,6 +231,7 @@ class FuelTransitionPlanner:
                     "cumulative_retrofitted_vessels": num_alt_vessels,
                     "carbon_price_usd": round(carbon_price, 2),
                     "evidence": EvidenceCategory.MODELLED.value,
+                    "cii_rating_label": cii_label,
                 },
             )
             milestones.append(milestone)

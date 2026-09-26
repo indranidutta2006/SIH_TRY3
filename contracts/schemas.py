@@ -247,6 +247,11 @@ class ComplianceResult:
     penalty_multiplier: float = 1.0
 
     @property
+    def rating(self) -> str:
+        """Convenience alias for cii_rating."""
+        return self.cii_rating
+
+    @property
     def cii_result(self) -> CIIResult:
         """Extract dedicated CIIResult view."""
         return CIIResult(

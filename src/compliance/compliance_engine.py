@@ -354,6 +354,7 @@ class MaritimeComplianceEngine(ComplianceEngine):
         capacity_type: Optional[str] = None,
         annual_distance_nm: Optional[float] = None,
         annual_co2_tons: Optional[float] = None,
+        custom_z_factor: Optional[float] = None,
         **kwargs: Any,
     ) -> ComplianceResult:
         """Calculate IMO Carbon Intensity Indicator (CII) and operational letter rating.
@@ -373,14 +374,15 @@ class MaritimeComplianceEngine(ComplianceEngine):
             capacity_type: Unit basis of capacity ('DWT' or 'GT').
             annual_distance_nm: Alias for distance_nm.
             annual_co2_tons: Alias for co2_emissions.
-            **kwargs: Additional contextual metadata.
+            custom_z_factor: Optional scenario/projected reduction factor Z for post-2030 evaluations.
+            **kwargs: Additional contextual metadata (e.g. fuel_consumption, co2_factor).
 
         Returns:
             ComplianceResult detailing letter rating (A-E), attained/required CII, ratio, status, and G2/G4 parameters.
 
         Raises:
             DataValidationError: If inputs are negative, zero, or missing.
-            ComplianceError: If reporting year is outside statutory range (2023–2030).
+            ComplianceError: If reporting year is outside statutory range (2023–2030) and custom_z_factor is not provided.
         """
         resolved_co2 = annual_co2_tons if annual_co2_tons is not None else co2_emissions
         resolved_dist = annual_distance_nm if annual_distance_nm is not None else distance_nm
@@ -396,6 +398,13 @@ class MaritimeComplianceEngine(ComplianceEngine):
                 resolved_cap_type = "GT"
             elif vessel_dwt is not None or cargo_tons is not None:
                 resolved_cap_type = "DWT"
+
+        # Resolve CO2 from fuel_consumption if not provided directly
+        if resolved_co2 is None:
+            fuel_cons = kwargs.get("fuel_consumption")
+            if fuel_cons is not None:
+                cf = kwargs.get("co2_factor", 3.206)
+                resolved_co2 = float(fuel_cons) * float(cf)
 
         if resolved_co2 is None:
             raise DataValidationError(
@@ -425,7 +434,12 @@ class MaritimeComplianceEngine(ComplianceEngine):
                 f"Distance must be positive: {resolved_dist}",
                 details={"distance_nm": resolved_dist},
             )
-        if year not in CII_Z_FACTORS:
+
+        if custom_z_factor is not None:
+            z_factor = float(custom_z_factor)
+        elif year in CII_Z_FACTORS:
+            z_factor = self.get_cii_z_factor(year)
+        else:
             raise ComplianceError(
                 f"CII reporting year {year} is outside the supported statutory regulatory range (2023–2030) "
                 f"under IMO Resolution MEPC.400(83).",
@@ -446,9 +460,7 @@ class MaritimeComplianceEngine(ComplianceEngine):
         # Attained CII (gCO2 / (capacity * nm)) on the statutory capacity basis
         attained_cii = (resolved_co2 * 1e6) / (resolved_cap * resolved_dist)
 
-        # Statutory Annual Reduction Factor Z (IMO Resolution MEPC.400(83))
-        z_factor = self.get_cii_z_factor(year)
-
+        # Annual Reduction Factor Z (Statutory MEPC.400(83) or Projected Z-factor)
         required_cii = baseline_cii * (1.0 - z_factor)
         ratio = attained_cii / required_cii if required_cii > 0.0 else 1.0
 
@@ -484,6 +496,47 @@ class MaritimeComplianceEngine(ComplianceEngine):
             reference_line_a=round(a, 4),
             reference_line_c=round(c, 4),
             rating_boundaries=(d1, d2, d3, d4),
+        )
+
+    def evaluate_projected_cii(
+        self,
+        vessel_type: str,
+        capacity: float,
+        co2_emissions: float,
+        distance_nm: float,
+        projected_z_factor: float,
+        capacity_type: Optional[str] = None,
+        **kwargs: Any,
+    ) -> ComplianceResult:
+        """Evaluate projected/scenario-extrapolated IMO CII rating beyond 2030.
+
+        Implements the 4-stage projection pipeline:
+            1. Scenario Z-factor (extrapolated beyond 2030)
+            2. Projected required CII under MEPC.353(78) G2 reference lines
+            3. Projected CII ratio = Attained CII / Projected Required CII
+            4. Scenario-equivalent rating under MEPC.354(78) G4 rating boundaries
+
+        Args:
+            vessel_type: Vessel classification category.
+            capacity: Vessel capacity value (DWT or GT).
+            co2_emissions: Total operational direct CO2 emissions in metric tons.
+            distance_nm: Total distance navigated in nautical miles.
+            projected_z_factor: Scenario-projected reduction factor Z.
+            capacity_type: Unit basis of capacity ('DWT' or 'GT').
+            **kwargs: Additional contextual metadata.
+
+        Returns:
+            ComplianceResult detailing scenario-projected letter rating (A-E).
+        """
+        return self.evaluate_cii(
+            co2_emissions=co2_emissions,
+            distance_nm=distance_nm,
+            capacity=capacity,
+            capacity_type=capacity_type,
+            vessel_type=vessel_type,
+            year=2030,
+            custom_z_factor=projected_z_factor,
+            **kwargs,
         )
 
     def evaluate_fueleu(
