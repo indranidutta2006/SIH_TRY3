@@ -1,0 +1,62 @@
+[
+  {
+    "model_name": "Linear Regression (Baseline)",
+    "mae": 3.3649,
+    "rmse": 5.8671,
+    "r2": 0.5665,
+    "inference_time_ms": 1.186,
+    "prediction_bias": -0.2725,
+    "error_std": 5.8607,
+    "parameters_count": null,
+    "is_quantum": false,
+    "metadata": {
+      "fit_time_seconds": 0.0462,
+      "test_samples": 400
+    }
+  },
+  {
+    "model_name": "Random Forest",
+    "mae": 0.7537,
+    "rmse": 1.6808,
+    "r2": 0.9644,
+    "inference_time_ms": 99.595,
+    "prediction_bias": 0.0348,
+    "error_std": 1.6805,
+    "parameters_count": null,
+    "is_quantum": false,
+    "metadata": {
+      "fit_time_seconds": 0.291,
+      "test_samples": 400
+    }
+  },
+  {
+    "model_name": "HistGBDT (Production Tree)",
+    "mae": 0.7433,
+    "rmse": 1.5493,
+    "r2": 0.9698,
+    "inference_time_ms": 14.357,
+    "prediction_bias": -0.0058,
+    "error_std": 1.5493,
+    "parameters_count": null,
+    "is_quantum": false,
+    "metadata": {
+      "fit_time_seconds": 0.3378,
+      "test_samples": 400
+    }
+  },
+  {
+    "model_name": "Quantum-Inspired Predictor (QIFCP)",
+    "mae": 3.7002,
+    "rmse": 5.6044,
+    "r2": 0.6044,
+    "inference_time_ms": 1.48,
+    "prediction_bias": -0.2043,
+    "error_std": 5.6007,
+    "parameters_count": null,
+    "is_quantum": true,
+    "metadata": {
+      "fit_time_seconds": 0.0099,
+      "test_samples": 400
+    }
+  }
+]

@@ -37,10 +37,13 @@ from contracts.interfaces import (
     SchedulerEngine,
 )
 from contracts.schemas import (
+    BenchmarkResult,
+    BenchmarkSuiteResult,
     CIIResult,
     CapacityOptimizationResult,
     ComplianceAssessment,
     ComplianceResult,
+    ConvergenceAnalysisResult,
     DemandSatisfactionMetrics,
     EmissionResult,
     FleetAssignment,
@@ -50,11 +53,15 @@ from contracts.schemas import (
     OptimizationResult,
     OptimizationScenario,
     OptimizationStatus,
+    ParetoResult,
+    PredictionBenchmarkResult,
     PredictionResult,
     ReliabilityMetrics,
     ScenarioResult,
     SpeedOptimizationResult,
+    StatisticalStabilityResult,
     VoyageRecord,
+    WorkflowBenchmarkResult,
 )
 
 __all__ = [
@@ -107,5 +114,12 @@ __all__ = [
     "CapacityOptimizationResult",
     "SpeedOptimizationResult",
     "FleetStrategyRecommendation",
+    "BenchmarkResult",
+    "BenchmarkSuiteResult",
+    "PredictionBenchmarkResult",
+    "ConvergenceAnalysisResult",
+    "ParetoResult",
+    "StatisticalStabilityResult",
+    "WorkflowBenchmarkResult",
 ]
 

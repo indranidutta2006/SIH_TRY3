@@ -1,5 +1,6 @@
 """Dashboard module package for visual interaction, scenario testing, and analytics."""
 
+from app.dashboard.page_benchmarking import render_benchmarking_page
 from app.dashboard.page_compliance import render_compliance_page
 from app.dashboard.page_optimization import render_optimization_page
 from app.dashboard.page_overview import render_overview_page
@@ -16,5 +17,6 @@ __all__ = [
     "render_scenarios_page",
     "render_strategy_page",
     "render_reliability_page",
+    "render_benchmarking_page",
 ]
 

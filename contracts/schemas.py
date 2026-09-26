@@ -602,3 +602,235 @@ class FleetStrategyRecommendation:
         """Serialize dataclass to JSON string."""
         return json.dumps(self.to_dict(), indent=2)
 
+
+@dataclass(frozen=True, slots=True)
+class BenchmarkResult:
+    """Standardized single-solver benchmark evaluation output."""
+
+    solver_name: str
+    runtime_seconds: float
+    iterations: int
+    objective_score: float
+    fuel_consumption: float
+    operational_cost: float
+    emissions: float
+    reliability_score: float
+    demand_satisfaction_rate: float
+    convergence_score: float
+    feasible_solution: bool
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        return asdict(self)
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into BenchmarkResult."""
+        return cls(**data)
+
+
+@dataclass(frozen=True, slots=True)
+class BenchmarkSuiteResult:
+    """Integrated multi-solver comparative benchmark suite output."""
+
+    scenario: OptimizationScenario
+    results: tuple[BenchmarkResult, ...]
+    metric_leaders: dict[str, str]  # e.g., {"lowest_fuel": "QPSO", "lowest_cost": "LP", ...}
+    comparison_matrix: dict[str, dict[str, float | str]]
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        return {
+            "scenario": self.scenario.to_dict(),
+            "results": [r.to_dict() for r in self.results],
+            "metric_leaders": self.metric_leaders,
+            "comparison_matrix": self.comparison_matrix,
+            "metadata": self.metadata,
+        }
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict(), indent=2)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into BenchmarkSuiteResult."""
+        scenario = OptimizationScenario.from_dict(data["scenario"])
+        results = tuple(BenchmarkResult.from_dict(r) for r in data["results"])
+        return cls(
+            scenario=scenario,
+            results=results,
+            metric_leaders=data.get("metric_leaders", {}),
+            comparison_matrix=data.get("comparison_matrix", {}),
+            metadata=data.get("metadata", {}),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class PredictionBenchmarkResult:
+    """Predictive model benchmark evaluation metrics."""
+
+    model_name: str
+    mae: float
+    rmse: float
+    r2: float
+    inference_time_ms: float
+    prediction_bias: float = 0.0
+    error_std: float = 0.0
+    parameters_count: int | None = None
+    is_quantum: bool = False
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        return asdict(self)
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into PredictionBenchmarkResult."""
+        return cls(**data)
+
+
+@dataclass(frozen=True, slots=True)
+class ConvergenceAnalysisResult:
+    """Iteration-by-iteration optimization trajectory tracking."""
+
+    solver_name: str
+    iterations: tuple[int, ...] = ()
+    objective_values: tuple[float, ...] = ()
+    best_values: tuple[float, ...] = ()
+    improvement_rates: tuple[float, ...] = ()
+    total_runtime_seconds: float = 0.0
+    final_objective: float = 0.0
+    convergence_iteration: int = 0
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        d = asdict(self)
+        d["iterations"] = list(self.iterations)
+        d["objective_values"] = list(self.objective_values)
+        d["best_values"] = list(self.best_values)
+        d["improvement_rates"] = list(self.improvement_rates)
+        return d
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into ConvergenceAnalysisResult."""
+        clean = dict(data)
+        for k in ("iterations", "objective_values", "best_values", "improvement_rates"):
+            if k in clean and isinstance(clean[k], list):
+                clean[k] = tuple(clean[k])
+        return cls(**clean)
+
+
+@dataclass(frozen=True, slots=True)
+class ParetoResult:
+    """Multi-objective Pareto frontier non-dominated sorting output."""
+
+    scenario_id: str
+    solver_name: str
+    pareto_points: tuple[dict[str, float], ...] = ()
+    dominated_points: tuple[dict[str, float], ...] = ()
+    hypervolume: float = 0.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        d = asdict(self)
+        d["pareto_points"] = list(self.pareto_points)
+        d["dominated_points"] = list(self.dominated_points)
+        return d
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into ParetoResult."""
+        clean = dict(data)
+        if "pareto_points" in clean and isinstance(clean["pareto_points"], list):
+            clean["pareto_points"] = tuple(clean["pareto_points"])
+        if "dominated_points" in clean and isinstance(clean["dominated_points"], list):
+            clean["dominated_points"] = tuple(clean["dominated_points"])
+        return cls(**clean)
+
+
+@dataclass(frozen=True, slots=True)
+class StatisticalStabilityResult:
+    """Monte Carlo stability statistics across multiple independent random seeds."""
+
+    solver_name: str
+    num_seeds: int
+    seeds: tuple[int, ...] = ()
+    objective_values: tuple[float, ...] = ()
+    mean_objective: float = 0.0
+    std_objective: float = 0.0
+    best_objective: float = 0.0
+    worst_objective: float = 0.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        d = asdict(self)
+        d["seeds"] = list(self.seeds)
+        d["objective_values"] = list(self.objective_values)
+        return d
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into StatisticalStabilityResult."""
+        clean = dict(data)
+        if "seeds" in clean and isinstance(clean["seeds"], list):
+            clean["seeds"] = tuple(clean["seeds"])
+        if "objective_values" in clean and isinstance(clean["objective_values"], list):
+            clean["objective_values"] = tuple(clean["objective_values"])
+        return cls(**clean)
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowBenchmarkResult:
+    """End-to-end full maritime system workflow timing and performance."""
+
+    scenario_id: str
+    total_workflow_runtime_seconds: float
+    step_runtimes_seconds: dict[str, float] = field(default_factory=dict)
+    prediction_runtime: float = 0.0
+    optimization_runtime: float = 0.0
+    reliability_runtime: float = 0.0
+    deployment_runtime: float = 0.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        return asdict(self)
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into WorkflowBenchmarkResult."""
+        return cls(**data)
+
+

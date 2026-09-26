@@ -23,7 +23,7 @@ data/processed/*.csv
 data/maritime_dataset.csv
 artifacts/models/*.pkl
 artifacts/metrics/*.json
-outputs/logs/*.log
+outputs/logs/*.log*
 outputs/reports/*.json
 outputs/figures/*.png
 

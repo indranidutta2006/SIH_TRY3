@@ -19,6 +19,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.dashboard import (
+    render_benchmarking_page,
     render_compliance_page,
     render_optimization_page,
     render_overview_page,
@@ -51,6 +52,7 @@ page_selection = st.sidebar.radio(
         "5. Scenario Analysis & Alternative Fuels",
         "6. Fleet Strategy Optimization",
         "7. Operational Reliability",
+        "8. Benchmarking & Validation",
     ],
     index=0,
 )
@@ -66,6 +68,7 @@ st.sidebar.markdown(
     - 🛡️ Physics Engine: `Admiralty + LHV`
     - 🎯 Strategy Engine: `Mix + Capacity + Speed`
     - ⚓ Reliability Engine: `Demand + Schedule Buffer`
+    - 📊 Benchmarking: `Quantum Advantage + Baselines`
     """
 )
 
@@ -87,4 +90,6 @@ elif page_selection == "6. Fleet Strategy Optimization":
     render_strategy_page()
 elif page_selection == "7. Operational Reliability":
     render_reliability_page()
+elif page_selection == "8. Benchmarking & Validation":
+    render_benchmarking_page()
 
