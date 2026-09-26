@@ -1135,6 +1135,15 @@ class ExecutiveRecommendation:
     evidence_items: tuple[dict[str, str], ...]  # [{item, category: STATUTORY/MODELLED/ASSUMED/SCENARIO, notes}]
     executive_summary_text: str
     metadata: dict[str, Any] = field(default_factory=dict)
+    # Evidence-tagged itemised economics breakdown (Phase 4 Critical Issue 6).
+    # Keys: annual_fuel_savings_usd / _evidence / _note,
+    #       annual_carbon_savings_usd / _evidence / _note,
+    #       annual_penalty_avoidance_usd / _evidence / _note,
+    #       yearly_penalty_avoidance_usd (full annual trajectory),
+    #       annual_opex_delta_usd / _evidence / _note,
+    #       total_retrofit_capex_usd / _evidence / _source,
+    #       annual_net_benefit_usd, investment_horizon_years.
+    economics_breakdown: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize dataclass to dictionary."""

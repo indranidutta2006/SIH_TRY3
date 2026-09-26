@@ -267,6 +267,154 @@ def test_executive_recommendation_engine(base_scenario: OptimizationScenario) ->
     assert len(rec.executive_summary_text) > 50
 
 
+def test_executive_roi_decomposition_sourcing(base_scenario: OptimizationScenario) -> None:
+    """Verify that executive ROI decomposes each component from engine outputs, not synthetic ratios.
+
+    Assertions:
+    - economics_breakdown dict present on ExecutiveRecommendation.
+    - All required evidence-tagged keys present.
+    - Evidence labels: fuel=MODELLED, carbon=MODELLED, opex=ASSUMED.
+    - Numeric consistency: fuel_savings + carbon_savings + penalty_avoidance
+      = annual_net_benefit + opex_delta  (within floating-point tolerance).
+    - CAPEX sourced from roadmap (MODELLED) when roadmap is provided.
+    - Full yearly penalty avoidance trajectory available when forecast provided.
+    """
+    opt = FleetStrategyOptimizer()
+    strat_rec = opt.optimize_strategy(base_scenario)
+
+    # Build supporting engine outputs to trigger MODELLED paths
+    planner = FuelTransitionPlanner()
+    roadmap = planner.plan_transition(
+        scenario=base_scenario,
+        target_years=(2026, 2028, 2030, 2035, 2040),
+        vessel_class="PANAMAX",
+        primary_green_fuel="Methanol",
+        secondary_green_fuel="Hydrogen",
+    )
+
+    reg_engine = RegulatoryForecastEngine()
+    total_vessels = strat_rec.summary.get(
+        "total_vessels",
+        sum(v for k, v in strat_rec.fleet_mix.fleet_mix.items() if k in {"feeder", "medium", "large"}),
+    )
+    if total_vessels <= 0:
+        total_vessels = max(1, sum(strat_rec.fleet_mix.fleet_mix.values()))
+
+    fleet_mix_res = strat_rec.fleet_mix
+    fuel_tokens = ["diesel", "lng", "methanol", "hydrogen", "ammonia"]
+    fuel_counts = {k: fleet_mix_res.fleet_mix.get(k, 0) for k in fuel_tokens if fleet_mix_res.fleet_mix.get(k, 0) > 0}
+    if not fuel_counts:
+        fuel_counts = {"diesel": total_vessels}
+    total_fuel_units = max(1, sum(fuel_counts.values()))
+    fuel_shares = {k: v / total_fuel_units for k, v in fuel_counts.items()}
+
+    forecast = reg_engine.forecast_compliance_trajectory(
+        vessel_type="Bulk carrier",
+        capacity_dwt=45_000.0,
+        annual_fuel_consumption_tons=fleet_mix_res.fuel_consumption / max(total_vessels, 1),
+        annual_distance_nm=base_scenario.route_distance * 20,
+        fuel_shares=fuel_shares,
+        start_year=2026,
+        end_year=2035,  # covers 10-year horizon
+    )
+
+    exec_engine = ExecutiveRecommendationEngine()
+    rec = exec_engine.generate_recommendation(
+        strategy_recommendation=strat_rec,
+        scenario=base_scenario,
+        roadmap=roadmap,
+        forecast=forecast,
+        investment_horizon_years=10,
+    )
+
+    assert isinstance(rec, ExecutiveRecommendation)
+
+    # ── economics_breakdown must be present and populated ──────────────────────
+    bd = rec.economics_breakdown
+    assert isinstance(bd, dict), "economics_breakdown must be a dict"
+    assert len(bd) > 0, "economics_breakdown must not be empty"
+
+    required_keys = [
+        "annual_fuel_savings_usd", "annual_fuel_savings_evidence",
+        "annual_carbon_savings_usd", "annual_carbon_savings_evidence",
+        "annual_penalty_avoidance_usd", "annual_penalty_avoidance_evidence",
+        "annual_opex_delta_usd", "annual_opex_delta_evidence",
+        "total_retrofit_capex_usd", "total_retrofit_capex_evidence",
+        "annual_net_benefit_usd",
+    ]
+    for key in required_keys:
+        assert key in bd, f"Missing required key in economics_breakdown: '{key}'"
+
+    # ── Evidence labels ─────────────────────────────────────────────────────────
+    assert bd["annual_fuel_savings_evidence"] == "MODELLED", (
+        "Fuel savings must be MODELLED — sourced from bunker cost differential"
+    )
+    assert bd["annual_carbon_savings_evidence"] == "MODELLED", (
+        "Carbon savings must be MODELLED — sourced from WTW emission differential"
+    )
+    assert bd["annual_opex_delta_evidence"] == "ASSUMED", (
+        "OPEX delta must be ASSUMED — industry benchmark, not engine-computed"
+    )
+    # CAPEX must be MODELLED because we supplied a roadmap
+    assert bd["total_retrofit_capex_evidence"] == "MODELLED", (
+        "Retrofit CAPEX must be MODELLED when roadmap.total_transition_capex is available"
+    )
+    # Penalty should be MODELLED because we supplied a forecast
+    assert bd["annual_penalty_avoidance_evidence"] == "MODELLED", (
+        "FuelEU penalty avoidance must be MODELLED when a forecast is provided"
+    )
+
+    # ── Numeric consistency ─────────────────────────────────────────────────────
+    fuel_sav = bd["annual_fuel_savings_usd"]
+    carbon_sav = bd["annual_carbon_savings_usd"]
+    penalty_av = bd["annual_penalty_avoidance_usd"]
+    opex_delta = bd["annual_opex_delta_usd"]
+    net_benefit = bd["annual_net_benefit_usd"]
+
+    # All components non-negative
+    assert fuel_sav >= 0.0
+    assert carbon_sav >= 0.0
+    assert penalty_av >= 0.0
+    assert opex_delta >= 0.0
+
+    # net_benefit = (fuel + carbon + penalty) - opex  [within floating-point rounding]
+    expected_net = fuel_sav + carbon_sav + penalty_av - opex_delta
+    assert net_benefit == pytest.approx(expected_net, abs=1.0), (
+        f"Net benefit {net_benefit:.2f} != fuel+carbon+penalty-opex={expected_net:.2f}"
+    )
+
+    # ── CAPEX from roadmap ──────────────────────────────────────────────────────
+    assert abs(bd["total_retrofit_capex_usd"] - roadmap.total_transition_capex) < 1.0, (
+        "CAPEX must match roadmap.total_transition_capex when roadmap is provided"
+    )
+
+    # ── Yearly trajectory available ─────────────────────────────────────────────
+    assert "yearly_penalty_avoidance_usd" in bd, (
+        "Full yearly penalty avoidance trajectory must be present in economics_breakdown"
+    )
+    yearly_pav = bd["yearly_penalty_avoidance_usd"]
+    assert isinstance(yearly_pav, dict)
+    assert len(yearly_pav) == 10, f"Expected 10 yearly values (2026-2035), got {len(yearly_pav)}"
+    for yr_str, val in yearly_pav.items():
+        assert isinstance(int(yr_str), int)
+        assert val >= 0.0
+
+    # ── Evidence classification layer updated ───────────────────────────────────
+    # Evidence items must now include entries for fuel savings, carbon savings, penalty, OPEX, CAPEX
+    ev_categories = {item["item"] for item in rec.evidence_items}
+    assert any("Fuel Savings" in item or "Fuel savings" in item for item in ev_categories), (
+        "Evidence table must include a fuel savings entry"
+    )
+    assert any("Carbon" in item for item in ev_categories), (
+        "Evidence table must include a carbon savings entry"
+    )
+    assert any("OPEX" in item or "opex" in item.lower() for item in ev_categories), (
+        "Evidence table must include an OPEX delta entry labelled ASSUMED"
+    )
+
+
+
+
 # =============================================================================
 # 5. MULTI-SCENARIO SENSITIVITY ANALYZER TESTS
 # =============================================================================

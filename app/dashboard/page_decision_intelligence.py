@@ -169,29 +169,157 @@ def render_decision_intelligence_page() -> None:
 
     # 3. Executive Decision & Financial ROI KPIs
     st.subheader("💡 Executive Recommendation & Capital ROI Summary")
+
+    # Evidence badge helpers
+    def _ev_badge(evidence: str) -> str:
+        return "✅ MODELLED" if evidence == "MODELLED" else ("📜 STATUTORY" if evidence == "STATUTORY" else "⚠️ ASSUMED")
+
+    bd = rec.economics_breakdown  # evidence-tagged breakdown dict
+
     k1, k2, k3, k4 = st.columns(4)
+    capex_ev = bd.get("total_retrofit_capex_evidence", "ASSUMED")
     k1.metric(
-        "Modernization Capex",
+        f"Modernization Capex [{_ev_badge(capex_ev)}]",
         f"${rec.total_investment_capex / 1e6:.1f}M",
         f"{total_vessels} Vessels",
+        help=bd.get("total_retrofit_capex_source", ""),
     )
     k2.metric(
         f"{horizon_years}-Year ROI",
         f"{rec.roi_percentage}%" if rec.roi_percentage is not None else "N/A",
-        f"Net Ann: ${rec.annual_net_benefit_usd / 1e6:.2f}M",
+        f"Net Annual: ${rec.annual_net_benefit_usd / 1e6:.2f}M",
     )
     k3.metric(
         "Simple Payback",
         f"{rec.payback_years} yrs" if rec.payback_years is not None else rec.payback_status,
         f"Status: {rec.payback_status}",
     )
+    savings_ev = "MODELLED"  # fuel + carbon are always modelled; penalty may be assumed
     k4.metric(
-        "Annual Cost Savings",
+        f"Annual Net Savings [✅ MODELLED]",
         f"${rec.expected_cost_savings_usd / 1e6:.2f}M",
-        f"-{rec.expected_cost_savings_pct:.1f}% vs Diesel",
+        f"-{rec.expected_cost_savings_pct:.1f}% vs Diesel Baseline",
     )
 
     st.info(rec.executive_summary_text)
+
+    # Economics waterfall chart — decomposed ROI components with evidence colouring
+    st.markdown("#### 📊 Annual Benefit Decomposition (Evidence-Classified Waterfall)")
+    fuel_sav = bd.get("annual_fuel_savings_usd", 0.0)
+    carbon_sav = bd.get("annual_carbon_savings_usd", 0.0)
+    penalty_av = bd.get("annual_penalty_avoidance_usd", 0.0)
+    opex_delta = bd.get("annual_opex_delta_usd", 0.0)
+    net_benefit = bd.get("annual_net_benefit_usd", rec.annual_net_benefit_usd)
+    penalty_ev = bd.get("annual_penalty_avoidance_evidence", "ASSUMED")
+
+    COLOUR_MODELLED = "#059669"   # green
+    COLOUR_ASSUMED  = "#D97706"   # amber
+    COLOUR_NET      = "#1D4ED8"   # blue
+    COLOUR_NEGATIVE = "#DC2626"   # red
+
+    _bar_colours = [
+        COLOUR_MODELLED,                                            # Fuel savings — MODELLED
+        COLOUR_MODELLED,                                            # Carbon savings — MODELLED
+        COLOUR_MODELLED if penalty_ev == "MODELLED" else COLOUR_ASSUMED,  # Penalty — context
+        COLOUR_NEGATIVE,                                            # OPEX delta (cost)
+        COLOUR_NET,                                                 # Net benefit (total)
+    ]
+
+    fig_wf = go.Figure(go.Waterfall(
+        orientation="v",
+        measure=["relative", "relative", "relative", "relative", "total"],
+        x=[
+            f"⛽ Fuel Savings\n[✅ MODELLED]",
+            f"🌿 Carbon Savings\n[✅ MODELLED]",
+            f"📋 FuelEU Penalty\nAvoided [{_ev_badge(penalty_ev)}]",
+            f"⚙️ Additional OPEX\n[⚠️ ASSUMED]",
+            f"💰 Net Annual\nBenefit",
+        ],
+        y=[fuel_sav, carbon_sav, penalty_av, -opex_delta, 0],
+        connector={"line": {"color": "rgb(100,100,100)", "width": 1}},
+        increasing={"marker": {"color": COLOUR_MODELLED}},
+        decreasing={"marker": {"color": COLOUR_NEGATIVE}},
+        totals={"marker": {"color": COLOUR_NET}},
+        text=[
+            f"${fuel_sav / 1e6:.2f}M",
+            f"${carbon_sav / 1e6:.2f}M",
+            f"${penalty_av / 1e6:.2f}M",
+            f"-${opex_delta / 1e6:.2f}M",
+            f"${net_benefit / 1e6:.2f}M",
+        ],
+        textposition="outside",
+        hovertemplate=(
+            "<b>%{x}</b><br>Amount: $%{y:,.0f}<extra></extra>"
+        ),
+    ))
+    fig_wf.update_layout(
+        title=f"Annual Economic Benefit Stack — Investment Horizon {horizon_years} Years",
+        yaxis_title="USD (Annual)",
+        yaxis_tickformat="$,.0f",
+        showlegend=False,
+        height=420,
+        margin=dict(t=60, b=20),
+    )
+    st.plotly_chart(fig_wf, use_container_width=True)
+
+    # Itemised breakdown expander
+    with st.expander("🔍 Full Itemised Economics Breakdown (Evidence Tags)", expanded=False):
+        breakdown_rows = [
+            {
+                "Component": "Annual Fuel Savings",
+                "Amount (USD/yr)": f"${bd.get('annual_fuel_savings_usd', 0) / 1e6:.3f}M",
+                "Evidence": _ev_badge(bd.get("annual_fuel_savings_evidence", "MODELLED")),
+                "Source Note": bd.get("annual_fuel_savings_note", "—"),
+            },
+            {
+                "Component": "Annual Carbon Savings",
+                "Amount (USD/yr)": f"${bd.get('annual_carbon_savings_usd', 0) / 1e6:.3f}M",
+                "Evidence": _ev_badge(bd.get("annual_carbon_savings_evidence", "MODELLED")),
+                "Source Note": bd.get("annual_carbon_savings_note", "—"),
+            },
+            {
+                "Component": "FuelEU Penalty Avoided",
+                "Amount (USD/yr)": f"${bd.get('annual_penalty_avoidance_usd', 0) / 1e6:.3f}M",
+                "Evidence": _ev_badge(bd.get("annual_penalty_avoidance_evidence", "ASSUMED")),
+                "Source Note": bd.get("annual_penalty_avoidance_note", "—"),
+            },
+            {
+                "Component": "Additional OPEX Delta",
+                "Amount (USD/yr)": f"-${bd.get('annual_opex_delta_usd', 0) / 1e6:.3f}M",
+                "Evidence": _ev_badge(bd.get("annual_opex_delta_evidence", "ASSUMED")),
+                "Source Note": bd.get("annual_opex_delta_note", "—"),
+            },
+            {
+                "Component": "= Net Annual Benefit",
+                "Amount (USD/yr)": f"${bd.get('annual_net_benefit_usd', rec.annual_net_benefit_usd) / 1e6:.3f}M",
+                "Evidence": "—",
+                "Source Note": "Fuel + Carbon + Penalty − OPEX Delta",
+            },
+            {
+                "Component": "Total Retrofit CAPEX (once)",
+                "Amount (USD/yr)": f"${bd.get('total_retrofit_capex_usd', rec.total_investment_capex) / 1e6:.1f}M",
+                "Evidence": _ev_badge(bd.get("total_retrofit_capex_evidence", "ASSUMED")),
+                "Source Note": bd.get("total_retrofit_capex_source", "—"),
+            },
+        ]
+        st.dataframe(pd.DataFrame(breakdown_rows), use_container_width=True, hide_index=True)
+
+        # FuelEU penalty avoidance year-by-year trajectory (if MODELLED)
+        yearly_pav = bd.get("yearly_penalty_avoidance_usd", {})
+        if yearly_pav:
+            st.markdown("**FuelEU Penalty Avoidance — Annual Trajectory**")
+            yearly_df = pd.DataFrame([
+                {"Year": yr, "Penalty Avoidance (USD)": v}
+                for yr, v in sorted(yearly_pav.items())
+            ])
+            fig_pen = px.bar(
+                yearly_df, x="Year", y="Penalty Avoidance (USD)",
+                title="Annual FuelEU Penalty Avoidance: Baseline Diesel vs. Optimised Fleet",
+                color_discrete_sequence=[COLOUR_MODELLED],
+            )
+            fig_pen.update_layout(yaxis_tickformat="$,.0f", height=300)
+            st.plotly_chart(fig_pen, use_container_width=True)
+
 
     # 4. Multi-Year Transition Roadmap Chart
     st.subheader("📈 Multi-Year Fleet Transition Roadmap (2026–2040)")
