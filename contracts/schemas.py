@@ -392,6 +392,9 @@ class OptimizationScenario:
     fuel_prices: dict[str, float] | None = None
     routes: tuple[dict[str, Any], ...] | None = None
     weights: tuple[float, float, float] = (1.0, 1.0, 1.0)  # (w_cost, w_fuel, w_emissions)
+    target_reliability: float = 90.0  # Target schedule reliability score (0.0 to 100.0)
+    port_delay_factor: float = 1.0  # Port congestion / turn-around delay multiplier (>= 1.0)
+    forecasted_demand: float | None = None  # Optional forecasted cargo demand
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize dataclass to dictionary."""
@@ -489,6 +492,75 @@ class SpeedOptimizationResult:
 
 
 @dataclass(frozen=True, slots=True)
+class DemandSatisfactionMetrics:
+    """Cargo demand satisfaction evaluation metrics."""
+
+    required_demand: float
+    delivered_cargo: float
+    demand_satisfaction_rate: float  # 0.0 to 1.0 (capped at 1.0)
+    unserved_cargo: float
+    service_level_gap: float
+    is_satisfied: bool
+    status: str = "SATISFIED"
+
+    @property
+    def satisfaction_percentage(self) -> float:
+        """Demand satisfaction rate represented as percentage (0.0 to 100.0%)."""
+        return round(self.demand_satisfaction_rate * 100.0, 2)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        return asdict(self)
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into DemandSatisfactionMetrics."""
+        return cls(**data)
+
+
+@dataclass(frozen=True, slots=True)
+class ReliabilityMetrics:
+    """Schedule reliability and service-level evaluation metrics."""
+
+    reliability_score: float  # 0.0 to 100.0
+    on_time_arrival_rate: float  # 0.0 to 1.0
+    average_delay_hours: float
+    max_delay_hours: float
+    missed_voyages: int
+    total_voyages: int
+    score_breakdown: dict[str, float]  # {"on_time_component": ..., "delay_penalty": ..., "missed_voyage_penalty": ...}
+    route_reliability: dict[str, float]  # {route_id: score}
+    reliability_trace: tuple[dict[str, Any], ...] = ()
+
+    @property
+    def schedule_reliability_score(self) -> float:
+        """Alias for compatibility."""
+        return self.reliability_score
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        d = asdict(self)
+        d["reliability_trace"] = list(self.reliability_trace)
+        return d
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into ReliabilityMetrics."""
+        clean_data = dict(data)
+        if "reliability_trace" in clean_data and isinstance(clean_data["reliability_trace"], list):
+            clean_data["reliability_trace"] = tuple(clean_data["reliability_trace"])
+        return cls(**clean_data)
+
+
+@dataclass(frozen=True, slots=True)
 class FleetStrategyRecommendation:
     """Integrated executive strategy unifying Fleet Mix, Capacity, Speed, and Deployment."""
 
@@ -503,6 +575,8 @@ class FleetStrategyRecommendation:
     cost_estimate: float
     emissions_estimate: float
     service_reliability: float | None = None
+    reliability_metrics: ReliabilityMetrics | None = None
+    demand_metrics: DemandSatisfactionMetrics | None = None
     summary: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -519,6 +593,8 @@ class FleetStrategyRecommendation:
             "cost_estimate": self.cost_estimate,
             "emissions_estimate": self.emissions_estimate,
             "service_reliability": self.service_reliability,
+            "reliability_metrics": self.reliability_metrics.to_dict() if self.reliability_metrics else None,
+            "demand_metrics": self.demand_metrics.to_dict() if self.demand_metrics else None,
             "summary": self.summary,
         }
 

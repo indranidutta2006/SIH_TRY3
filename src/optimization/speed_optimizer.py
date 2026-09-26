@@ -116,13 +116,15 @@ class EcoSpeedOptimizer:
         )
 
         # 1. Edge Case: Check if deadline is physically impossible even at maximum speed
-        min_possible_duration = dist / max_speed
+        port_delay = max(0.0, (scenario.port_delay_factor - 1.0) * 12.0)
+        min_possible_duration = (dist / max_speed) + port_delay
         if min_possible_duration > deadline:
             self.logger.warning(
-                "Deadline of %.1fh cannot be met: fastest transit takes %.1fh at %.1f kts.",
+                "Deadline of %.1fh cannot be met: fastest transit takes %.1fh at %.1f kts (with %.1fh port congestion).",
                 deadline,
                 min_possible_duration,
                 max_speed,
+                port_delay,
             )
             # Run at max speed to minimize deadline deficit
             fuel_cons = self.physics_engine.calculate_fuel_use(
@@ -152,15 +154,17 @@ class EcoSpeedOptimizer:
                     "runtime_ms": round(elapsed_ms, 2),
                     "iterations": 1,
                     "convergence_score": 0.5,
+                    "failure_reason": "DEADLINE_VIOLATED",
                     "optimization_trace": [{"speed": max_speed, "cost": cost, "delay_hours": delay}],
                     "warning": f"Minimum transit time ({min_possible_duration:.1f}h) exceeds deadline ({deadline:.1f}h)",
                 },
             )
 
         # 2. Golden-Section / Discrete Evaluation across operational speeds
-        # To strictly satisfy arrival deadline constraint (T_transit <= deadline),
-        # speed must be at least dist / deadline
-        feasible_min_speed = max(min_speed, dist / deadline)
+        # To strictly satisfy arrival deadline constraint (T_transit + port_delay <= deadline),
+        # speed must be at least dist / (deadline - port_delay)
+        net_deadline = max(1.0, deadline - port_delay)
+        feasible_min_speed = max(min_speed, dist / net_deadline)
         n_evals = 40
         speed_step = (max_speed - feasible_min_speed) / max(1, n_evals - 1)
         best_score = float("inf")
@@ -170,7 +174,8 @@ class EcoSpeedOptimizer:
         for i in range(n_evals):
             v_curr = feasible_min_speed + i * speed_step
             transit_hours = dist / v_curr
-            delay_h = max(0.0, transit_hours - deadline)
+            total_duration = transit_hours + port_delay
+            delay_h = max(0.0, total_duration - deadline)
 
 
             # Fuel consumption from Admiralty power law (P prop ~ Delta^(2/3) * V^3)
@@ -187,7 +192,7 @@ class EcoSpeedOptimizer:
             emiss = float(self.emission_engine.calculate_wtw(fuel, fuel_type).co2e)
             carbon_cost = emiss * scenario.carbon_price
             bunker_cost = fuel * fuel_price
-            charter_cost = (transit_hours / 24.0) * charter_rate
+            charter_cost = (total_duration / 24.0) * charter_rate
             delay_cost = delay_h * delay_rate
 
             total_cost = bunker_cost + carbon_cost + charter_cost + delay_cost
@@ -212,7 +217,7 @@ class EcoSpeedOptimizer:
                 best_score = score
                 best_res = {
                     "speed": v_curr,
-                    "eta": transit_hours,
+                    "eta": total_duration,
                     "fuel": fuel,
                     "cost": total_cost,
                     "emissions": emiss,

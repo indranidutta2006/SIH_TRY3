@@ -23,6 +23,7 @@ from app.dashboard import (
     render_optimization_page,
     render_overview_page,
     render_prediction_page,
+    render_reliability_page,
     render_scenarios_page,
     render_strategy_page,
 )
@@ -49,6 +50,7 @@ page_selection = st.sidebar.radio(
         "4. Statutory Compliance (IMO/EU)",
         "5. Scenario Analysis & Alternative Fuels",
         "6. Fleet Strategy Optimization",
+        "7. Operational Reliability",
     ],
     index=0,
 )
@@ -63,6 +65,7 @@ st.sidebar.markdown(
     - ⚖️ Decarbonization: `IMO CII / FuelEU`
     - 🛡️ Physics Engine: `Admiralty + LHV`
     - 🎯 Strategy Engine: `Mix + Capacity + Speed`
+    - ⚓ Reliability Engine: `Demand + Schedule Buffer`
     """
 )
 
@@ -82,4 +85,6 @@ elif page_selection == "5. Scenario Analysis & Alternative Fuels":
     render_scenarios_page()
 elif page_selection == "6. Fleet Strategy Optimization":
     render_strategy_page()
+elif page_selection == "7. Operational Reliability":
+    render_reliability_page()
 

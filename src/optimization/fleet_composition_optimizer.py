@@ -140,7 +140,8 @@ class FleetCompositionOptimizer:
 
         fuel_prices = scenario.fuel_prices or FUEL_PRICES_USD_PER_TON
         w_cost, w_fuel, w_emiss = scenario.weights
-        target_demand = scenario.cargo_demand * scenario.service_level
+        effective_demand = scenario.forecasted_demand if scenario.forecasted_demand is not None else scenario.cargo_demand
+        target_demand = effective_demand * scenario.service_level
 
         best_score = float("inf")
         best_candidate: dict[str, Any] | None = None
@@ -267,10 +268,13 @@ class FleetCompositionOptimizer:
         if best_candidate is None:
             if infeasible_due_to_demand:
                 status = OptimizationStatus.DEMAND_UNSATISFIABLE
+                failure_reason = "DEMAND_NOT_MET"
             elif infeasible_due_to_budget:
                 status = OptimizationStatus.BUDGET_EXCEEDED
+                failure_reason = "BUDGET_EXCEEDED"
             else:
                 status = OptimizationStatus.INFEASIBLE
+                failure_reason = "PORT_CONSTRAINT"
 
             return FleetCompositionResult(
                 status=status,
@@ -287,6 +291,7 @@ class FleetCompositionOptimizer:
                     "runtime_ms": round(elapsed_ms, 2),
                     "iterations": iteration_count,
                     "convergence_score": 0.0,
+                    "failure_reason": failure_reason,
                     "optimization_trace": optimization_trace,
                     "regulatory_breakdown": {"cii_score": 0.0, "fuel_eu_score": 0.0, "compliance_penalty": 0.0},
                 },

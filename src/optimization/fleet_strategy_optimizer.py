@@ -20,12 +20,16 @@ from typing import Any, Final
 from contracts.constants import FUEL_PRICES_USD_PER_TON, FuelType
 from contracts.schemas import (
     CapacityOptimizationResult,
+    DemandSatisfactionMetrics,
     FleetCompositionResult,
     FleetStrategyRecommendation,
     OptimizationScenario,
     OptimizationStatus,
+    ReliabilityMetrics,
     SpeedOptimizationResult,
 )
+from src.operations.demand_satisfaction_engine import CargoDemandSatisfactionEngine
+from src.operations.reliability_engine import ScheduleReliabilityEngine
 from src.optimization.capacity_optimizer import VesselCapacityOptimizer
 from src.optimization.fleet_composition_optimizer import FleetCompositionOptimizer
 from src.optimization.speed_optimizer import EcoSpeedOptimizer
@@ -41,11 +45,15 @@ class FleetStrategyOptimizer:
         composition_optimizer: FleetCompositionOptimizer | None = None,
         capacity_optimizer: VesselCapacityOptimizer | None = None,
         speed_optimizer: EcoSpeedOptimizer | None = None,
+        demand_engine: CargoDemandSatisfactionEngine | None = None,
+        reliability_engine: ScheduleReliabilityEngine | None = None,
     ) -> None:
         """Initialize fleet strategy orchestrator with underlying sub-optimizers."""
         self.composition_optimizer = composition_optimizer or FleetCompositionOptimizer()
         self.capacity_optimizer = capacity_optimizer or VesselCapacityOptimizer()
         self.speed_optimizer = speed_optimizer or EcoSpeedOptimizer()
+        self.demand_engine = demand_engine or CargoDemandSatisfactionEngine()
+        self.reliability_engine = reliability_engine or ScheduleReliabilityEngine()
         self.logger = logger
 
     def optimize_strategy(
@@ -87,6 +95,9 @@ class FleetStrategyOptimizer:
                 fuel_prices=scenario.fuel_prices,
                 routes=scenario.routes,
                 weights=scenario.weights,
+                target_reliability=scenario.target_reliability,
+                port_delay_factor=scenario.port_delay_factor,
+                forecasted_demand=scenario.forecasted_demand,
             )
 
         self.logger.info("Executing Strategic Optimization for Scenario ID: %s", scenario.scenario_id)
@@ -117,18 +128,7 @@ class FleetStrategyOptimizer:
             vessel_dwt=cap_res.recommended_capacity,
         )
 
-        # 4. Overall Optimization Status
-        # If any sub-optimizer failed, bubble up the critical status
-        if comp_res.status != OptimizationStatus.SUCCESS:
-            overall_status = comp_res.status
-        elif speed_res.status == OptimizationStatus.DEADLINE_VIOLATED:
-            overall_status = OptimizationStatus.DEADLINE_VIOLATED
-        elif cap_res.status != OptimizationStatus.SUCCESS:
-            overall_status = cap_res.status
-        else:
-            overall_status = OptimizationStatus.SUCCESS
-
-        # 5. Generate Fleet Deployment Plan (Route-to-Vessel Allocation)
+        # 4. Generate Fleet Deployment Plan (Route-to-Vessel Allocation)
         deployment_plan = self._generate_deployment_plan(
             scenario=scenario,
             composition=comp_res,
@@ -136,7 +136,41 @@ class FleetStrategyOptimizer:
             speed=speed_res,
         )
 
-        # 6. Baseline vs. Optimized Comparison
+        # 5. Cargo Demand Satisfaction Evaluation
+        demand_metrics = self.demand_engine.evaluate_demand_satisfaction(
+            scenario=scenario,
+            fleet_composition=comp_res,
+            deployment_plan=deployment_plan,
+        )
+
+        # 6. Schedule Reliability Evaluation
+        reliability_metrics = self.reliability_engine.evaluate_schedule_reliability(
+            scenario=scenario,
+            speed_result=speed_res,
+            deployment_plan=deployment_plan,
+        )
+
+        # 7. Overall Optimization Status and Failure Granularity
+        failure_reason = None
+        if comp_res.status != OptimizationStatus.SUCCESS:
+            overall_status = comp_res.status
+            failure_reason = comp_res.metadata.get("failure_reason", "COMPOSITION_INFEASIBLE")
+        elif speed_res.status == OptimizationStatus.DEADLINE_VIOLATED:
+            overall_status = OptimizationStatus.DEADLINE_VIOLATED
+            failure_reason = "DEADLINE_VIOLATED"
+        elif cap_res.status != OptimizationStatus.SUCCESS:
+            overall_status = cap_res.status
+            failure_reason = "CAPACITY_INFEASIBLE"
+        elif not demand_metrics.is_satisfied:
+            overall_status = OptimizationStatus.DEMAND_UNSATISFIABLE
+            failure_reason = "DEMAND_NOT_MET"
+        elif reliability_metrics.reliability_score < scenario.target_reliability:
+            overall_status = OptimizationStatus.INFEASIBLE
+            failure_reason = "RELIABILITY_TOO_LOW"
+        else:
+            overall_status = OptimizationStatus.SUCCESS
+
+        # 8. Baseline vs. Optimized Comparison
         baseline_comparison = self._compute_baseline_comparison(
             scenario=scenario,
             comp_res=comp_res,
@@ -144,11 +178,8 @@ class FleetStrategyOptimizer:
             speed_res=speed_res,
         )
 
-        # 7. Service Reliability Estimation
-        # Buffer between transit duration and deadline scaled by weather
-        delay_ratio = speed_res.delay_hours / max(scenario.deadline_hours, 1.0)
-        reliability = max(0.0, min(1.0, 1.0 - (delay_ratio * scenario.weather_factor)))
-
+        # Normalized service reliability index (0.0 to 1.0)
+        reliability = max(0.0, min(1.0, reliability_metrics.reliability_score / 100.0))
         total_runtime_ms = (time.perf_counter() - t_start) * 1000.0
 
         recommendation = FleetStrategyRecommendation(
@@ -163,6 +194,8 @@ class FleetStrategyOptimizer:
             cost_estimate=comp_res.operational_cost,
             emissions_estimate=comp_res.emissions,
             service_reliability=round(reliability, 4),
+            reliability_metrics=reliability_metrics,
+            demand_metrics=demand_metrics,
             summary={
                 "total_vessels": sum(v for k, v in comp_res.fleet_mix.items() if k in {"feeder", "medium", "large"}),
                 "primary_fuel": primary_fuel,
@@ -171,6 +204,12 @@ class FleetStrategyOptimizer:
                 "transit_eta_hours": speed_res.estimated_eta,
                 "carbon_cost_usd": comp_res.carbon_cost,
                 "optimization_runtime_ms": round(total_runtime_ms, 2),
+                "demand_satisfaction_pct": demand_metrics.satisfaction_percentage,
+                "unserved_cargo_tons": demand_metrics.unserved_cargo,
+                "schedule_reliability_score": reliability_metrics.reliability_score,
+                "on_time_arrival_rate_pct": round(reliability_metrics.on_time_arrival_rate * 100.0, 2),
+                "reliability_breakdown": reliability_metrics.score_breakdown,
+                "failure_reason": failure_reason,
             },
         )
 
@@ -248,6 +287,12 @@ class FleetStrategyOptimizer:
                 "fuel_type": "Diesel",
             })
 
+        # Compute corridor reliability metrics
+        route_scores = self.reliability_engine.evaluate_route_reliability(
+            scenario=scenario,
+            speed_result=speed,
+        )
+
         # Distribute active vessels across routes
         for i, route in enumerate(routes):
             r_id = route.get("route_id", f"ROUTE-{i+1}")
@@ -261,12 +306,20 @@ class FleetStrategyOptimizer:
             v_choice = v_subset[0]
             dist = float(route.get("distance_nm", scenario.route_distance))
             est_voyage_hours = dist / max(speed.optimal_speed, 1.0)
+            r_score = route_scores.get(r_id, 95.0)
+
+            # Capacity buffer calculation
+            route_demand_share = scenario.cargo_demand / max(1, len(routes))
+            buffer_cap = max(0.0, capacity.recommended_capacity - route_demand_share)
 
             assigned_for_route.append({
                 "vessel_id": v_choice["vessel_id"],
                 "vessel_class": v_choice["vessel_class"],
                 "fuel_type": v_choice["fuel_type"],
                 "allocated_capacity_dwt": capacity.recommended_capacity,
+                "buffer_capacity_dwt": round(buffer_cap, 2),
+                "redundancy_factor": 1.15,
+                "route_reliability_score": r_score,
                 "cruising_speed_knots": speed.optimal_speed,
                 "voyage_eta_hours": round(est_voyage_hours, 1),
                 "origin": route.get("origin", "Hub Port A"),
@@ -364,6 +417,14 @@ class FleetStrategyOptimizer:
         speed_data["status"] = OptimizationStatus(speed_data.get("status", "SUCCESS"))
         speed = SpeedOptimizationResult(**speed_data)
 
+        rel_metrics = None
+        if "reliability_metrics" in raw_data and raw_data["reliability_metrics"] is not None:
+            rel_metrics = ReliabilityMetrics.from_dict(raw_data["reliability_metrics"])
+
+        dem_metrics = None
+        if "demand_metrics" in raw_data and raw_data["demand_metrics"] is not None:
+            dem_metrics = DemandSatisfactionMetrics.from_dict(raw_data["demand_metrics"])
+
         return FleetStrategyRecommendation(
             status=status,
             scenario=scenario,
@@ -376,5 +437,7 @@ class FleetStrategyOptimizer:
             cost_estimate=float(raw_data.get("cost_estimate", 0.0)),
             emissions_estimate=float(raw_data.get("emissions_estimate", 0.0)),
             service_reliability=raw_data.get("service_reliability"),
+            reliability_metrics=rel_metrics,
+            demand_metrics=dem_metrics,
             summary=raw_data.get("summary", {}),
         )

@@ -770,3 +770,137 @@ print("Baseline Fuel Savings:", recommendation.baseline_comparison["deltas"]["fu
 # 4. Persist scenario to disk
 FleetStrategyOptimizer.save_scenario(recommendation, "outputs/scenarios/strategy_panamax.json")
 ```
+
+---
+
+## 10. Operational Reliability & Cargo Demand Satisfaction (Phase 2)
+
+Phase 2 explicitly closes the operational reliability, demand fulfillment, and service-level constraints mandated by problem statement **SIH26138**:
+> *"Ensure operational reliability, cargo demand satisfaction, and compliance with emission regulations through reliability-constrained fleet deployment and service-level optimization."*
+
+```
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│                      Phase 2 Operational Reliability Architecture                  │
+├─────────────────────────────────────────┬─────────────────────────────────────────┤
+│    Cargo Demand Satisfaction Engine     │       Schedule Reliability Engine       │
+│  (src/operations/demand_satisfaction.py)│      (src/operations/reliability.py)    │
+│  • Required vs Delivered Cargo Volume   │  • Normalized Reliability Scoring       │
+│  • Capped Satisfaction Rate (max 100%)  │  • Explainable 3-Component Breakdown    │
+│  • Unserved Cargo Deficit Tracking      │  • Route Corridor-Level Reliability     │
+│  • Service-Level Gap Minimization       │  • Port Bottleneck & Weather Scaling    │
+│  • Stochastic Forecast Demand Hook      │  • Failure Granularity Telemetry        │
+└─────────────────────────────────────────┴─────────────────────────────────────────┘
+                                          │
+                                          ▼
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│                Reliability-Constrained Fleet Strategy Recommendation              │
+│  • Enforces target_reliability (e.g. >= 90.0/100) & service_level (e.g. >= 95%)  │
+│  • Failure Reason Granularity: DEMAND_NOT_MET, RELIABILITY_TOO_LOW, etc.          │
+│  • Operational Deployment Plan with Buffer DWT Capacity & 1.15x Redundancy Factor │
+│  • Interactive Streamlit Page: '7. Operational Reliability' (App Navigation)     │
+└───────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.1 Cargo Demand Satisfaction Engine
+
+The demand satisfaction engine ensures cargo throughput requirements are rigorously audited across fleet deployment cycles:
+
+1. **Demand Satisfaction Rate (Strictly Capped at 1.0 / 100%):**
+   $$\text{Satisfaction Rate} = \min\left(1.0, \frac{\text{Delivered Cargo}}{\text{Required Demand}}\right)$$
+2. **Unserved Cargo Volume:**
+   $$\text{Unserved Cargo} = \max\left(0.0, \text{Required Demand} - \text{Delivered Cargo}\right)$$
+3. **Service-Level Gap:**
+   $$\text{Service Gap} = \max\left(0.0, \text{Target Service Level} - \text{Satisfaction Rate}\right)$$
+4. **Stochastic Forecast Demand Hook:**
+   $$\text{Required Demand} = \begin{cases} \text{scenario.forecasted\_demand} & \text{if specified} \\ \text{scenario.cargo\_demand} & \text{otherwise} \end{cases}$$
+
+---
+
+### 10.2 Normalized Schedule Reliability Formulation & Decomposed Explainability
+
+To ensure mathematical consistency across varying voyage durations and fleet scales, schedule reliability is computed using a normalized formulation with decomposed explainability:
+
+#### Normalized Rate Formulations
+$$\text{missed\_rate} = \frac{\text{missed\_voyages}}{\max(\text{total\_voyages}, 1)}$$
+$$\text{delay\_ratio} = \min\left(1.0, \frac{\text{average\_delay\_hours}}{\max(\text{deadline\_hours}, 1.0)}\right)$$
+$$\text{on\_time\_rate} = \frac{\text{on\_time\_voyages}}{\max(\text{total\_voyages}, 1)}$$
+
+#### Reliability Score ($0.0 \le \text{Score} \le 100.0$)
+$$\text{Reliability} = \max\left(0.0, \min\left(100.0, 100 \times \left(w_1 \cdot \text{on\_time\_rate} - w_2 \cdot \text{delay\_ratio} - w_3 \cdot \text{missed\_rate}\right)\right)\right)$$
+
+Standardized default weights: $w_1 = 1.0, w_2 = 0.5, w_3 = 0.5$.
+
+#### Explainable Score Decomposition
+For transparent executive reporting and hackathon judge evaluation, the final score exposes its exact components:
+```python
+score_breakdown = {
+    "on_time_component": round(100.0 * w1 * on_time_rate, 2),
+    "delay_penalty": round(100.0 * w2 * delay_ratio, 2),
+    "missed_voyage_penalty": round(100.0 * w3 * missed_rate, 2),
+}
+```
+
+#### Route-Level Reliability Breakdown
+Each maritime corridor is evaluated independently:
+```python
+route_reliability: dict[str, float] = {
+    "ROUTE-ASIA-EUR-01": 96.5,
+    "ROUTE-IND-ME-02": 98.2,
+    "ROUTE-IND-SGP-03": 94.0,
+}
+```
+
+---
+
+### 10.3 Failure Status Granularity
+
+When operational conditions prevent feasibility, the optimizer populates specific diagnostic failure reasons in `metadata["failure_reason"]` and `summary["failure_reason"]`:
+
+| Status Code | Failure Reason | Operational Meaning |
+|:---|:---|:---|
+| `DEMAND_UNSATISFIABLE` | `DEMAND_NOT_MET` | Fleet capacity falls short of `cargo_demand * service_level`. |
+| `INFEASIBLE` | `RELIABILITY_TOO_LOW` | Schedule reliability score is below `target_reliability` (e.g. $< 90$). |
+| `BUDGET_EXCEEDED` | `BUDGET_EXCEEDED` | Required fleet capex or charter cost exceeds financial limit. |
+| `DEADLINE_VIOLATED` | `DEADLINE_VIOLATED` | Fastest physical voyage duration exceeds contractual delivery window. |
+| `INFEASIBLE` | `PORT_CONSTRAINT` | Vessel draft/DWT exceeds port harbor handling limits. |
+
+---
+
+### 10.4 Python API Usage Example (Phase 2)
+
+```python
+from contracts.schemas import OptimizationScenario
+from src.operations.demand_satisfaction_engine import CargoDemandSatisfactionEngine
+from src.operations.reliability_engine import ScheduleReliabilityEngine
+from src.optimization.fleet_strategy_optimizer import FleetStrategyOptimizer
+
+# 1. Configure operational scenario with Phase 2 constraints
+scenario = OptimizationScenario(
+    cargo_demand=250_000.0,
+    route_distance=3500.0,
+    deadline_hours=260.0,
+    service_level=0.95,           # 95% minimum demand fulfillment
+    target_reliability=90.0,       # 90/100 minimum schedule reliability
+    port_delay_factor=1.10,        # 10% port turnaround delay
+    weather_factor=1.05,           # Adverse weather hydrodynamic penalty
+    forecasted_demand=270_000.0,   # Stochastic upper-bound forecast
+)
+
+# 2. Execute integrated strategy optimization
+optimizer = FleetStrategyOptimizer()
+rec = optimizer.optimize_strategy(scenario)
+
+# 3. Inspect Phase 2 metrics
+print("Optimization Status:", rec.status.value)
+print("Demand Satisfaction:", rec.demand_metrics.satisfaction_percentage, "%")
+print("Unserved Volume:", rec.demand_metrics.unserved_cargo, "tons")
+print("Reliability Score:", rec.reliability_metrics.reliability_score, "/ 100")
+print("Score Breakdown:", rec.reliability_metrics.score_breakdown)
+print("Corridor Reliability:", rec.reliability_metrics.route_reliability)
+
+# 4. Deployment plan includes capacity buffer and redundancy factor
+corridor_plan = rec.deployment_plan["ROUTE-1"][0]
+print("Buffer Capacity:", corridor_plan["buffer_capacity_dwt"], "DWT")
+print("Redundancy Factor:", corridor_plan["redundancy_factor"])
+```
+
