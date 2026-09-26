@@ -5,7 +5,7 @@ Phase 4 Tests:
 1. MaritimeLifecycleAssessmentEngine: FuelLifecycleProfile, Grey/Blue/Green/Bio/E-fuels, WTT, TTW, WTW, GHG intensity.
 2. RegulatoryForecastEngine: 2026-2030 Statutory CII (MEPC.400(83)), 2031-2040 Scenario CII, FuelEU milestones,
    Article 23 penalty formula with consecutive multiplier, estimated_compliance_probability with Monte Carlo metadata.
-3. FuelTransitionPlanner: Multi-year roadmaps (2026-2040), retrofit capex, tech readiness, cumulative emissions.
+3. FuelTransitionPlanner: Constraint-based transition heuristic roadmaps (2026-2040), retrofit capex, tech readiness, cumulative emissions.
 4. ExecutiveRecommendationEngine: Real investment ROI, payback logic (payback_years=None when benefit<=0),
    priority actions, risk matrix, evidence categorization layer.
 5. MultiScenarioAnalyzer: Parameterized ScenarioDefinition objects across 6 canonical macro scenarios.
@@ -241,7 +241,7 @@ def test_regulatory_forecast_estimated_compliance_probability() -> None:
 # =============================================================================
 
 def test_fuel_transition_planner(base_scenario: OptimizationScenario) -> None:
-    """Verify multi-period transition planning and milestone accumulation."""
+    """Verify constraint-based transition heuristic planning and milestone accumulation."""
     planner = FuelTransitionPlanner()
     roadmap = planner.plan_transition(
         scenario=base_scenario,

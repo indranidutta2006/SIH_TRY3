@@ -1,9 +1,10 @@
-"""Multi-Year Maritime Fuel Transition & Fleet Modernization Planner.
+"""Constraint-Based Maritime Fuel Transition & Fleet Modernization Roadmap Planner.
 
 Problem ID: SIH26138 - Quantum-Inspired Fuel Consumption Prediction & Green Fleet Optimization.
-Phase 4 Deliverable: Solves multi-period fleet decarbonization planning over 2026–2040 horizons,
-co-optimizing retrofits, newbuild capital expenditure, operational bunker costs, and regulatory penalties.
-Outputs actionable year-by-year TransitionRoadmap with TransitionMilestone checkpoints.
+Phase 4 Deliverable: Evaluates multi-period fleet decarbonization trajectories over 2026–2040 horizons
+using a constraint-based transition heuristic that incorporates Technology Readiness Levels (TRL),
+shipyard conversion rate caps, retrofit capital expenditures, operational bunker costs, and regulatory penalties.
+Outputs an actionable year-by-year TransitionRoadmap with TransitionMilestone checkpoints.
 """
 
 from collections.abc import Sequence
@@ -56,7 +57,11 @@ TECH_READINESS_YEAR: Final[dict[str, int]] = {
 
 
 class FuelTransitionPlanner:
-    """Plans multi-period fleet decarbonization trajectories and dual-fuel retrofit roadmaps."""
+    """Plans multi-period fleet decarbonization trajectories and dual-fuel retrofit roadmaps
+
+    using a constraint-based transition heuristic bounded by Technology Readiness Levels (TRL)
+    and shipyard retrofit rate limits.
+    """
 
     def __init__(
         self,
@@ -79,7 +84,10 @@ class FuelTransitionPlanner:
         carbon_price_escalation_pct: float = 0.05,
         fuel_pathways: dict[str, str] | None = None,
     ) -> TransitionRoadmap:
-        """Generate multi-year fleet transition roadmap minimizing total cost and emissions.
+        """Generate multi-year fleet transition roadmap using a constraint-based transition heuristic.
+
+        Applies Technology Readiness Level (TRL) availability thresholds, periodic retrofit caps,
+        and statutory regulatory penalties to construct a feasible fleet decarbonization roadmap.
 
         Args:
             scenario: Base OptimizationScenario context.

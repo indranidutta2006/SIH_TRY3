@@ -1119,12 +1119,12 @@ Under modeled operational uncertainty across cruising speed ($\sigma_v = 0.05$),
 
 ---
 
-### 12.3 Multi-Year Fleet Fuel Transition Planner (2026–2040)
+### 12.3 Constraint-Based Fleet Fuel Transition Roadmap Planner (2026–2040)
 
-The [`FuelTransitionPlanner`](file:///src/strategy/fuel_transition_planner.py) formulates phased fleet modernization roadmaps:
-- **Dual-Fuel Retrofit Scheduling:** Paces shipyard drydock reservations subject to maximum annual transition constraints (`max_transition_rate`).
-- **Capital Expenditure Modeling:** Models dual-fuel conversion capex (e.g. $\$7.5\text{M}$ per vessel) and specialized cryogenic maintenance opex deltas ($\$350\text{k}$/yr).
-- **Emissions Abatement & Carbon Economics:** Quantifies cumulative lifecycle $\text{CO}_2\text{e}$ abatement and avoided regulatory penalty liabilities.
+The [`FuelTransitionPlanner`](file:///src/strategy/fuel_transition_planner.py) formulates phased fleet modernization roadmaps using a constraint-based transition heuristic bounded by Technology Readiness Levels (TRL) and drydock conversion limits:
+- **Dual-Fuel Retrofit Scheduling:** Paces shipyard drydock reservations subject to periodic retrofit rate caps (`max_retrofit_rate_per_period = 0.25`) and commercial technology readiness availability dates (e.g., Methanol 2025, Ammonia 2029, Hydrogen 2032).
+- **Capital Expenditure Modeling:** Models dual-fuel conversion capex based on vessel class sizing tables (Handymax, Panamax, Capesize) and specialized operational maintenance deltas.
+- **Emissions Abatement & Regulatory Compliance:** Quantifies cumulative lifecycle $\text{WTW CO}_2\text{e}$ abatement and avoided FuelEU penalty liabilities across 2026–2040 planning milestones.
 
 ---
 

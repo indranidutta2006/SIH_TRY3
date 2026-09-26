@@ -341,6 +341,7 @@ def render_decision_intelligence_page() -> None:
 
     # 4. Multi-Year Transition Roadmap Chart
     st.subheader("📈 Multi-Year Fleet Transition Roadmap (2026–2040)")
+    st.caption("Constraint-based transition heuristic bounded by Technology Readiness Levels (TRL) and drydock conversion limits.")
     milestone_rows = []
     for m in roadmap.milestones:
         for f, sh in m.fuel_shares.items():
