@@ -430,6 +430,39 @@ class FleetCompositionResult:
     service_level_achieved: float
     metadata: dict[str, Any]
 
+    @property
+    def optimized_fuel_consumption(self) -> float:
+        """Alias for fuel_consumption for backward compatibility."""
+        return self.fuel_consumption
+
+    @property
+    def optimized_cost(self) -> float:
+        """Alias for operational_cost for backward compatibility."""
+        return self.operational_cost
+
+    @property
+    def optimized_emissions(self) -> float:
+        """Alias for emissions for backward compatibility."""
+        return self.emissions
+
+    @property
+    def num_vessels(self) -> int:
+        """Total active vessels in the fleet mix."""
+        count = sum(v for k, v in self.fleet_mix.items() if k in {"feeder", "medium", "large"})
+        if count <= 0:
+            count = max(1, sum(self.fleet_mix.values()))
+        return count
+
+    @property
+    def fuel_mix(self) -> dict[str, float]:
+        """Normalized fuel share proportions."""
+        fuel_tokens = ["diesel", "lng", "methanol", "hydrogen", "ammonia"]
+        counts = {k: self.fleet_mix.get(k, 0) for k in fuel_tokens if self.fleet_mix.get(k, 0) > 0}
+        total = sum(counts.values())
+        if total <= 0:
+            return {"diesel": 1.0}
+        return {k: v / total for k, v in counts.items()}
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize dataclass to dictionary."""
         d = asdict(self)
@@ -479,6 +512,11 @@ class SpeedOptimizationResult:
     emissions: float
     delay_hours: float
     metadata: dict[str, Any]
+
+    @property
+    def optimal_speed_knots(self) -> float:
+        """Alias for optimal_speed for backward compatibility."""
+        return self.optimal_speed
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize dataclass to dictionary."""
@@ -578,6 +616,21 @@ class FleetStrategyRecommendation:
     reliability_metrics: ReliabilityMetrics | None = None
     demand_metrics: DemandSatisfactionMetrics | None = None
     summary: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def composition(self) -> FleetCompositionResult:
+        """Alias for fleet_mix for backward compatibility."""
+        return self.fleet_mix
+
+    @property
+    def speed(self) -> SpeedOptimizationResult:
+        """Alias for speed_recommendation for backward compatibility."""
+        return self.speed_recommendation
+
+    @property
+    def capacity(self) -> CapacityOptimizationResult:
+        """Alias for capacity_recommendation for backward compatibility."""
+        return self.capacity_recommendation
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize dataclass to dictionary."""

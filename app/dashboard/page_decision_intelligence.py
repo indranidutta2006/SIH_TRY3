@@ -100,6 +100,19 @@ def render_decision_intelligence_page() -> None:
 
     # 2. Run Engines
     strat_rec = optimizer.optimize_strategy(scenario)
+    fleet_mix_res = strat_rec.fleet_mix
+    total_vessels = strat_rec.summary.get("total_vessels", sum(v for k, v in fleet_mix_res.fleet_mix.items() if k in {"feeder", "medium", "large"}))
+    if total_vessels <= 0:
+        total_vessels = max(1, sum(fleet_mix_res.fleet_mix.values()))
+
+    # Extract normalized fuel shares from fleet_mix
+    fuel_tokens = ["diesel", "lng", "methanol", "hydrogen", "ammonia"]
+    fuel_counts = {k: fleet_mix_res.fleet_mix.get(k, 0) for k in fuel_tokens if fleet_mix_res.fleet_mix.get(k, 0) > 0}
+    if not fuel_counts:
+        fuel_counts = {"diesel": total_vessels}
+    total_fuel_units = max(1, sum(fuel_counts.values()))
+    fuel_shares = {k: v / total_fuel_units for k, v in fuel_counts.items()}
+
     roadmap = transition_planner.plan_transition(
         scenario=scenario,
         vessel_class=vessel_class,
@@ -109,9 +122,9 @@ def render_decision_intelligence_page() -> None:
     forecast = reg_engine.forecast_compliance_trajectory(
         vessel_type="Bulk carrier",
         capacity_dwt=45000.0 if vessel_class == "PANAMAX" else 25000.0,
-        annual_fuel_consumption_tons=strat_rec.composition.optimized_fuel_consumption / max(strat_rec.composition.num_vessels, 1),
+        annual_fuel_consumption_tons=fleet_mix_res.fuel_consumption / max(total_vessels, 1),
         annual_distance_nm=route_distance * 20,
-        fuel_shares=strat_rec.composition.fuel_mix,
+        fuel_shares=fuel_shares,
         start_year=2026,
         end_year=2040,
     )
@@ -129,7 +142,7 @@ def render_decision_intelligence_page() -> None:
     k1.metric(
         "Modernization Capex",
         f"${rec.total_investment_capex / 1e6:.1f}M",
-        f"{strat_rec.composition.num_vessels} Vessels",
+        f"{total_vessels} Vessels",
     )
     k2.metric(
         f"{horizon_years}-Year ROI",
@@ -187,8 +200,8 @@ def render_decision_intelligence_page() -> None:
     with c_lca1:
         # Assess fuel mix under LCA engine
         fuel_split = {
-            f: strat_rec.composition.optimized_fuel_consumption * sh
-            for f, sh in strat_rec.composition.fuel_mix.items()
+            f: fleet_mix_res.fuel_consumption * sh
+            for f, sh in fuel_shares.items()
             if sh > 0.0
         }
         lca_res = lca_engine.assess_fleet_lifecycle(fuel_consumption=fuel_split, carbon_price_usd=carbon_price)

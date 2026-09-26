@@ -338,3 +338,32 @@ def test_executive_report_generator(base_scenario: OptimizationScenario, tmp_pat
     assert reports["pdf"].stat().st_size > 1000
     assert reports["markdown"].stat().st_size > 500
     assert reports["json"].stat().st_size > 500
+
+
+# =============================================================================
+# 8. STREAMLIT PAGE 9 DASHBOARD INTEGRATION TEST
+# =============================================================================
+
+def test_page_decision_intelligence_render(tmp_path: Path) -> None:
+    """Verify that Page 9 renders and handles executive report generation without API mismatches."""
+    from unittest.mock import MagicMock, patch
+    from app.dashboard.page_decision_intelligence import render_decision_intelligence_page
+
+    with patch("streamlit.title"), \
+         patch("streamlit.markdown"), \
+         patch("streamlit.expander") as mock_exp, \
+         patch("streamlit.columns", side_effect=lambda n: [MagicMock() for _ in range(n if isinstance(n, int) else len(n))]), \
+         patch("streamlit.number_input", side_effect=[250000.0, 3500.0, 260.0]), \
+         patch("streamlit.slider", side_effect=[80.0, 10]), \
+         patch("streamlit.selectbox", side_effect=["PANAMAX", "Methanol", "Hydrogen"]), \
+         patch("streamlit.subheader"), \
+         patch("streamlit.metric"), \
+         patch("streamlit.info"), \
+         patch("streamlit.plotly_chart"), \
+         patch("streamlit.dataframe"), \
+         patch("streamlit.caption"), \
+         patch("streamlit.success"), \
+         patch("streamlit.button", return_value=True):
+        mock_exp.return_value.__enter__.return_value = MagicMock()
+        render_decision_intelligence_page()
+
