@@ -468,7 +468,9 @@ def test_benchmark_suite_orchestrator(standard_scenario: OptimizationScenario, t
     assert "lowest_emissions" in leaders
     assert "lowest_runtime" in leaders
     assert "highest_reliability" in leaders
+    assert "highest_demand_satisfaction" in leaders
     assert "best_objective" in leaders
+    assert suite_res.metadata.get("benchmark_version") == "3.0.0"
     
     # Check comparison matrix
     matrix = suite_res.comparison_matrix
@@ -476,6 +478,7 @@ def test_benchmark_suite_orchestrator(standard_scenario: OptimizationScenario, t
     for s_name, data in matrix.items():
         assert "fuel_consumption" in data
         assert "operational_cost" in data
+        assert "evaluations" in data
         assert "qpso_fuel_savings_pct" in data
     
     # Export reports
@@ -488,3 +491,74 @@ def test_benchmark_suite_orchestrator(standard_scenario: OptimizationScenario, t
     loaded_json = json.loads(exported["json"].read_text(encoding="utf-8"))
     assert "metric_leaders" in loaded_json
     assert "results" in loaded_json
+
+
+def test_solvers_evaluation_tracking_and_convergence_info(standard_scenario: OptimizationScenario) -> None:
+    """Verify that all solvers populate n_evaluations and convergence_information."""
+    solvers = [
+        QPSOBenchmarkAdapter(population_size=5),
+        ClassicalPSOSolver(population_size=5),
+        GeneticAlgorithmSolver(population_size=6),
+        SimulatedAnnealingSolver(),
+        LinearProgrammingSolver(),
+        GreedyFleetSolver(),
+    ]
+    for solver in solvers:
+        res = solver.solve(standard_scenario, max_iterations=5, seed=42)
+        assert res.n_evaluations > 0, f"Solver {solver.solver_name} must track n_evaluations"
+        assert res.convergence_information, f"Solver {solver.solver_name} must provide convergence_information"
+        assert "history" in res.convergence_information
+        assert "n_evaluations" in res.convergence_information
+
+
+def test_convergence_analysis_best_known_metrics(standard_scenario: OptimizationScenario) -> None:
+    """Verify that ConvergenceAnalyzer calculates best_known_objective and gaps."""
+    analyzer = ConvergenceAnalyzer()
+    res_dict = analyzer.run_convergence_suite(standard_scenario, max_iterations=8, seed=42)
+    assert len(res_dict) == 4
+    for name, c_res in res_dict.items():
+        assert c_res.best_known_objective > 0.0
+        assert c_res.gap_to_best_known_percent >= 0.0
+        assert c_res.iterations_to_2pct_best_known >= 1
+
+
+def test_five_fuel_explicit_share_allocation(standard_scenario: OptimizationScenario) -> None:
+    """Verify that Hare-Niemeyer allocation supports explicit 5-fuel shares including Hydrogen and Ammonia."""
+    solver = GreedyFleetSolver()
+    # 4 alt vessels with 100% share to Hydrogen
+    mix_h2 = solver.allocate_fuel_mix(
+        total_vessels=10,
+        alt_count=4,
+        scenario=standard_scenario,
+        shares=[0.0, 0.0, 1.0, 0.0],
+    )
+    assert mix_h2["hydrogen"] == 4
+    assert mix_h2["diesel"] == 6
+    assert mix_h2["lng"] == 0
+    assert mix_h2["methanol"] == 0
+    assert mix_h2["ammonia"] == 0
+
+    # 4 alt vessels with 100% share to Ammonia
+    mix_nh3 = solver.allocate_fuel_mix(
+        total_vessels=10,
+        alt_count=4,
+        scenario=standard_scenario,
+        shares=[0.0, 0.0, 0.0, 1.0],
+    )
+    assert mix_nh3["ammonia"] == 4
+    assert mix_nh3["diesel"] == 6
+    assert mix_nh3["hydrogen"] == 0
+
+    # 4 alt vessels distributed equally across LNG, Methanol, Hydrogen, Ammonia
+    mix_all4 = solver.allocate_fuel_mix(
+        total_vessels=10,
+        alt_count=4,
+        scenario=standard_scenario,
+        shares=[1.0, 1.0, 1.0, 1.0],
+    )
+    assert mix_all4["diesel"] == 6
+    assert mix_all4["lng"] == 1
+    assert mix_all4["methanol"] == 1
+    assert mix_all4["hydrogen"] == 1
+    assert mix_all4["ammonia"] == 1
+

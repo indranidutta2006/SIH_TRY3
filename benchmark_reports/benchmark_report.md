@@ -16,6 +16,7 @@
 | **Lowest Operational Cost** | **Quantum-Inspired PSO (QPSO)** | Minimum combined capex, opex, carbon and delay cost |
 | **Lowest Lifecycle Emissions** | **Quantum-Inspired PSO (QPSO)** | Lowest Well-to-Wake CO2e footprint |
 | **Highest Schedule Reliability** | **Quantum-Inspired PSO (QPSO)** | Maximum on-time adherence buffer |
+| **Highest Demand Satisfaction** | **Quantum-Inspired PSO (QPSO)** | Maximum cargo delivery service fulfillment |
 | **Fastest Runtime** | **Greedy Allocation** | Minimum computational wall-clock latency |
 | **Best Composite Objective** | **Quantum-Inspired PSO (QPSO)** | Highest overall optimization fitness |
 
@@ -23,14 +24,14 @@
 
 ## 2. Quantitative Performance Matrix
 
-| Solver Name | Runtime (s) | Iterations | Objective Score | Fuel Consumption (t) | Operational Cost ($) | Emissions (t CO2e) | Reliability (/100) | Demand Satisfaction (%) | Feasible |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Quantum-Inspired PSO (QPSO) | 0.4255 | 50 | 7.7649 | 221.45 | 2712063.73 | 851.5 | 100.0 | 100.0 | True |
-| Classical PSO | 0.3245 | 50 | 15.6869 | 449.51 | 5430455.14 | 1728.41 | 100.0 | 100.0 | True |
-| Genetic Algorithm | 0.4088 | 50 | 7.8706 | 225.9 | 2716318.95 | 868.59 | 100.0 | 100.0 | True |
-| Simulated Annealing | 0.0229 | 50 | 2120.6352 | 9430.29 | 123377316.01 | 30886.51 | 0.0 | 100.0 | False |
-| Linear Programming (Relaxed) | 0.0062 | 1 | 16.2747 | 474.23 | 5454130.28 | 1823.48 | 100.0 | 100.0 | True |
-| Greedy Allocation | 0.0006 | 1 | 16.9939 | 504.48 | 5483097.15 | 1939.79 | 100.0 | 100.0 | True |
+| Solver Name | Runtime (s) | Iterations | Evaluations | Objective Score | Fuel Consumption (t) | Operational Cost ($) | Emissions (t CO2e) | Reliability (/100) | Demand Satisfaction (%) | Feasible |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Quantum-Inspired PSO (QPSO) | 0.3941 | 50 | 1000 | 7.7649 | 221.45 | 2712061.71 | 851.5 | 100.0 | 100.0 | True |
+| Classical PSO | 0.3685 | 50 | 1000 | 7.7649 | 221.45 | 2712062.0 | 851.5 | 100.0 | 100.0 | True |
+| Genetic Algorithm | 0.5733 | 50 | 1200 | 7.8098 | 223.34 | 2713872.55 | 858.77 | 100.0 | 100.0 | True |
+| Simulated Annealing | 0.0317 | 50 | 51 | 594.57 | 15286.09 | 151043014.72 | 48574.8 | 100.0 | 100.0 | False |
+| Linear Programming (Relaxed) | 0.0067 | 1 | 1 | 16.2747 | 474.23 | 5454130.28 | 1823.48 | 100.0 | 100.0 | True |
+| Greedy Allocation | 0.0004 | 1 | 1 | 16.9939 | 504.48 | 5483097.15 | 1939.79 | 100.0 | 100.0 | True |
 
 ---
 

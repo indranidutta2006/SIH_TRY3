@@ -104,6 +104,7 @@ def render_benchmarking_page() -> None:
             "CO₂e (tons)": r.emissions,
             "Reliability (/100)": r.reliability_score,
             "Demand Sat (%)": round(r.demand_satisfaction_rate * 100.0, 1),
+            "Evaluations": r.n_evaluations,
             "Runtime (s)": r.runtime_seconds,
             "Feasible": "✅ Yes" if r.feasible_solution else "❌ No",
         })
@@ -114,47 +115,59 @@ def render_benchmarking_page() -> None:
     st.markdown(
         """
         Direct, objective comparison between **Quantum-Inspired PSO (QPSO)** and the best-performing 
-        classical baseline without subjective marketing claims:
+        classical baseline without subjective marketing claims (feasible solutions only):
         """
     )
 
-    qpso_row = df_solvers[df_solvers["Solver Name"].str.contains("Quantum|QPSO")].iloc[0]
-    classical_df = df_solvers[~df_solvers["Solver Name"].str.contains("Quantum|QPSO")]
+    qpso_matches = df_solvers[df_solvers["Solver Name"].str.contains("Quantum|QPSO")]
+    qpso_row = qpso_matches.iloc[0] if not qpso_matches.empty else None
 
-    best_classical_fuel = classical_df.loc[classical_df["Fuel (tons)"].idxmin()]
-    best_classical_cost = classical_df.loc[classical_df["Cost ($M)"].idxmin()]
-    best_classical_emiss = classical_df.loc[classical_df["CO₂e (tons)"].idxmin()]
-    best_classical_time = classical_df.loc[classical_df["Runtime (s)"].idxmin()]
+    feasible_solvers = df_solvers[df_solvers["Feasible"] == "✅ Yes"]
+    feasible_classical = feasible_solvers[~feasible_solvers["Solver Name"].str.contains("Quantum|QPSO")]
+    qpso_is_feasible = qpso_row is not None and (qpso_row["Feasible"] == "✅ Yes")
 
-    fuel_delta = ((best_classical_fuel["Fuel (tons)"] - qpso_row["Fuel (tons)"]) / max(best_classical_fuel["Fuel (tons)"], 1e-4)) * 100.0
-    cost_delta = ((best_classical_cost["Cost ($M)"] - qpso_row["Cost ($M)"]) / max(best_classical_cost["Cost ($M)"], 1e-4)) * 100.0
-    emiss_delta = ((best_classical_emiss["CO₂e (tons)"] - qpso_row["CO₂e (tons)"]) / max(best_classical_emiss["CO₂e (tons)"], 1e-4)) * 100.0
+    if qpso_is_feasible and not feasible_classical.empty:
+        best_classical_fuel = feasible_classical.loc[feasible_classical["Fuel (tons)"].idxmin()]
+        best_classical_cost = feasible_classical.loc[feasible_classical["Cost ($M)"].idxmin()]
+        best_classical_emiss = feasible_classical.loc[feasible_classical["CO₂e (tons)"].idxmin()]
+        best_classical_time = feasible_classical.loc[feasible_classical["Runtime (s)"].idxmin()]
 
-    qa_col1, qa_col2, qa_col3, qa_col4 = st.columns(4)
-    with qa_col1:
-        st.metric(
-            label="Fuel Advantage",
-            value=f"{qpso_row['Fuel (tons)']:,.1f} t",
-            delta=f"{fuel_delta:+.1f}% vs Best Classical ({best_classical_fuel['Solver Name']})",
-        )
-    with qa_col2:
-        st.metric(
-            label="Cost Advantage",
-            value=f"${qpso_row['Cost ($M)']:.2f}M",
-            delta=f"{cost_delta:+.1f}% vs Best Classical ({best_classical_cost['Solver Name']})",
-        )
-    with qa_col3:
-        st.metric(
-            label="Emissions Abatement",
-            value=f"{qpso_row['CO₂e (tons)']:,.1f} t",
-            delta=f"{emiss_delta:+.1f}% vs Best Classical ({best_classical_emiss['Solver Name']})",
-        )
-    with qa_col4:
-        st.metric(
-            label="QPSO Runtime",
-            value=f"{qpso_row['Runtime (s)']:.2f} s",
-            delta=f"Fastest: {best_classical_time['Runtime (s)']:.2f}s ({best_classical_time['Solver Name']})",
-            delta_color="off",
+        fuel_delta = ((best_classical_fuel["Fuel (tons)"] - qpso_row["Fuel (tons)"]) / max(best_classical_fuel["Fuel (tons)"], 1e-4)) * 100.0
+        cost_delta = ((best_classical_cost["Cost ($M)"] - qpso_row["Cost ($M)"]) / max(best_classical_cost["Cost ($M)"], 1e-4)) * 100.0
+        emiss_delta = ((best_classical_emiss["CO₂e (tons)"] - qpso_row["CO₂e (tons)"]) / max(best_classical_emiss["CO₂e (tons)"], 1e-4)) * 100.0
+
+        qa_col1, qa_col2, qa_col3, qa_col4 = st.columns(4)
+        with qa_col1:
+            st.metric(
+                label="Fuel Advantage",
+                value=f"{qpso_row['Fuel (tons)']:,.1f} t",
+                delta=f"{fuel_delta:+.1f}% vs Best Feasible Classical ({best_classical_fuel['Solver Name']})",
+            )
+        with qa_col2:
+            st.metric(
+                label="Cost Advantage",
+                value=f"${qpso_row['Cost ($M)']:.2f}M",
+                delta=f"{cost_delta:+.1f}% vs Best Feasible Classical ({best_classical_cost['Solver Name']})",
+            )
+        with qa_col3:
+            st.metric(
+                label="Emissions Abatement",
+                value=f"{qpso_row['CO₂e (tons)']:,.1f} t",
+                delta=f"{emiss_delta:+.1f}% vs Best Feasible Classical ({best_classical_emiss['Solver Name']})",
+            )
+        with qa_col4:
+            st.metric(
+                label="QPSO Runtime",
+                value=f"{qpso_row['Runtime (s)']:.2f} s",
+                delta=f"Fastest Feasible: {best_classical_time['Runtime (s)']:.2f}s ({best_classical_time['Solver Name']})",
+                delta_color="off",
+            )
+    else:
+        st.warning(
+            "⚠️ Feasibility condition not met for side-by-side advantage claims: "
+            + ("QPSO is infeasible for this configuration. " if not qpso_is_feasible else "")
+            + ("No feasible classical baseline found. " if feasible_classical.empty else "")
+            + "Only fully feasible solutions can be compared for quantitative advantage."
         )
 
     st.markdown("---")
@@ -326,11 +339,12 @@ def render_benchmarking_page() -> None:
             s_rows.append({
                 "Algorithm": name,
                 "Seeds Evaluated": s.num_seeds,
+                "Feasible Runs": f"{s.feasible_run_count}/{s.num_seeds} ({s.feasible_run_rate*100:.0f}%)",
                 "Mean Objective": s.mean_objective,
                 "Std Deviation": s.std_objective,
                 "Best Objective": s.best_objective,
                 "Worst Objective": s.worst_objective,
-                "CV (%)": s.metadata.get("coefficient_of_variation"),
+                "CV (%)": s.cv if hasattr(s, "cv") and s.cv else s.metadata.get("coefficient_of_variation"),
             })
         df_stab = pd.DataFrame(s_rows)
         st.dataframe(df_stab, use_container_width=True, hide_index=True)

@@ -108,6 +108,7 @@ class BenchmarkSuiteOrchestrator:
                 "git_commit": git_commit,
                 "random_seed": seed,
                 "scenario_id": scenario.scenario_id,
+                "benchmark_version": "3.0.0",
             },
         )
 
@@ -130,6 +131,7 @@ class BenchmarkSuiteOrchestrator:
                 "lowest_emissions": no_feas,
                 "lowest_runtime": fastest,
                 "highest_reliability": no_feas,
+                "highest_demand_satisfaction": no_feas,
             }
 
         best_obj = min(feasible_only, key=lambda r: r.objective_score).solver_name
@@ -137,6 +139,7 @@ class BenchmarkSuiteOrchestrator:
         lowest_cost = min(feasible_only, key=lambda r: r.operational_cost).solver_name
         lowest_emiss = min(feasible_only, key=lambda r: r.emissions).solver_name
         highest_reli = max(feasible_only, key=lambda r: r.reliability_score).solver_name
+        highest_demand = max(feasible_only, key=lambda r: r.demand_satisfaction_rate).solver_name
 
         return {
             "best_objective": best_obj,
@@ -145,6 +148,7 @@ class BenchmarkSuiteOrchestrator:
             "lowest_emissions": lowest_emiss,
             "lowest_runtime": fastest,
             "highest_reliability": highest_reli,
+            "highest_demand_satisfaction": highest_demand,
         }
 
     def _build_comparison_matrix(self, results: list[BenchmarkResult]) -> dict[str, dict[str, float | str]]:
@@ -162,6 +166,7 @@ class BenchmarkSuiteOrchestrator:
             matrix[r.solver_name] = {
                 "runtime_seconds": r.runtime_seconds,
                 "iterations": r.iterations,
+                "evaluations": r.n_evaluations,
                 "objective_score": r.objective_score,
                 "fuel_consumption": r.fuel_consumption,
                 "operational_cost": r.operational_cost,
@@ -197,6 +202,7 @@ class BenchmarkSuiteOrchestrator:
                 "Solver Name": r.solver_name,
                 "Runtime (s)": r.runtime_seconds,
                 "Iterations": r.iterations,
+                "Evaluations": r.n_evaluations,
                 "Objective Score": r.objective_score,
                 "Fuel Consumption (t)": r.fuel_consumption,
                 "Operational Cost ($)": r.operational_cost,
@@ -244,6 +250,7 @@ class BenchmarkSuiteOrchestrator:
 | **Lowest Operational Cost** | **{leaders.get('lowest_cost')}** | Minimum combined capex, opex, carbon and delay cost |
 | **Lowest Lifecycle Emissions** | **{leaders.get('lowest_emissions')}** | Lowest Well-to-Wake CO2e footprint |
 | **Highest Schedule Reliability** | **{leaders.get('highest_reliability')}** | Maximum on-time adherence buffer |
+| **Highest Demand Satisfaction** | **{leaders.get('highest_demand_satisfaction')}** | Maximum cargo delivery service fulfillment |
 | **Fastest Runtime** | **{leaders.get('lowest_runtime')}** | Minimum computational wall-clock latency |
 | **Best Composite Objective** | **{leaders.get('best_objective')}** | Highest overall optimization fitness |
 

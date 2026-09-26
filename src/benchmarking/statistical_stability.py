@@ -58,6 +58,9 @@ class StatisticalStabilityEvaluator:
         best_val = float(np.min(obj_arr))
         worst_val = float(np.max(obj_arr))
 
+        cv_val = round((std_val / max(abs(mean_val), 1e-4)) * 100.0, 2)
+        feas_rate = round(feasible_count / max(1, num_seeds), 4)
+
         return StatisticalStabilityResult(
             solver_name=solver_name,
             num_seeds=num_seeds,
@@ -67,11 +70,14 @@ class StatisticalStabilityEvaluator:
             std_objective=round(std_val, 4),
             best_objective=round(best_val, 4),
             worst_objective=round(worst_val, 4),
+            cv=cv_val,
+            feasible_run_count=feasible_count,
+            feasible_run_rate=feas_rate,
             metadata={
-                "coefficient_of_variation": round((std_val / max(abs(mean_val), 1e-4)) * 100.0, 2),
+                "coefficient_of_variation": cv_val,
                 "iqr": round(float(np.percentile(obj_arr, 75) - np.percentile(obj_arr, 25)), 4),
                 "feasible_run_count": feasible_count,
-                "feasible_run_rate": round(feasible_count / max(1, num_seeds), 4),
+                "feasible_run_rate": feas_rate,
             },
         )
 

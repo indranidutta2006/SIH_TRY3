@@ -323,6 +323,7 @@ def generate_phase3_pdf_report(
         ["Lowest Operational Cost", str(leaders.get("lowest_cost")), "Multi-tier capacity and speed co-optimization", "OPTIMAL"],
         ["Lowest GHG Emissions", str(leaders.get("lowest_emissions")), "Lifecycle WTW alternative fuel compliance", "IMO 2030"],
         ["Highest Reliability", str(leaders.get("highest_reliability")), "Buffer-conscious arrival schedule guarantee", "SATISFIED"],
+        ["Highest Demand Satisfaction", str(leaders.get("highest_demand_satisfaction")), "Cargo delivery fulfillment guarantee", "DELIVERED"],
         ["Fastest Runtime Latency", str(leaders.get("lowest_runtime")), "Direct non-iterative heuristic dispatch", "REAL-TIME"],
         ["Best Composite Objective", str(leaders.get("best_objective")), "Global delta-potential fitness dominance", "QUANTUM LEAD"],
     ]

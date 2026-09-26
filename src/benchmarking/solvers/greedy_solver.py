@@ -69,6 +69,14 @@ class GreedyFleetSolver(BaseBenchmarkSolver):
         eval_res = self.evaluate_candidate(x_f, x_m, x_l, fuel_mix, speed_knots, scenario)
         elapsed = time.perf_counter() - start_time
 
+        conv_info = {
+            "initial_objective": eval_res["objective_score"],
+            "final_objective": eval_res["objective_score"],
+            "improvement_pct": 0.0,
+            "history": [eval_res["objective_score"]],
+            "n_evaluations": 1,
+        }
+
         return BenchmarkResult(
             solver_name=self.solver_name,
             runtime_seconds=round(elapsed, 4),
@@ -81,6 +89,8 @@ class GreedyFleetSolver(BaseBenchmarkSolver):
             demand_satisfaction_rate=eval_res["demand_satisfaction_rate"],
             convergence_score=1.0,
             feasible_solution=eval_res["feasible_solution"],
+            n_evaluations=1,
+            convergence_information=conv_info,
             metadata={
                 "fleet_mix": eval_res["fleet_mix"],
                 "speed_knots": eval_res["speed_knots"],

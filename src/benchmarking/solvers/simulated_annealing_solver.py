@@ -31,16 +31,25 @@ class SimulatedAnnealingSolver(BaseBenchmarkSolver):
         start_time = time.perf_counter()
         rng = np.random.default_rng(seed)
 
-        lb = np.array([0.0, 0.0, 0.0, 0.0, 9.5], dtype=float)
+        # Dimension 9: [x_f, x_m, x_l, alt_ratio, s_lng, s_methanol, s_hydrogen, s_ammonia, speed]
+        lb = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 9.5], dtype=float)
         ub = np.array([
             float(VESSEL_SPECS["feeder"]["max_available"]),
             float(VESSEL_SPECS["medium"]["max_available"]),
             float(VESSEL_SPECS["large"]["max_available"]),
             scenario.max_transition_rate,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
             17.5,
         ], dtype=float)
 
+        eval_count = 0
+
         def decode_and_eval(vec: np.ndarray) -> tuple[float, dict[str, Any]]:
+            nonlocal eval_count
+            eval_count += 1
             xf = int(round(vec[0]))
             xm = int(round(vec[1]))
             xl = int(round(vec[2]))
@@ -51,13 +60,18 @@ class SimulatedAnnealingSolver(BaseBenchmarkSolver):
 
             alt_ratio = float(np.clip(vec[3], 0.0, scenario.max_transition_rate))
             alt_count = int(round(tot * alt_ratio))
-            fuel_mix = self.allocate_fuel_mix(tot, alt_count, scenario)
-            speed = float(np.clip(vec[4], 9.5, 17.5))
+            shares = [float(vec[4]), float(vec[5]), float(vec[6]), float(vec[7])]
+            speed = float(np.clip(vec[8], 9.5, 17.5))
+            fuel_mix = self.allocate_fuel_mix(tot, alt_count, scenario, shares=shares)
             res = self.evaluate_candidate(xf, xm, xl, fuel_mix, speed, scenario)
             return res["objective_score"], res
 
         # Initial state
         current_state = rng.uniform(lb, ub)
+        # Ensure initial speed is viable for deadline
+        viable_speed = scenario.route_distance / max(1.0, scenario.deadline_hours - 12.0) * scenario.weather_factor * 1.05
+        current_state[8] = float(np.clip(viable_speed, 11.0, 17.0))
+
         current_score, current_dict = decode_and_eval(current_state)
 
         best_state = current_state.copy()
@@ -77,8 +91,10 @@ class SimulatedAnnealingSolver(BaseBenchmarkSolver):
                 neighbor[dim_to_perturb] = np.clip(neighbor[dim_to_perturb] + step, lb[dim_to_perturb], ub[dim_to_perturb])
             elif dim_to_perturb == 3:
                 neighbor[3] = np.clip(neighbor[3] + rng.normal(0.0, 0.05), lb[3], ub[3])
+            elif 4 <= dim_to_perturb <= 7:
+                neighbor[dim_to_perturb] = np.clip(neighbor[dim_to_perturb] + rng.normal(0.0, 0.1), lb[dim_to_perturb], ub[dim_to_perturb])
             else:
-                neighbor[4] = np.clip(neighbor[4] + rng.normal(0.0, 0.5), lb[4], ub[4])
+                neighbor[8] = np.clip(neighbor[8] + rng.normal(0.0, 0.5), lb[8], ub[8])
 
             neighbor_score, neighbor_dict = decode_and_eval(neighbor)
             delta_e = neighbor_score - current_score
@@ -100,6 +116,16 @@ class SimulatedAnnealingSolver(BaseBenchmarkSolver):
         elapsed = time.perf_counter() - start_time
         assert best_eval_dict is not None
 
+        initial_obj = history[0] if history else best_score
+        final_obj = history[-1] if history else best_score
+        conv_info = {
+            "initial_objective": round(float(initial_obj), 4),
+            "final_objective": round(float(final_obj), 4),
+            "improvement_pct": round(float(initial_obj - final_obj) / max(abs(initial_obj), 1e-4) * 100.0, 2),
+            "history": history,
+            "n_evaluations": eval_count,
+        }
+
         return BenchmarkResult(
             solver_name=self.solver_name,
             runtime_seconds=round(elapsed, 4),
@@ -110,8 +136,10 @@ class SimulatedAnnealingSolver(BaseBenchmarkSolver):
             emissions=best_eval_dict["emissions"],
             reliability_score=best_eval_dict["reliability_score"],
             demand_satisfaction_rate=best_eval_dict["demand_satisfaction_rate"],
-            convergence_score=round(float(history[0] - history[-1]) / max(abs(history[0]), 1e-4), 4),
+            convergence_score=round(float(initial_obj - final_obj) / max(abs(initial_obj), 1e-4), 4),
             feasible_solution=best_eval_dict["feasible_solution"],
+            n_evaluations=eval_count,
+            convergence_information=conv_info,
             metadata={
                 "fleet_mix": best_eval_dict["fleet_mix"],
                 "speed_knots": best_eval_dict["speed_knots"],

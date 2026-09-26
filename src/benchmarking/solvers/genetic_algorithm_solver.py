@@ -32,17 +32,26 @@ class GeneticAlgorithmSolver(BaseBenchmarkSolver):
         start_time = time.perf_counter()
         rng = np.random.default_rng(seed)
 
-        lb = np.array([0.0, 0.0, 0.0, 0.0, 9.5], dtype=float)
+        # Dimension 9: [x_f, x_m, x_l, alt_ratio, s_lng, s_methanol, s_hydrogen, s_ammonia, speed]
+        lb = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 9.5], dtype=float)
         ub = np.array([
             float(VESSEL_SPECS["feeder"]["max_available"]),
             float(VESSEL_SPECS["medium"]["max_available"]),
             float(VESSEL_SPECS["large"]["max_available"]),
             scenario.max_transition_rate,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
             17.5,
         ], dtype=float)
         dim = len(lb)
 
+        eval_count = 0
+
         def decode_and_eval(vec: np.ndarray) -> tuple[float, dict[str, Any]]:
+            nonlocal eval_count
+            eval_count += 1
             xf = int(round(vec[0]))
             xm = int(round(vec[1]))
             xl = int(round(vec[2]))
@@ -53,8 +62,13 @@ class GeneticAlgorithmSolver(BaseBenchmarkSolver):
 
             alt_ratio = float(np.clip(vec[3], 0.0, scenario.max_transition_rate))
             alt_count = int(round(tot * alt_ratio))
-            fuel_mix = self.allocate_fuel_mix(tot, alt_count, scenario)
-            speed = float(np.clip(vec[4], 9.5, 17.5))
+            if len(vec) >= 9:
+                shares = [float(vec[4]), float(vec[5]), float(vec[6]), float(vec[7])]
+                speed = float(np.clip(vec[8], 9.5, 17.5))
+            else:
+                shares = None
+                speed = float(np.clip(vec[4], 9.5, 17.5))
+            fuel_mix = self.allocate_fuel_mix(tot, alt_count, scenario, shares=shares)
             res = self.evaluate_candidate(xf, xm, xl, fuel_mix, speed, scenario)
             return res["objective_score"], res
 
@@ -118,6 +132,14 @@ class GeneticAlgorithmSolver(BaseBenchmarkSolver):
         elapsed = time.perf_counter() - start_time
         assert best_eval_dict is not None
 
+        conv_info = {
+            "initial_objective": round(float(history[0]), 4),
+            "final_objective": round(float(history[-1]), 4),
+            "improvement_pct": round(float(history[0] - history[-1]) / max(abs(history[0]), 1e-4) * 100.0, 2),
+            "history": history,
+            "n_evaluations": eval_count,
+        }
+
         return BenchmarkResult(
             solver_name=self.solver_name,
             runtime_seconds=round(elapsed, 4),
@@ -130,6 +152,8 @@ class GeneticAlgorithmSolver(BaseBenchmarkSolver):
             demand_satisfaction_rate=best_eval_dict["demand_satisfaction_rate"],
             convergence_score=round(float(history[0] - history[-1]) / max(abs(history[0]), 1e-4), 4),
             feasible_solution=best_eval_dict["feasible_solution"],
+            n_evaluations=eval_count,
+            convergence_information=conv_info,
             metadata={
                 "fleet_mix": best_eval_dict["fleet_mix"],
                 "speed_knots": best_eval_dict["speed_knots"],

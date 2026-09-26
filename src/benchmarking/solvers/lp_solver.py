@@ -95,10 +95,20 @@ class LinearProgrammingSolver(BaseBenchmarkSolver):
         eval_res = self.evaluate_candidate(xf, xm, xl, fuel_mix, speed, scenario)
         elapsed = time.perf_counter() - start_time
 
+        nit = int(res_lp.nit) if hasattr(res_lp, "nit") and res_lp.nit else 1
+        conv_info = {
+            "initial_objective": eval_res["objective_score"],
+            "final_objective": eval_res["objective_score"],
+            "improvement_pct": 0.0,
+            "history": [eval_res["objective_score"]],
+            "n_evaluations": 1,
+            "lp_iterations": nit,
+        }
+
         return BenchmarkResult(
             solver_name=self.solver_name,
             runtime_seconds=round(elapsed, 4),
-            iterations=int(res_lp.nit) if hasattr(res_lp, "nit") and res_lp.nit else 1,
+            iterations=nit,
             objective_score=eval_res["objective_score"],
             fuel_consumption=eval_res["fuel_consumption"],
             operational_cost=eval_res["operational_cost"],
@@ -107,6 +117,8 @@ class LinearProgrammingSolver(BaseBenchmarkSolver):
             demand_satisfaction_rate=eval_res["demand_satisfaction_rate"],
             convergence_score=1.0,
             feasible_solution=eval_res["feasible_solution"],
+            n_evaluations=1,
+            convergence_information=conv_info,
             metadata={
                 "fleet_mix": eval_res["fleet_mix"],
                 "speed_knots": eval_res["speed_knots"],

@@ -132,10 +132,42 @@ class BaseBenchmarkSolver(ABC):
 
         scen_id = (scenario.scenario_id or "").upper()
 
-        if shares is not None and len(shares) == len(alt_fuels):
-            raw_w = np.array(shares, dtype=float)
-            if np.sum(raw_w) > 0 and np.all(raw_w >= 0):
-                norm_w = raw_w / np.sum(raw_w)
+        if shares is not None:
+            if len(shares) == 5:
+                # 5-fuel allocation directly across (diesel, lng, methanol, hydrogen, ammonia)
+                raw_w = np.array(shares, dtype=float)
+                if np.sum(raw_w) <= 0 or not np.all(raw_w >= 0):
+                    raw_w = np.array([1.0, 0.0, 0.0, 0.0, 0.0], dtype=float)
+                norm_w5 = raw_w / np.sum(raw_w)
+                # Enforce max transition rate constraint on alternative fuel proportion
+                alt_prop = float(np.sum(norm_w5[1:]))
+                if alt_prop > scenario.max_transition_rate and scenario.max_transition_rate < 1.0:
+                    scale = scenario.max_transition_rate / max(alt_prop, 1e-6)
+                    norm_w5[1:] *= scale
+                    norm_w5[0] = 1.0 - float(np.sum(norm_w5[1:]))
+
+                exact_counts5 = norm_w5 * total
+                base_counts5 = np.floor(exact_counts5).astype(int)
+                rem5 = total - int(np.sum(base_counts5))
+                if rem5 > 0:
+                    remainders5 = exact_counts5 - base_counts5
+                    sorted_indices5 = sorted(range(5), key=lambda i: (-remainders5[i], i))
+                    for idx in sorted_indices5[:rem5]:
+                        base_counts5[idx] += 1
+
+                return {
+                    "diesel": int(base_counts5[0]),
+                    "lng": int(base_counts5[1]),
+                    "methanol": int(base_counts5[2]),
+                    "hydrogen": int(base_counts5[3]),
+                    "ammonia": int(base_counts5[4]),
+                }
+            elif len(shares) == len(alt_fuels):
+                raw_w = np.array(shares, dtype=float)
+                if np.sum(raw_w) > 0 and np.all(raw_w >= 0):
+                    norm_w = raw_w / np.sum(raw_w)
+                else:
+                    norm_w = np.array([0.25, 0.25, 0.25, 0.25], dtype=float)
             else:
                 norm_w = np.array([0.25, 0.25, 0.25, 0.25], dtype=float)
         elif "HYDROGEN" in scen_id:
@@ -313,6 +345,10 @@ class BaseBenchmarkSolver(ABC):
         total_voyages = max(1, total_vessels)
         simulated_delays = [delay_hours] * total_voyages
 
+        assert len(simulated_delays) == total_voyages, (
+            f"Observation cardinality violation: len(simulated_delays)={len(simulated_delays)} "
+            f"must equal total_voyages={total_voyages}"
+        )
         if len(simulated_delays) != total_voyages:
             raise ValueError(
                 f"Benchmark evaluation cardinality mismatch: len(simulated_delays)={len(simulated_delays)} != total_voyages={total_voyages}"

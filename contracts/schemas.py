@@ -816,6 +816,8 @@ class BenchmarkResult:
     demand_satisfaction_rate: float
     convergence_score: float
     feasible_solution: bool
+    n_evaluations: int = 0
+    convergence_information: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -911,6 +913,9 @@ class ConvergenceAnalysisResult:
     total_runtime_seconds: float = 0.0
     final_objective: float = 0.0
     convergence_iteration: int = 0
+    best_known_objective: float = 0.0
+    gap_to_best_known_percent: float = 0.0
+    iterations_to_2pct_best_known: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -981,7 +986,15 @@ class StatisticalStabilityResult:
     std_objective: float = 0.0
     best_objective: float = 0.0
     worst_objective: float = 0.0
+    cv: float = 0.0
+    feasible_run_count: int = 0
+    feasible_run_rate: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def coefficient_of_variation(self) -> float:
+        """Coefficient of variation (%) alias."""
+        return self.cv if self.cv > 0.0 else float(self.metadata.get("coefficient_of_variation", 0.0))
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize dataclass to dictionary."""

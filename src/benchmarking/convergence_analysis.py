@@ -86,7 +86,42 @@ class ConvergenceAnalyzer:
                 },
             )
 
-        return results
+        # Identify best-known objective across all solvers in this suite
+        feasible_finals = [
+            r.final_objective for r in results.values()
+            if r.metadata.get("feasible", False)
+        ]
+        if feasible_finals:
+            best_known_obj = min(feasible_finals)
+        else:
+            best_known_obj = min(r.final_objective for r in results.values())
+
+        # Update each result with best_known metrics
+        updated_results: dict[str, ConvergenceAnalysisResult] = {}
+        for name, r in results.items():
+            gap_pct = max(0.0, ((r.final_objective - best_known_obj) / max(abs(best_known_obj), 1e-4)) * 100.0)
+            iter_2pct = len(r.objective_values)
+            for idx, val in enumerate(r.objective_values):
+                if (val - best_known_obj) / max(abs(best_known_obj), 1e-4) <= 0.02:
+                    iter_2pct = idx + 1
+                    break
+
+            updated_results[name] = ConvergenceAnalysisResult(
+                solver_name=r.solver_name,
+                iterations=r.iterations,
+                objective_values=r.objective_values,
+                best_values=r.best_values,
+                improvement_rates=r.improvement_rates,
+                total_runtime_seconds=r.total_runtime_seconds,
+                final_objective=r.final_objective,
+                convergence_iteration=r.convergence_iteration,
+                best_known_objective=round(best_known_obj, 4),
+                gap_to_best_known_percent=round(gap_pct, 4),
+                iterations_to_2pct_best_known=iter_2pct,
+                metadata=r.metadata,
+            )
+
+        return updated_results
 
     def compute_quantum_speedup(
         self,

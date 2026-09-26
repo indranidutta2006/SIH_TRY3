@@ -72,9 +72,12 @@ class ScalabilitySuite:
                     "runtime_seconds": round(runtime, 4),
                     "peak_memory_mb": round(peak_mb, 3),
                     "objective_score": res.objective_score,
+                    "objective": res.objective_score,
                     "fuel_consumption": res.fuel_consumption,
                     "operational_cost": res.operational_cost,
                     "feasible": res.feasible_solution,
+                    "feasibility": res.feasible_solution,
+                    "n_evaluations": res.n_evaluations,
                 })
 
         return records
