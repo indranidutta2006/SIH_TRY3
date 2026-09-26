@@ -246,7 +246,7 @@ class ExecutiveRecommendationEngine:
             opt_fuel_mix_shares = {"diesel": 1.0}
         optimized_bunker_cost = _compute_bunker_cost(opt_fuel_tons, opt_fuel_mix_shares, fuel_prices)
 
-        annual_fuel_savings = max(0.0, baseline_bunker_cost - optimized_bunker_cost)
+        annual_fuel_savings = baseline_bunker_cost - optimized_bunker_cost
 
         # ── 2. Annual Carbon Savings: ΔWTWemissions × carbon_price ─────────────────
         # Evidence: MODELLED — both emission values from the fleet composition optimizer's
@@ -255,12 +255,12 @@ class ExecutiveRecommendationEngine:
             "emissions_co2e_tons", comp.emissions * 1.20
         )
         opt_emissions = comp.emissions
-        annual_emiss_reduction = max(0.0, baseline_emissions - opt_emissions)
+        annual_emiss_reduction = baseline_emissions - opt_emissions
         annual_carbon_savings = annual_emiss_reduction * scenario.carbon_price
 
         emiss_reduction_pct = (annual_emiss_reduction / max(baseline_emissions, 1.0)) * 100.0
         legacy_emiss_pct = base_comp.get("deltas", {}).get("emissions_abated_pct", 0.0)
-        if legacy_emiss_pct > 0.0:
+        if legacy_emiss_pct != 0.0:
             emiss_reduction_pct = legacy_emiss_pct
 
         # ── 3. Annual FuelEU Penalty Avoidance (arithmetic mean over horizon) ──────
@@ -299,7 +299,7 @@ class ExecutiveRecommendationEngine:
                     opt_pen_per_vessel = forecast.projected_penalties_usd.get(yr, 0.0)
                     opt_pen_fleet = opt_pen_per_vessel * total_vessels
                     yearly_penalty_avoidance[str(yr)] = round(
-                        max(0.0, baseline_pen - opt_pen_fleet), 2
+                        baseline_pen - opt_pen_fleet, 2
                     )
 
                 if yearly_penalty_avoidance:

@@ -18,14 +18,19 @@ import pytest
 import numpy as np
 
 from contracts.schemas import (
+    CapacityOptimizationResult,
     EvidenceCategory,
     ExecutiveRecommendation,
+    FleetCompositionResult,
+    FleetStrategyRecommendation,
     FuelLifecycleProfile,
     LifecycleAssessmentResult,
     OptimizationScenario,
+    OptimizationStatus,
     RegulatoryForecastResult,
     ScenarioComparisonResult,
     ScenarioDefinition,
+    SpeedOptimizationResult,
     TransitionRoadmap,
 )
 from case_studies.run_case_studies import IndustrialCaseStudySuite
@@ -440,6 +445,113 @@ def test_executive_roi_decomposition_sourcing(base_scenario: OptimizationScenari
     assert any("OPEX" in item or "opex" in item.lower() for item in ev_categories), (
         "Evidence table must include an OPEX delta entry labelled ASSUMED"
     )
+
+
+def test_executive_roi_signed_negative_fuel_impact() -> None:
+    """Verify that when an alternative fuel strategy costs more than baseline diesel,
+
+    annual_fuel_savings is kept signed (negative) rather than being clamped at zero (Issue 1).
+    """
+    exec_engine = ExecutiveRecommendationEngine()
+
+    expensive_alt_prices = {
+        "Diesel": 650.0,
+        "Methanol": 2500.0,  # ~4x diesel price
+    }
+    scen = OptimizationScenario(
+        cargo_demand=100_000.0,
+        route_distance=2000.0,
+        deadline_hours=150.0,
+        carbon_price=20.0,
+        fuel_prices=expensive_alt_prices,
+    )
+
+    comp = FleetCompositionResult(
+        status=OptimizationStatus.SUCCESS,
+        fleet_mix={"medium": 4, "methanol": 4},
+        total_capacity=180_000.0,
+        fuel_consumption=5000.0,
+        emissions=6000.0,
+        operational_cost=12_500_000.0,
+        carbon_cost=120_000.0,
+        optimization_score=0.95,
+        service_level_achieved=0.98,
+        metadata={},
+    )
+    cap_rec = CapacityOptimizationResult(
+        status=OptimizationStatus.SUCCESS,
+        vessel_class="PANAMAX",
+        recommended_capacity=45_000.0,
+        capacity_teu=3200.0,
+        utilization_rate=0.85,
+        fuel_consumption=5000.0,
+        cost=12_500_000.0,
+        emissions=6000.0,
+        optimal_trips=3,
+        metadata={},
+    )
+    speed_rec = SpeedOptimizationResult(
+        status=OptimizationStatus.SUCCESS,
+        optimal_speed=14.0,
+        estimated_eta=142.8,
+        fuel_consumption=5000.0,
+        cost=12_500_000.0,
+        emissions=6000.0,
+        delay_hours=0.0,
+        metadata={},
+    )
+    strat_rec = FleetStrategyRecommendation(
+        status=OptimizationStatus.SUCCESS,
+        scenario=scen,
+        fleet_mix=comp,
+        capacity_recommendation=cap_rec,
+        speed_recommendation=speed_rec,
+        deployment_plan={},
+        baseline_comparison={
+            "baseline": {
+                "fuel_consumption_tons": 5500.0,
+                "operational_cost_usd": 3_575_000.0,
+                "emissions_co2e_tons": 17_600.0,
+            },
+            "deltas": {
+                "fuel_saved_tons": 500.0,
+                "cost_savings_pct": -250.0,
+                "emissions_abated_pct": 65.9,
+            },
+        },
+        fuel_estimate=5000.0,
+        cost_estimate=12_500_000.0,
+        emissions_estimate=6000.0,
+        service_reliability=0.95,
+        summary={"total_vessels": 4},
+    )
+
+    rec = exec_engine.generate_recommendation(
+        strategy_recommendation=strat_rec,
+        scenario=scen,
+        investment_horizon_years=10,
+    )
+
+    bd = rec.economics_breakdown
+    fuel_sav = bd["annual_fuel_savings_usd"]
+
+    # Baseline: 5,500t * $650 = $3,575,000
+    # Optimized: 5,000t * $2500 = $12,500,000
+    # Fuel savings must be NEGATIVE -$8,925,000 (NOT clamped at 0.0!)
+    assert fuel_sav < 0.0, f"Expected negative fuel savings, got {fuel_sav}"
+    assert fuel_sav == pytest.approx(3_575_000.0 - 12_500_000.0, abs=1.0)
+
+    # Net annual benefit must reflect adverse fuel impact
+    net_benefit = bd["annual_net_benefit_usd"]
+    expected_net = (
+        fuel_sav
+        + bd["annual_carbon_savings_usd"]
+        + bd["annual_penalty_avoidance_usd"]
+        - bd["annual_opex_delta_usd"]
+    )
+    assert net_benefit == pytest.approx(expected_net, abs=1.0)
+    assert net_benefit < 0.0
+    assert rec.payback_status == "NO_PAYBACK"
 
 
 

@@ -190,6 +190,16 @@ def render_decision_intelligence_page() -> None:
     def _ev_badge(evidence: str) -> str:
         return "✅ MODELLED" if evidence == "MODELLED" else ("📜 STATUTORY" if evidence == "STATUTORY" else "⚠️ ASSUMED")
 
+    def _fmt_millions(val: float) -> str:
+        if val < 0:
+            return f"-${abs(val) / 1e6:.2f}M"
+        return f"+${val / 1e6:.2f}M"
+
+    def _fmt_net(val: float) -> str:
+        if val < 0:
+            return f"-${abs(val) / 1e6:.2f}M"
+        return f"${val / 1e6:.2f}M"
+
     bd = rec.economics_breakdown  # evidence-tagged breakdown dict
 
     k1, k2, k3, k4 = st.columns(4)
@@ -203,7 +213,7 @@ def render_decision_intelligence_page() -> None:
     k2.metric(
         f"{horizon_years}-Year ROI",
         f"{rec.roi_percentage}%" if rec.roi_percentage is not None else "N/A",
-        f"Net Annual: ${rec.annual_net_benefit_usd / 1e6:.2f}M",
+        f"Net Annual: {_fmt_net(rec.annual_net_benefit_usd)}",
     )
     k3.metric(
         "Simple Payback",
@@ -213,8 +223,8 @@ def render_decision_intelligence_page() -> None:
     savings_ev = "MODELLED"  # fuel + carbon are always modelled; penalty may be assumed
     k4.metric(
         f"Annual Net Savings [✅ MODELLED]",
-        f"${rec.expected_cost_savings_usd / 1e6:.2f}M",
-        f"-{rec.expected_cost_savings_pct:.1f}% vs Diesel Baseline",
+        _fmt_net(rec.expected_cost_savings_usd),
+        f"{rec.expected_cost_savings_pct:+.1f}% vs Diesel Baseline",
     )
 
     st.info(rec.executive_summary_text)
@@ -233,14 +243,6 @@ def render_decision_intelligence_page() -> None:
     COLOUR_NET      = "#1D4ED8"   # blue
     COLOUR_NEGATIVE = "#DC2626"   # red
 
-    _bar_colours = [
-        COLOUR_MODELLED,                                            # Fuel savings — MODELLED
-        COLOUR_MODELLED,                                            # Carbon savings — MODELLED
-        COLOUR_MODELLED if penalty_ev == "MODELLED" else COLOUR_ASSUMED,  # Penalty — context
-        COLOUR_NEGATIVE,                                            # OPEX delta (cost)
-        COLOUR_NET,                                                 # Net benefit (total)
-    ]
-
     fig_wf = go.Figure(go.Waterfall(
         orientation="v",
         measure=["relative", "relative", "relative", "relative", "total"],
@@ -257,11 +259,11 @@ def render_decision_intelligence_page() -> None:
         decreasing={"marker": {"color": COLOUR_NEGATIVE}},
         totals={"marker": {"color": COLOUR_NET}},
         text=[
-            f"${fuel_sav / 1e6:.2f}M",
-            f"${carbon_sav / 1e6:.2f}M",
-            f"${penalty_av / 1e6:.2f}M",
+            _fmt_millions(fuel_sav),
+            _fmt_millions(carbon_sav),
+            _fmt_millions(penalty_av),
             f"-${opex_delta / 1e6:.2f}M",
-            f"${net_benefit / 1e6:.2f}M",
+            _fmt_net(net_benefit),
         ],
         textposition="outside",
         hovertemplate=(
@@ -282,20 +284,20 @@ def render_decision_intelligence_page() -> None:
     with st.expander("🔍 Full Itemised Economics Breakdown (Evidence Tags)", expanded=False):
         breakdown_rows = [
             {
-                "Component": "Annual Fuel Savings",
-                "Amount (USD/yr)": f"${bd.get('annual_fuel_savings_usd', 0) / 1e6:.3f}M",
+                "Component": "Annual Fuel Savings / (Impact)",
+                "Amount (USD/yr)": _fmt_millions(bd.get("annual_fuel_savings_usd", 0.0)),
                 "Evidence": _ev_badge(bd.get("annual_fuel_savings_evidence", "MODELLED")),
                 "Source Note": bd.get("annual_fuel_savings_note", "—"),
             },
             {
-                "Component": "Annual Carbon Savings",
-                "Amount (USD/yr)": f"${bd.get('annual_carbon_savings_usd', 0) / 1e6:.3f}M",
+                "Component": "Annual Carbon Savings / (Impact)",
+                "Amount (USD/yr)": _fmt_millions(bd.get("annual_carbon_savings_usd", 0.0)),
                 "Evidence": _ev_badge(bd.get("annual_carbon_savings_evidence", "MODELLED")),
                 "Source Note": bd.get("annual_carbon_savings_note", "—"),
             },
             {
                 "Component": "FuelEU Penalty Avoided",
-                "Amount (USD/yr)": f"${bd.get('annual_penalty_avoidance_usd', 0) / 1e6:.3f}M",
+                "Amount (USD/yr)": _fmt_millions(bd.get("annual_penalty_avoidance_usd", 0.0)),
                 "Evidence": _ev_badge(bd.get("annual_penalty_avoidance_evidence", "ASSUMED")),
                 "Source Note": bd.get("annual_penalty_avoidance_note", "—"),
             },
@@ -307,7 +309,7 @@ def render_decision_intelligence_page() -> None:
             },
             {
                 "Component": "= Net Annual Benefit",
-                "Amount (USD/yr)": f"${bd.get('annual_net_benefit_usd', rec.annual_net_benefit_usd) / 1e6:.3f}M",
+                "Amount (USD/yr)": _fmt_net(bd.get("annual_net_benefit_usd", rec.annual_net_benefit_usd)),
                 "Evidence": "—",
                 "Source Note": "Fuel + Carbon + Penalty − OPEX Delta",
             },
