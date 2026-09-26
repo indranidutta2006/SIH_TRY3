@@ -225,8 +225,11 @@ class MaritimeLifecycleAssessmentEngine:
         norm_fuel = normalize_fuel_name(fuel_name)
 
         if norm_fuel not in self.profiles:
-            # Fallback to Diesel fossil
-            norm_fuel = "Diesel"
+            supported = sorted(self.profiles.keys())
+            raise ValueError(
+                f"Unknown or unsupported marine fuel '{fuel_name}' (normalized: '{norm_fuel}'). "
+                f"Available supported fuels are: {supported}."
+            )
 
         pathways = self.profiles[norm_fuel]
         if pathway:
@@ -252,6 +255,12 @@ class MaritimeLifecycleAssessmentEngine:
             mapped_pw = aliases.get(pw_key)
             if mapped_pw and mapped_pw in pathways:
                 return pathways[mapped_pw]
+
+            supported_pws = sorted(pathways.keys())
+            raise ValueError(
+                f"Unknown feedstock pathway '{pathway}' for fuel '{norm_fuel}'. "
+                f"Supported pathways for {norm_fuel} are: {supported_pws}."
+            )
 
         # Return default pathway for fuel
         default_keys = {"Diesel": "fossil", "LNG": "fossil", "Methanol": "fossil", "Hydrogen": "green", "Ammonia": "green"}

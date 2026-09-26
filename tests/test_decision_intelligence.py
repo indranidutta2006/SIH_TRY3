@@ -132,6 +132,26 @@ def test_lca_fleet_assessment() -> None:
     assert fleet_res["Methanol"].pathway == "e_methanol"
 
 
+def test_lca_engine_unknown_fuel_raises_error() -> None:
+    """Verify that unknown fuels or typos raise ValueError instead of silently defaulting to Diesel (Issue 10)."""
+    engine = MaritimeLifecycleAssessmentEngine()
+
+    # 1. Typo in fuel name must raise ValueError
+    with pytest.raises(ValueError, match="Unknown or unsupported marine fuel 'Ammonnia'"):
+        engine.get_profile("Ammonnia")
+
+    with pytest.raises(ValueError, match="Unknown or unsupported marine fuel 'Nuclear'"):
+        engine.get_profile("Nuclear")
+
+    # 2. Unknown fuel in assess_fuel_lifecycle must raise ValueError
+    with pytest.raises(ValueError, match="Unknown or unsupported marine fuel"):
+        engine.assess_fuel_lifecycle(fuel_name="Kerosene", consumption_tons=100.0)
+
+    # 3. Unknown pathway for a valid fuel must raise ValueError
+    with pytest.raises(ValueError, match="Unknown feedstock pathway 'nuclear' for fuel 'Hydrogen'"):
+        engine.get_profile("Hydrogen", pathway="nuclear")
+
+
 # =============================================================================
 # 2. REGULATORY FORECAST ENGINE TESTS
 # =============================================================================
@@ -525,7 +545,7 @@ def test_page_decision_intelligence_render(tmp_path: Path) -> None:
             return "PANAMAX"
         if "Primary Transition" in label:
             return "Methanol"
-        if "Primary Feedstock" in label or "Feedstock Pathway" in label:
+        if "Primary Feedstock" in label:
             return "e_methanol"
         if "Secondary Fuel" in label:
             return "Hydrogen"
