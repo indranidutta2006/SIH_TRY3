@@ -272,27 +272,67 @@ class FleetStrategyOptimizer:
             {"route_id": "ROUTE-BETA-02", "origin": "Shanghai", "destination": "Hamburg", "distance_nm": scenario.route_distance * 1.1},
         ]
 
-        # Extract available active vessels from fleet mix
-        active_vessels: list[dict[str, str]] = []
         fuel_tokens = ["diesel", "lng", "methanol", "hydrogen", "ammonia"]
         v_types = ["feeder", "medium", "large"]
 
-        v_idx = 1
+        def _format_fuel(token: str) -> str:
+            clean = token.strip().lower()
+            if clean == "lng":
+                return "LNG"
+            return clean.capitalize()
+
+        # 1. Build an explicit list of vessel specifications consuming fleet_mix counts exactly once
+        active_specs: list[tuple[str, str]] = []  # (vessel_class, fuel_type)
+        fleet_mix_remaining = dict(composition.fleet_mix)
+
+        # Check for explicit composite keys first (e.g. "feeder_diesel", "medium_methanol", "large x lng")
+        for key, count in list(fleet_mix_remaining.items()):
+            if count <= 0:
+                continue
+            key_clean = key.lower().replace("-", "_").replace(" x ", "_").replace(" ", "_")
+            if "_" in key_clean:
+                parts = key_clean.split("_", 1)
+                vt_match = next((v for v in v_types if v == parts[0]), None)
+                ft_match = next((f for f in fuel_tokens if f == parts[1]), None)
+                if vt_match and ft_match:
+                    for _ in range(int(count)):
+                        active_specs.append((vt_match.capitalize(), _format_fuel(ft_match)))
+                    del fleet_mix_remaining[key]
+
+        # Collect size class pool and fuel type pool from remaining counts
+        size_pool: list[str] = []
         for vt in v_types:
-            count = composition.fleet_mix.get(vt, 0)
-            for _ in range(count):
-                # Assign a fuel type from the mix
-                assigned_fuel = "Diesel"
-                for ft in fuel_tokens:
-                    if composition.fleet_mix.get(ft, 0) > 0:
-                        assigned_fuel = ft.capitalize()
-                        break
-                active_vessels.append({
-                    "vessel_id": f"VSL-{vt.upper()[:3]}-{v_idx:03d}",
-                    "vessel_class": vt.capitalize(),
-                    "fuel_type": assigned_fuel,
-                })
-                v_idx += 1
+            count = int(fleet_mix_remaining.get(vt, 0))
+            if count > 0:
+                size_pool.extend([vt.capitalize()] * count)
+
+        fuel_pool: list[str] = []
+        for ft in fuel_tokens:
+            count = int(fleet_mix_remaining.get(ft, 0))
+            if count > 0:
+                fuel_pool.extend([_format_fuel(ft)] * count)
+
+        # Reconcile size_pool and fuel_pool lengths so each count is consumed exactly once
+        default_class = (scenario.vessel_class or "Medium").capitalize()
+        default_fuel = "Diesel"
+
+        if len(size_pool) < len(fuel_pool):
+            size_pool.extend([default_class] * (len(fuel_pool) - len(size_pool)))
+        elif len(fuel_pool) < len(size_pool):
+            fuel_pool.extend([default_fuel] * (len(size_pool) - len(fuel_pool)))
+
+        for cls_name, fuel_name in zip(size_pool, fuel_pool):
+            active_specs.append((cls_name, fuel_name))
+
+        # Build active vessels list with distinct IDs
+        active_vessels: list[dict[str, str]] = []
+        for v_idx, (cls_name, fuel_name) in enumerate(active_specs, start=1):
+            class_abbr = cls_name.upper()[:3]
+            active_vessels.append({
+                "vessel_id": f"VSL-{class_abbr}-{v_idx:03d}",
+                "vessel_class": cls_name,
+                "fuel_type": fuel_name,
+            })
 
         if not active_vessels:
             # Fallback placeholder vessel if fleet mix is 0
@@ -309,16 +349,26 @@ class FleetStrategyOptimizer:
         )
 
         # Distribute active vessels across routes
+        # Every route receives at least one vessel; all active vessels are deployed
+        route_vessel_map: dict[str, list[dict[str, str]]] = {
+            route.get("route_id", f"ROUTE-{i+1}"): [] for i, route in enumerate(routes)
+        }
+
+        num_routes = max(len(routes), 1)
+        for idx, vessel in enumerate(active_vessels):
+            target_route = routes[idx % num_routes]
+            r_id = target_route.get("route_id", f"ROUTE-{(idx % num_routes) + 1}")
+            route_vessel_map[r_id].append(vessel)
+
+        # If any route has 0 vessels (when active_vessels < routes), assign a round-robin vessel
+        for i, route in enumerate(routes):
+            r_id = route.get("route_id", f"ROUTE-{i+1}")
+            if not route_vessel_map[r_id]:
+                route_vessel_map[r_id].append(active_vessels[i % len(active_vessels)])
+
         for i, route in enumerate(routes):
             r_id = route.get("route_id", f"ROUTE-{i+1}")
             assigned_for_route: list[dict[str, Any]] = []
-
-            # Assign 1 or more vessels to this route
-            v_subset = active_vessels[i % len(active_vessels):]
-            if not v_subset:
-                v_subset = [active_vessels[0]]
-
-            v_choice = v_subset[0]
             dist = float(route.get("distance_nm", scenario.route_distance))
             est_voyage_hours = dist / max(speed.optimal_speed, 1.0)
             r_score = route_scores.get(r_id, 95.0)
@@ -327,19 +377,20 @@ class FleetStrategyOptimizer:
             route_demand_share = scenario.cargo_demand / max(1, len(routes))
             buffer_cap = max(0.0, capacity.recommended_capacity - route_demand_share)
 
-            assigned_for_route.append({
-                "vessel_id": v_choice["vessel_id"],
-                "vessel_class": v_choice["vessel_class"],
-                "fuel_type": v_choice["fuel_type"],
-                "allocated_capacity_dwt": capacity.recommended_capacity,
-                "buffer_capacity_dwt": round(buffer_cap, 2),
-                "redundancy_factor": 1.15,
-                "route_reliability_score": r_score,
-                "cruising_speed_knots": speed.optimal_speed,
-                "voyage_eta_hours": round(est_voyage_hours, 1),
-                "origin": route.get("origin", "Hub Port A"),
-                "destination": route.get("destination", "Hub Port B"),
-            })
+            for v in route_vessel_map[r_id]:
+                assigned_for_route.append({
+                    "vessel_id": v["vessel_id"],
+                    "vessel_class": v["vessel_class"],
+                    "fuel_type": v["fuel_type"],
+                    "allocated_capacity_dwt": capacity.recommended_capacity,
+                    "buffer_capacity_dwt": round(buffer_cap, 2),
+                    "redundancy_factor": 1.15,
+                    "route_reliability_score": r_score,
+                    "cruising_speed_knots": speed.optimal_speed,
+                    "voyage_eta_hours": round(est_voyage_hours, 1),
+                    "origin": route.get("origin", "Hub Port A"),
+                    "destination": route.get("destination", "Hub Port B"),
+                })
             plan[r_id] = assigned_for_route
 
         return plan

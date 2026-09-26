@@ -379,3 +379,96 @@ def test_fleet_strategy_optimization_end_to_end(tmp_path: Path) -> None:
     assert loaded_rec.capacity_recommendation.recommended_capacity == rec.capacity_recommendation.recommended_capacity
     assert loaded_rec.speed_recommendation.optimal_speed == rec.speed_recommendation.optimal_speed
     assert loaded_rec.service_reliability == rec.service_reliability
+
+
+def test_deployment_plan_exact_fuel_and_size_count_consumption() -> None:
+    """Verify that deployment assignment consumes fleet mix fuel and size counts exactly once (Remaining Issue 4)."""
+    optimizer = FleetStrategyOptimizer()
+    scenario = OptimizationScenario(
+        cargo_demand=150_000.0,
+        route_distance=3500.0,
+        deadline_hours=300.0,
+        scenario_id="SCEN-EXACT-FUEL-DEPLOY",
+    )
+
+    # 1. Test decomposed counts: Diesel=4, LNG=3, Methanol=2, Medium=9
+    comp = FleetCompositionResult(
+        status=OptimizationStatus.SUCCESS,
+        fleet_mix={"medium": 9, "diesel": 4, "lng": 3, "methanol": 2},
+        total_capacity=405_000.0,
+        fuel_consumption=12000.0,
+        emissions=20000.0,
+        operational_cost=15_000_000.0,
+        carbon_cost=400_000.0,
+        optimization_score=0.92,
+        service_level_achieved=1.0,
+        metadata={},
+    )
+    cap = CapacityOptimizationResult(
+        status=OptimizationStatus.SUCCESS,
+        vessel_class="PANAMAX",
+        recommended_capacity=45_000.0,
+        capacity_teu=3200.0,
+        utilization_rate=0.85,
+        fuel_consumption=12000.0,
+        cost=15_000_000.0,
+        emissions=20000.0,
+        optimal_trips=4,
+        metadata={},
+    )
+    speed = SpeedOptimizationResult(
+        status=OptimizationStatus.SUCCESS,
+        optimal_speed=14.0,
+        estimated_eta=250.0,
+        fuel_consumption=12000.0,
+        cost=15_000_000.0,
+        emissions=20000.0,
+        delay_hours=0.0,
+        metadata={},
+    )
+
+    plan = optimizer._generate_deployment_plan(scenario, comp, cap, speed)
+
+    # Collect all deployed vessels across all routes
+    deployed_vessels: list[dict[str, Any]] = [
+        v for route_vessels in plan.values() for v in route_vessels
+    ]
+
+    assert len(deployed_vessels) == 9, f"Expected 9 deployed vessels, got {len(deployed_vessels)}"
+
+    # Count fuel types across deployed vessels
+    fuel_counts: dict[str, int] = {}
+    for v in deployed_vessels:
+        ft = v["fuel_type"]
+        fuel_counts[ft] = fuel_counts.get(ft, 0) + 1
+
+    assert fuel_counts.get("Diesel", 0) == 4, f"Expected 4 Diesel vessels, got {fuel_counts.get('Diesel')}"
+    assert fuel_counts.get("LNG", 0) == 3, f"Expected 3 LNG vessels, got {fuel_counts.get('LNG')}"
+    assert fuel_counts.get("Methanol", 0) == 2, f"Expected 2 Methanol vessels, got {fuel_counts.get('Methanol')}"
+
+    # Verify all vessel IDs are distinct
+    vessel_ids = [v["vessel_id"] for v in deployed_vessels]
+    assert len(set(vessel_ids)) == 9, "All deployed vessel IDs must be distinct"
+
+    # 2. Test explicit composite keys: feeder_diesel=2, medium_lng=1, large_methanol=1
+    comp_composite = FleetCompositionResult(
+        status=OptimizationStatus.SUCCESS,
+        fleet_mix={"feeder_diesel": 2, "medium_lng": 1, "large_methanol": 1},
+        total_capacity=210_000.0,
+        fuel_consumption=8000.0,
+        emissions=14000.0,
+        operational_cost=10_000_000.0,
+        carbon_cost=280_000.0,
+        optimization_score=0.90,
+        service_level_achieved=1.0,
+        metadata={},
+    )
+    plan_comp = optimizer._generate_deployment_plan(scenario, comp_composite, cap, speed)
+    deployed_comp = [v for r_v in plan_comp.values() for v in r_v]
+
+    assert len(deployed_comp) == 4
+    composite_pairs = [(v["vessel_class"], v["fuel_type"]) for v in deployed_comp]
+    assert composite_pairs.count(("Feeder", "Diesel")) == 2
+    assert composite_pairs.count(("Medium", "LNG")) == 1
+    assert composite_pairs.count(("Large", "Methanol")) == 1
+
