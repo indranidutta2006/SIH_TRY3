@@ -138,7 +138,11 @@ class EcoSpeedOptimizer:
             )
             emiss = float(self.emission_engine.calculate_wtw(fuel_cons, fuel_type).co2e)
             delay = min_possible_duration - deadline
-            cost = (fuel_cons * fuel_price) + (emiss * scenario.carbon_price) + (delay * delay_rate)
+            bunker_cost = fuel_cons * fuel_price
+            carbon_cost = emiss * scenario.carbon_price
+            delay_cost = delay * delay_rate
+            charter_cost = (min_possible_duration / 24.0) * charter_rate
+            cost = bunker_cost + carbon_cost + delay_cost + charter_cost
 
             elapsed_ms = (time.perf_counter() - start_time) * 1000.0
             return SpeedOptimizationResult(
@@ -155,6 +159,11 @@ class EcoSpeedOptimizer:
                     "iterations": 1,
                     "convergence_score": 0.5,
                     "failure_reason": "DEADLINE_VIOLATED",
+                    "bunker_cost": round(bunker_cost, 2),
+                    "carbon_cost": round(carbon_cost, 2),
+                    "charter_cost": round(charter_cost, 2),
+                    "delay_cost": round(delay_cost, 2),
+                    "total_cost": round(cost, 2),
                     "optimization_trace": [{"speed": max_speed, "cost": cost, "delay_hours": delay}],
                     "warning": f"Minimum transit time ({min_possible_duration:.1f}h) exceeds deadline ({deadline:.1f}h)",
                 },
@@ -220,6 +229,10 @@ class EcoSpeedOptimizer:
                     "eta": total_duration,
                     "fuel": fuel,
                     "cost": total_cost,
+                    "bunker_cost": bunker_cost,
+                    "carbon_cost": carbon_cost,
+                    "charter_cost": charter_cost,
+                    "delay_cost": delay_cost,
                     "emissions": emiss,
                     "delay": delay_h,
                     "score": score,
@@ -233,7 +246,9 @@ class EcoSpeedOptimizer:
             transit_h = dist / def_speed
             fuel = self.physics_engine.calculate_fuel_use(dist, def_speed, c_load, scenario.weather_factor, fuel_type, dwt)
             emiss = float(self.emission_engine.calculate_wtw(fuel, fuel_type).co2e)
-            cost = (fuel * fuel_price) + (emiss * scenario.carbon_price)
+            bunker_c = fuel * fuel_price
+            carbon_c = emiss * scenario.carbon_price
+            cost = bunker_c + carbon_c
             return SpeedOptimizationResult(
                 status=OptimizationStatus.SUCCESS,
                 optimal_speed=round(def_speed, 2),
@@ -247,6 +262,11 @@ class EcoSpeedOptimizer:
                     "runtime_ms": round(elapsed_ms, 2),
                     "iterations": n_evals,
                     "convergence_score": 1.0,
+                    "bunker_cost": round(bunker_c, 2),
+                    "carbon_cost": round(carbon_c, 2),
+                    "charter_cost": 0.0,
+                    "delay_cost": 0.0,
+                    "total_cost": round(cost, 2),
                     "optimization_trace": optimization_trace,
                 },
             )
@@ -264,6 +284,11 @@ class EcoSpeedOptimizer:
                 "runtime_ms": round(elapsed_ms, 2),
                 "iterations": n_evals,
                 "convergence_score": 1.0,
+                "bunker_cost": round(best_res.get("bunker_cost", 0.0), 2),
+                "carbon_cost": round(best_res.get("carbon_cost", 0.0), 2),
+                "charter_cost": round(best_res.get("charter_cost", 0.0), 2),
+                "delay_cost": round(best_res.get("delay_cost", 0.0), 2),
+                "total_cost": round(best_res["cost"], 2),
                 "optimization_trace": optimization_trace[-10:] if len(optimization_trace) > 10 else optimization_trace,
             },
         )

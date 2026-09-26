@@ -403,8 +403,17 @@ class OptimizationScenario:
     regulation_factor: float = 1.0  # Regulatory stringency multiplier for compliance penalties (default: 1.0)
     vessel_type: str = "Bulk carrier"  # IMO Resolution MEPC.353(78) statutory vessel category
     capacity_dwt: float | None = None  # Sized vessel deadweight tonnage (DWT)
+    vessel_capacity: float | None = None  # User-specified or sized vessel capacity (metric tons / DWT)
     annual_voyages: int | None = None  # Annual voyages / round-trips derived from strategy
     annual_distance: float | None = None  # Cumulative annual operating distance (nm)
+    port_limits: dict[str, Any] | None = None  # Draft, beam, length or air draft port restrictions
+
+    @property
+    def effective_vessel_capacity(self) -> float | None:
+        """Effective capacity, checking vessel_capacity then capacity_dwt."""
+        if self.vessel_capacity is not None and self.vessel_capacity > 0:
+            return self.vessel_capacity
+        return self.capacity_dwt
 
     @property
     def annual_distance_nm(self) -> float:
@@ -672,6 +681,80 @@ class FleetStrategyRecommendation:
     def to_json(self) -> str:
         """Serialize dataclass to JSON string."""
         return json.dumps(self.to_dict(), indent=2)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into FleetStrategyRecommendation."""
+        scenario = (
+            data["scenario"]
+            if isinstance(data["scenario"], OptimizationScenario)
+            else OptimizationScenario.from_dict(data["scenario"])
+        )
+        status = (
+            data["status"]
+            if isinstance(data["status"], OptimizationStatus)
+            else OptimizationStatus(data.get("status", "SUCCESS"))
+        )
+
+        mix_data = data["fleet_mix"]
+        if isinstance(mix_data, FleetCompositionResult):
+            fleet_mix = mix_data
+        else:
+            mix_dict = dict(mix_data)
+            if not isinstance(mix_dict.get("status"), OptimizationStatus):
+                mix_dict["status"] = OptimizationStatus(mix_dict.get("status", "SUCCESS"))
+            fleet_mix = FleetCompositionResult(**mix_dict)
+
+        cap_data = data["capacity_recommendation"]
+        if isinstance(cap_data, CapacityOptimizationResult):
+            capacity = cap_data
+        else:
+            cap_dict = dict(cap_data)
+            if not isinstance(cap_dict.get("status"), OptimizationStatus):
+                cap_dict["status"] = OptimizationStatus(cap_dict.get("status", "SUCCESS"))
+            capacity = CapacityOptimizationResult(**cap_dict)
+
+        speed_data = data["speed_recommendation"]
+        if isinstance(speed_data, SpeedOptimizationResult):
+            speed = speed_data
+        else:
+            speed_dict = dict(speed_data)
+            if not isinstance(speed_dict.get("status"), OptimizationStatus):
+                speed_dict["status"] = OptimizationStatus(speed_dict.get("status", "SUCCESS"))
+            speed = SpeedOptimizationResult(**speed_dict)
+
+        rel_metrics = None
+        if "reliability_metrics" in data and data["reliability_metrics"] is not None:
+            rel_metrics = (
+                data["reliability_metrics"]
+                if isinstance(data["reliability_metrics"], ReliabilityMetrics)
+                else ReliabilityMetrics.from_dict(data["reliability_metrics"])
+            )
+
+        dem_metrics = None
+        if "demand_metrics" in data and data["demand_metrics"] is not None:
+            dem_metrics = (
+                data["demand_metrics"]
+                if isinstance(data["demand_metrics"], DemandSatisfactionMetrics)
+                else DemandSatisfactionMetrics.from_dict(data["demand_metrics"])
+            )
+
+        return cls(
+            status=status,
+            scenario=scenario,
+            fleet_mix=fleet_mix,
+            capacity_recommendation=capacity,
+            speed_recommendation=speed,
+            deployment_plan=data.get("deployment_plan", {}),
+            baseline_comparison=data.get("baseline_comparison", {}),
+            fuel_estimate=float(data.get("fuel_estimate", 0.0)),
+            cost_estimate=float(data.get("cost_estimate", 0.0)),
+            emissions_estimate=float(data.get("emissions_estimate", 0.0)),
+            service_reliability=data.get("service_reliability"),
+            reliability_metrics=rel_metrics,
+            demand_metrics=dem_metrics,
+            summary=data.get("summary", {}),
+        )
 
 
 @dataclass(frozen=True, slots=True)

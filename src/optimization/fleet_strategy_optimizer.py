@@ -275,10 +275,13 @@ class FleetStrategyOptimizer:
         plan: dict[str, list[dict[str, Any]]] = {}
 
         # Resolve routes from scenario or synthesize standard maritime corridor
-        routes = list(scenario.routes) if scenario.routes else [
-            {"route_id": "ROUTE-ALPHA-01", "origin": "Rotterdam", "destination": "Singapore", "distance_nm": scenario.route_distance},
-            {"route_id": "ROUTE-BETA-02", "origin": "Shanghai", "destination": "Hamburg", "distance_nm": scenario.route_distance * 1.1},
-        ]
+        if scenario.routes:
+            routes = list(scenario.routes)
+        else:
+            routes = [
+                {"route_id": "ROUTE-ALPHA-01", "origin": "Rotterdam", "destination": "Singapore", "distance_nm": scenario.route_distance},
+                {"route_id": "ROUTE-BETA-02", "origin": "Shanghai", "destination": "Hamburg", "distance_nm": scenario.route_distance * 1.1},
+            ]
 
         fuel_tokens = ["diesel", "lng", "methanol", "hydrogen", "ammonia"]
         v_types = ["feeder", "medium", "large"]
@@ -360,7 +363,7 @@ class FleetStrategyOptimizer:
         )
 
         # Distribute active vessels across routes
-        # Every route receives at least one vessel; all active vessels are deployed
+        # All active vessels are deployed with strict 1-to-1 parity (no duplicate/invented vessels)
         route_vessel_map: dict[str, list[dict[str, str]]] = {
             route.get("route_id", f"ROUTE-{i+1}"): [] for i, route in enumerate(routes)
         }
@@ -371,15 +374,13 @@ class FleetStrategyOptimizer:
             r_id = target_route.get("route_id", f"ROUTE-{(idx % num_routes) + 1}")
             route_vessel_map[r_id].append(vessel)
 
-        # If any route has 0 vessels (when active_vessels < routes), assign a round-robin vessel
-        for i, route in enumerate(routes):
-            r_id = route.get("route_id", f"ROUTE-{i+1}")
-            if not route_vessel_map[r_id]:
-                route_vessel_map[r_id].append(active_vessels[i % len(active_vessels)])
+        annual_v = scenario.annual_voyages or 20
 
         for i, route in enumerate(routes):
             r_id = route.get("route_id", f"ROUTE-{i+1}")
             assigned_for_route: list[dict[str, Any]] = []
+            if not route_vessel_map.get(r_id):
+                continue
             dist = float(route.get("distance_nm", scenario.route_distance))
             est_voyage_hours = dist / max(speed.optimal_speed, 1.0)
             r_score = route_scores.get(r_id, 95.0)
@@ -399,6 +400,8 @@ class FleetStrategyOptimizer:
                     "route_reliability_score": r_score,
                     "cruising_speed_knots": speed.optimal_speed,
                     "voyage_eta_hours": round(est_voyage_hours, 1),
+                    "voyages_per_year": annual_v,
+                    "annual_voyages": annual_v,
                     "origin": route.get("origin", "Hub Port A"),
                     "destination": route.get("destination", "Hub Port B"),
                 })
@@ -478,43 +481,4 @@ class FleetStrategyOptimizer:
             raise FileNotFoundError(f"Scenario file '{filepath}' does not exist.")
 
         raw_data = json.loads(in_path.read_text(encoding="utf-8"))
-
-        scenario = OptimizationScenario.from_dict(raw_data["scenario"])
-        status = OptimizationStatus(raw_data.get("status", "SUCCESS"))
-
-        mix_data = raw_data["fleet_mix"]
-        mix_data["status"] = OptimizationStatus(mix_data.get("status", "SUCCESS"))
-        fleet_mix = FleetCompositionResult(**mix_data)
-
-        cap_data = raw_data["capacity_recommendation"]
-        cap_data["status"] = OptimizationStatus(cap_data.get("status", "SUCCESS"))
-        capacity = CapacityOptimizationResult(**cap_data)
-
-        speed_data = raw_data["speed_recommendation"]
-        speed_data["status"] = OptimizationStatus(speed_data.get("status", "SUCCESS"))
-        speed = SpeedOptimizationResult(**speed_data)
-
-        rel_metrics = None
-        if "reliability_metrics" in raw_data and raw_data["reliability_metrics"] is not None:
-            rel_metrics = ReliabilityMetrics.from_dict(raw_data["reliability_metrics"])
-
-        dem_metrics = None
-        if "demand_metrics" in raw_data and raw_data["demand_metrics"] is not None:
-            dem_metrics = DemandSatisfactionMetrics.from_dict(raw_data["demand_metrics"])
-
-        return FleetStrategyRecommendation(
-            status=status,
-            scenario=scenario,
-            fleet_mix=fleet_mix,
-            capacity_recommendation=capacity,
-            speed_recommendation=speed,
-            deployment_plan=raw_data.get("deployment_plan", {}),
-            baseline_comparison=raw_data.get("baseline_comparison", {}),
-            fuel_estimate=float(raw_data.get("fuel_estimate", 0.0)),
-            cost_estimate=float(raw_data.get("cost_estimate", 0.0)),
-            emissions_estimate=float(raw_data.get("emissions_estimate", 0.0)),
-            service_reliability=raw_data.get("service_reliability"),
-            reliability_metrics=rel_metrics,
-            demand_metrics=dem_metrics,
-            summary=raw_data.get("summary", {}),
-        )
+        return FleetStrategyRecommendation.from_dict(raw_data)

@@ -693,5 +693,165 @@ def test_deployment_plan_fails_validation_on_size_fuel_count_mismatch() -> None:
         optimizer._generate_deployment_plan(scenario, comp_mismatch_fuels, cap, speed)
 
 
+# =============================================================================
+# 6. ADVANCED REQUIREMENT & SENSITIVITY VERIFICATION TESTS
+# =============================================================================
+
+def test_high_demand_scaling() -> None:
+    """Verify fleet composition scales up vessel numbers to satisfy high demand feasibly."""
+    optimizer = FleetCompositionOptimizer()
+    scenario = OptimizationScenario(
+        cargo_demand=3_000_000.0,
+        route_distance=4000.0,
+        deadline_hours=300.0,
+        scenario_id="SCEN-HIGH-DEMAND",
+        budget=400_000_000.0,
+        carbon_price=80.0,
+        max_transition_rate=0.50,
+    )
+
+    result = optimizer.optimize_composition(scenario, max_fleet_size=25)
+    assert result.status == OptimizationStatus.SUCCESS
+    total_ships = sum(result.fleet_mix[k] for k in ("feeder", "medium", "large"))
+    assert total_ships >= 3
+    assert result.total_capacity >= scenario.cargo_demand * scenario.service_level
+
+
+def test_fleet_availability_limits() -> None:
+    """Verify fleet composition respects maximum available vessel counts per size category."""
+    optimizer = FleetCompositionOptimizer()
+    scenario = OptimizationScenario(
+        cargo_demand=400_000.0,
+        route_distance=3000.0,
+        deadline_hours=250.0,
+        budget=500_000_000.0,
+    )
+    result = optimizer.optimize_composition(scenario, max_fleet_size=30)
+    assert result.status == OptimizationStatus.SUCCESS
+    # From VESSEL_SPECS: feeder max 20, medium max 15, large max 10
+    assert result.fleet_mix["feeder"] <= 20
+    assert result.fleet_mix["medium"] <= 15
+    assert result.fleet_mix["large"] <= 10
+
+
+def test_vessel_class_variations_and_monotonicity() -> None:
+    """Verify capacity sizing across all naval architecture classes maintains physical monotonicity."""
+    optimizer = VesselCapacityOptimizer()
+    classes = ["FEEDER", "HANDYMAX", "PANAMAX", "POST_PANAMAX", "CAPESIZE"]
+    results = {}
+
+    for vc in classes:
+        scenario = OptimizationScenario(
+            cargo_demand=100_000.0,
+            route_distance=3000.0,
+            deadline_hours=250.0,
+            vessel_class=vc,
+        )
+        res = optimizer.optimize_capacity(scenario)
+        assert res.status == OptimizationStatus.SUCCESS
+        assert res.vessel_class == vc
+        results[vc] = res.recommended_capacity
+
+    # Verify monotonic capacity growth across naval classes
+    assert results["FEEDER"] < results["HANDYMAX"]
+    assert results["HANDYMAX"] <= results["PANAMAX"]
+    assert results["PANAMAX"] < results["POST_PANAMAX"]
+    assert results["POST_PANAMAX"] < results["CAPESIZE"]
+
+
+def test_speed_deadline_and_weather_penalty() -> None:
+    """Verify weather severity factor increases hydrodynamic drag, fuel consumption, and total cost."""
+    optimizer = EcoSpeedOptimizer()
+    scen_calm = OptimizationScenario(
+        cargo_demand=50_000.0,
+        route_distance=3000.0,
+        deadline_hours=260.0,
+        weather_factor=1.00,
+    )
+    scen_rough = OptimizationScenario(
+        cargo_demand=50_000.0,
+        route_distance=3000.0,
+        deadline_hours=260.0,
+        weather_factor=1.25,
+    )
+
+    res_calm = optimizer.optimize_speed(scen_calm, vessel_type="Bulk Carrier")
+    res_rough = optimizer.optimize_speed(scen_rough, vessel_type="Bulk Carrier")
+
+    assert res_calm.status == OptimizationStatus.SUCCESS
+    assert res_rough.status == OptimizationStatus.SUCCESS
+    assert res_rough.fuel_consumption > res_calm.fuel_consumption
+    assert res_rough.cost > res_calm.cost
+
+
+def test_deterministic_reproducibility() -> None:
+    """Verify deterministic MIP solver produces 100% identical results on repeated runs."""
+    optimizer = FleetCompositionOptimizer()
+    scenario = OptimizationScenario(
+        cargo_demand=150_000.0,
+        route_distance=3500.0,
+        deadline_hours=280.0,
+        scenario_id="SCEN-REPRODUCIBLE",
+        budget=100_000_000.0,
+        carbon_price=80.0,
+        max_transition_rate=0.40,
+    )
+
+    run_1 = optimizer.optimize_composition(scenario, solver="deterministic")
+    run_2 = optimizer.optimize_composition(scenario, solver="deterministic")
+
+    assert run_1.status == run_2.status
+    assert run_1.fleet_mix == run_2.fleet_mix
+    assert run_1.total_capacity == run_2.total_capacity
+    assert run_1.fuel_consumption == run_2.fuel_consumption
+    assert run_1.operational_cost == run_2.operational_cost
+    assert run_1.carbon_cost == run_2.carbon_cost
+    assert run_1.optimization_score == run_2.optimization_score
+
+
+def test_port_limits_constraint() -> None:
+    """Verify scenario.port_limits constrains recommended vessel deadweight capacity."""
+    optimizer = VesselCapacityOptimizer()
+    # Panamax normally sizes up to 55,000 DWT
+    scenario_restricted = OptimizationScenario(
+        cargo_demand=200_000.0,
+        route_distance=3500.0,
+        deadline_hours=300.0,
+        vessel_class="PANAMAX",
+        port_limits={"max_dwt": 32_000.0},
+    )
+
+    result = optimizer.optimize_capacity(scenario_restricted)
+    assert result.status == OptimizationStatus.SUCCESS
+    assert result.recommended_capacity <= 32_000.0
+
+
+def test_speed_optimizer_metadata_cost_decomposition() -> None:
+    """Verify SpeedOptimizationResult metadata provides full economic traceability."""
+    optimizer = EcoSpeedOptimizer()
+    scenario = OptimizationScenario(
+        cargo_demand=50_000.0,
+        route_distance=3000.0,
+        deadline_hours=260.0,
+        carbon_price=80.0,
+    )
+
+    res = optimizer.optimize_speed(scenario, vessel_type="Bulk Carrier")
+    assert res.status == OptimizationStatus.SUCCESS
+    meta = res.metadata
+    assert "bunker_cost" in meta
+    assert "carbon_cost" in meta
+    assert "charter_cost" in meta
+    assert "delay_cost" in meta
+    assert "total_cost" in meta
+    assert meta["bunker_cost"] > 0.0
+    assert meta["carbon_cost"] > 0.0
+    assert meta["charter_cost"] > 0.0
+    # Bunker + Carbon + Charter + Delay matches total_cost
+    summed = meta["bunker_cost"] + meta["carbon_cost"] + meta["charter_cost"] + meta["delay_cost"]
+    assert abs(summed - meta["total_cost"]) < 0.05
+
+
+
 
 

@@ -126,6 +126,16 @@ class VesselCapacityOptimizer:
         max_dwt = profile["max_dwt"]
         if port_capacity_limit is not None and port_capacity_limit > 0:
             max_dwt = min(max_dwt, port_capacity_limit)
+        elif scenario.port_limits:
+            if "max_dwt" in scenario.port_limits:
+                max_dwt = min(max_dwt, float(scenario.port_limits["max_dwt"]))
+            elif "max_capacity" in scenario.port_limits:
+                max_dwt = min(max_dwt, float(scenario.port_limits["max_capacity"]))
+            elif "max_draft_m" in scenario.port_limits:
+                port_draft = float(scenario.port_limits["max_draft_m"])
+                if port_draft < profile["max_draft_m"]:
+                    draft_ratio = max(0.2, min(1.0, port_draft / profile["max_draft_m"]))
+                    max_dwt = min(max_dwt, profile["max_dwt"] * draft_ratio)
 
         self.logger.info(
             "Starting Vessel Capacity Optimization [Class: %s, Demand: %.1f t, DWT bounds: (%.0f, %.0f)]",

@@ -4,7 +4,7 @@
 **Cargo Throughput Demand:** `250,000 tons`  
 **Trade Corridor Distance:** `3,500 nm`  
 **Delivery Window:** `260.0 hours`  
-**Reporting Timestamp:** `2026-09-26 23:56:38 UTC`  
+**Reporting Timestamp:** `2026-09-27 00:09:14 UTC`  
 
 ---
 
