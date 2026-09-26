@@ -1,0 +1,5 @@
+Case Study,Class,Vessels,Speed (kn),Annual Cost ($M),WTW CO2e (t),Reliability,ROI (%),Payback
+Case A: Conventional Diesel Fleet,PANAMAX,1,13.3,8.35,22697.0,100.0%,0.0%,0.0 yrs
+Case B: LNG Transition Fleet,PANAMAX,1,13.5,8.9,24824.0,100.0%,0.0%,0.0 yrs
+Case C: Methanol Transition Fleet,PANAMAX,1,13.3,10.1,28371.0,100.0%,0.0%,0.0 yrs
+Case D: Hydrogen Future Fleet,CAPESIZE,1,14.1,11.38,31917.0,100.0%,0.0%,0.0 yrs

@@ -1,0 +1,134 @@
+{
+  "Case A: Conventional Diesel Fleet": {
+    "case_name": "Case A: Conventional Diesel Fleet",
+    "scenario_id": "CASE-A-DIESEL",
+    "vessel_class": "PANAMAX",
+    "vessel_count": 1,
+    "optimal_speed_knots": 13.33,
+    "fuel_strategy": {
+      "diesel": 1.0
+    },
+    "annual_fuel_consumption_tons": 5979.1,
+    "annual_cost_usd": 8353320.13,
+    "lifecycle_emissions": {
+      "tank_to_wake_tons": 19169.0,
+      "well_to_tank_tons": 3527.7,
+      "well_to_wake_tons": 22696.7
+    },
+    "reliability_score": 100.0,
+    "demand_satisfaction_pct": 100.0,
+    "roi_percentage": 0.0,
+    "payback_years": 0.0,
+    "payback_status": "ZERO_CAPEX",
+    "priority_actions": [
+      "Phase 1 (Immediate, Months 1-6): Enforce eco-speed allocation of 13.3 knots across corridors to immediately cut fuel burn by 17.2%.",
+      "Phase 2 (Capital Sizing, Months 6-18): Secure shipyard reservation slots for dual-fuel conversion of 0 vessels with a total capital budget of $0.0M.",
+      "Phase 3 (Bunkering Infrastructure, Months 18-36): Establish long-term green fuel supply agreements to hedge against projected post-2030 FuelEU GHG intensity deficit surcharges.",
+      "Phase 4 (Buffer Maintenance): Deploy route schedule buffers across 3 corridors to sustain >90% schedule arrival reliability."
+    ],
+    "roadmap_summary": {
+      "total_capex_usd": 6000000.0,
+      "cumulative_emissions_tons": 100238.69,
+      "emissions_reduction_pct": 40.8
+    }
+  },
+  "Case B: LNG Transition Fleet": {
+    "case_name": "Case B: LNG Transition Fleet",
+    "scenario_id": "CASE-B-LNG",
+    "vessel_class": "PANAMAX",
+    "vessel_count": 1,
+    "optimal_speed_knots": 13.46,
+    "fuel_strategy": {
+      "diesel": 1.0
+    },
+    "annual_fuel_consumption_tons": 6539.6,
+    "annual_cost_usd": 8902067.38,
+    "lifecycle_emissions": {
+      "tank_to_wake_tons": 20966.1,
+      "well_to_tank_tons": 3858.4,
+      "well_to_wake_tons": 24824.5
+    },
+    "reliability_score": 100.0,
+    "demand_satisfaction_pct": 100.0,
+    "roi_percentage": 0.0,
+    "payback_years": 0.0,
+    "payback_status": "ZERO_CAPEX",
+    "priority_actions": [
+      "Phase 1 (Immediate, Months 1-6): Enforce eco-speed allocation of 13.5 knots across corridors to immediately cut fuel burn by 17.5%.",
+      "Phase 2 (Capital Sizing, Months 6-18): Secure shipyard reservation slots for dual-fuel conversion of 0 vessels with a total capital budget of $0.0M.",
+      "Phase 3 (Bunkering Infrastructure, Months 18-36): Establish long-term green fuel supply agreements to hedge against projected post-2030 FuelEU GHG intensity deficit surcharges.",
+      "Phase 4 (Buffer Maintenance): Deploy route schedule buffers across 3 corridors to sustain >90% schedule arrival reliability."
+    ],
+    "roadmap_summary": {
+      "total_capex_usd": 29400000.0,
+      "cumulative_emissions_tons": 150535.93,
+      "emissions_reduction_pct": 3.07
+    }
+  },
+  "Case C: Methanol Transition Fleet": {
+    "case_name": "Case C: Methanol Transition Fleet",
+    "scenario_id": "CASE-C-METHANOL",
+    "vessel_class": "PANAMAX",
+    "vessel_count": 1,
+    "optimal_speed_knots": 13.33,
+    "fuel_strategy": {
+      "diesel": 1.0
+    },
+    "annual_fuel_consumption_tons": 7473.9,
+    "annual_cost_usd": 10104026.25,
+    "lifecycle_emissions": {
+      "tank_to_wake_tons": 23961.2,
+      "well_to_tank_tons": 4409.6,
+      "well_to_wake_tons": 28370.8
+    },
+    "reliability_score": 100.0,
+    "demand_satisfaction_pct": 100.0,
+    "roi_percentage": 0.0,
+    "payback_years": 0.0,
+    "payback_status": "ZERO_CAPEX",
+    "priority_actions": [
+      "Phase 1 (Immediate, Months 1-6): Enforce eco-speed allocation of 13.3 knots across corridors to immediately cut fuel burn by 18.0%.",
+      "Phase 2 (Capital Sizing, Months 6-18): Secure shipyard reservation slots for dual-fuel conversion of 0 vessels with a total capital budget of $0.0M.",
+      "Phase 3 (Bunkering Infrastructure, Months 18-36): Establish long-term green fuel supply agreements to hedge against projected post-2030 FuelEU GHG intensity deficit surcharges.",
+      "Phase 4 (Buffer Maintenance): Deploy route schedule buffers across 3 corridors to sustain >90% schedule arrival reliability."
+    ],
+    "roadmap_summary": {
+      "total_capex_usd": 19500000.0,
+      "cumulative_emissions_tons": 149894.72,
+      "emissions_reduction_pct": 51.85
+    }
+  },
+  "Case D: Hydrogen Future Fleet": {
+    "case_name": "Case D: Hydrogen Future Fleet",
+    "scenario_id": "CASE-D-HYDROGEN",
+    "vessel_class": "CAPESIZE",
+    "vessel_count": 1,
+    "optimal_speed_knots": 14.06,
+    "fuel_strategy": {
+      "diesel": 1.0
+    },
+    "annual_fuel_consumption_tons": 8408.1,
+    "annual_cost_usd": 11377829.57,
+    "lifecycle_emissions": {
+      "tank_to_wake_tons": 26956.4,
+      "well_to_tank_tons": 4960.8,
+      "well_to_wake_tons": 31917.2
+    },
+    "reliability_score": 100.0,
+    "demand_satisfaction_pct": 100.0,
+    "roi_percentage": 0.0,
+    "payback_years": 0.0,
+    "payback_status": "ZERO_CAPEX",
+    "priority_actions": [
+      "Phase 1 (Immediate, Months 1-6): Enforce eco-speed allocation of 14.1 knots across corridors to immediately cut fuel burn by 18.4%.",
+      "Phase 2 (Capital Sizing, Months 6-18): Secure shipyard reservation slots for dual-fuel conversion of 0 vessels with a total capital budget of $0.0M.",
+      "Phase 3 (Bunkering Infrastructure, Months 18-36): Establish long-term green fuel supply agreements to hedge against projected post-2030 FuelEU GHG intensity deficit surcharges.",
+      "Phase 4 (Buffer Maintenance): Deploy route schedule buffers across 3 corridors to sustain >90% schedule arrival reliability."
+    ],
+    "roadmap_summary": {
+      "total_capex_usd": 52000000.0,
+      "cumulative_emissions_tons": 194015.39,
+      "emissions_reduction_pct": 37.68
+    }
+  }
+}

@@ -2,6 +2,7 @@
 
 from app.dashboard.page_benchmarking import render_benchmarking_page
 from app.dashboard.page_compliance import render_compliance_page
+from app.dashboard.page_decision_intelligence import render_decision_intelligence_page
 from app.dashboard.page_optimization import render_optimization_page
 from app.dashboard.page_overview import render_overview_page
 from app.dashboard.page_prediction import render_prediction_page
@@ -18,5 +19,7 @@ __all__ = [
     "render_strategy_page",
     "render_reliability_page",
     "render_benchmarking_page",
+    "render_decision_intelligence_page",
 ]
+
 

@@ -1064,4 +1064,119 @@ python scripts/run_phase3_benchmarks.py --seeds 30
 - `workflow_benchmark.json`: End-to-end pipeline stage timings and throughput share.
 - `outputs/reports/SIH26138_Phase3_Quantum_Benchmarking_Decisions.pdf`: High-density executive PDF decision report.
 
+---
+
+## 12. Decision Intelligence & Strategic Decarbonization (Phase 4)
+
+Phase 4 elevates the platform from an operations research optimizer into an **enterprise maritime decision-support system**, empowering maritime fleet executives, financial underwriters, and regulators to navigate long-term decarbonization pathways with mathematical rigor and statutory compliance.
+
+### 12.1 Lifecycle Greenhouse Gas Accounting (Well-to-Wake LCA)
+
+The [`MaritimeLifecycleAssessmentEngine`](file:///src/lifecycle/lifecycle_assessment_engine.py) models the true cradle-to-grave climate impact of marine fuels across Well-to-Tank (upstream extraction, synthesis, liquefaction, transport) and Tank-to-Wake (onboard combustion/fuel cell):
+
+$$\text{WTW} = \text{WTT} + \text{TTW} = (\text{EF}_{\text{production}} + \text{EF}_{\text{transport}}) + (\text{EF}_{\text{combustion}} + \text{GWP}_{\text{slip}} \times C_{\text{slip}})$$
+
+#### Granular Fuel Pathways & Parameters (`DEFAULT_LIFECYCLE_PROFILES`):
+| Marine Fuel | Production Pathway | WTT Intensity ($\text{gCO}_2\text{e/MJ}$) | TTW Intensity ($\text{gCO}_2\text{e/MJ}$) | WTW Total ($\text{gCO}_2\text{e/MJ}$) | Upstream Cost Spread ($\$/\text{t}$) |
+|:---|:---|:---:|:---:|:---:|:---:|
+| **Marine Gasoil (MGO)** | Petroleum Refining | 14.40 | 74.10 | 88.50 | Baseline |
+| **Biodiesel (HVO/FAME)** | Hydrotreated Vegetable Oil | 12.00 | 10.00 | 22.00 | +$350/\text{t}$ |
+| **Fossil LNG** | Fossil Cryogenic Liquefaction | 18.50 | 56.50 | 75.00 | +$120/\text{t}$ |
+| **Bio-LNG** | Anaerobic Digestion + Liquefaction | 10.00 | 15.00 | 25.00 | +$480/\text{t}$ |
+| **Fossil Methanol** | Natural Gas Steam Reforming | 19.00 | 69.00 | 88.00 | +$180/\text{t}$ |
+| **Bio-Methanol** | Biomass Gasification | 11.00 | 12.00 | 23.00 | +$420/\text{t}$ |
+| **E-Methanol** | DAC $\text{CO}_2$ + Green $\text{H}_2$ | 5.00 | 5.00 | 10.00 | +$750/\text{t}$ |
+| **Grey Hydrogen** | SMR without CCS | 85.00 | 0.00 | 85.00 | +$900/\text{t}$ |
+| **Blue Hydrogen** | SMR with 90% Carbon Capture | 25.00 | 0.00 | 25.00 | +$1,400/\text{t}$ |
+| **Green Hydrogen** | Renewable Water Electrolysis | 5.00 | 0.00 | 5.00 | +$2,200/\text{t}$ |
+| **Grey Ammonia** | Fossil Haber-Bosch | 90.00 | 0.00 | 90.00 | +$650/\text{t}$ |
+| **Green Ammonia** | Green $\text{H}_2$ + Renewable Haber-Bosch | 8.00 | 0.00 | 8.00 | +$1,600/\text{t}$ |
+
+---
+
+### 12.2 Regulatory Trajectory & Forward Compliance Forecasting
+
+The [`RegulatoryForecastEngine`](file:///src/strategy/regulatory_forecast.py) delivers forward-looking compliance trajectories from 2026 through 2040, strictly delineating ratified statutory laws from scenario-based exploratory models.
+
+#### 1. IMO Carbon Intensity Indicator (MEPC.400(83)):
+- **2026–2030 (STATUTORY):** Evaluated strictly against IMO Resolution MEPC.400(83) adopted April 11, 2025:
+  - 2026: $Z = 11.0\%$
+  - 2027: $Z = 13.625\%$
+  - 2028: $Z = 16.25\%$
+  - 2029: $Z = 18.875\%$
+  - 2030: $Z = 21.5\%$
+- **2031–2040 (SCENARIO):** Forward scenario extrapolation with configurable annual tightening rates (+2.0%/yr default) anticipating forthcoming IMO MEPC reviews.
+
+#### 2. EU FuelEU Maritime Statutory Penalty Formula (Regulation (EU) 2023/1805):
+Evaluates operational compliance balance against Article 4 targets (2025: -2%, 2030: -6%, 2035: -14.5%, 2040: -31%, 2045: -62%, 2050: -80%) and enforces the official statutory penalty formula under Article 23 & Annex IV:
+
+$$\text{FuelEU Penalty (EUR)} = \frac{|\text{Compliance Balance (gCO}_2\text{eq)}|}{\text{GHGIE}_{\text{actual}} \times 41{,}000\text{ MJ/t}} \times 2{,}400\text{ EUR/t} \times \left(1 + \frac{n - 1}{10}\right)$$
+
+where $n$ is the number of consecutive reporting periods with a penalty deficit.
+
+#### 3. Estimated Compliance Probability Under Operational Uncertainty:
+Under modeled operational uncertainty across cruising speed ($\sigma_v = 0.05$), sea-state weather degradation ($\sigma_w = 0.08$), port turnaround delays, and cargo variability, the engine runs Monte Carlo trials to compute `estimated_compliance_probability` alongside 95% confidence intervals and explicit uncertainty source recording.
+
+---
+
+### 12.3 Multi-Year Fleet Fuel Transition Planner (2026–2040)
+
+The [`FuelTransitionPlanner`](file:///src/strategy/fuel_transition_planner.py) formulates phased fleet modernization roadmaps:
+- **Dual-Fuel Retrofit Scheduling:** Paces shipyard drydock reservations subject to maximum annual transition constraints (`max_transition_rate`).
+- **Capital Expenditure Modeling:** Models dual-fuel conversion capex (e.g. $\$7.5\text{M}$ per vessel) and specialized cryogenic maintenance opex deltas ($\$350\text{k}$/yr).
+- **Emissions Abatement & Carbon Economics:** Quantifies cumulative lifecycle $\text{CO}_2\text{e}$ abatement and avoided regulatory penalty liabilities.
+
+---
+
+### 12.4 Multi-Scenario Macro-Economic Stress Testing
+
+The [`MultiScenarioAnalyzer`](file:///src/scenarios/scenario_comparison.py) evaluates candidate green fleet strategies against 6 canonical macro-economic stress scenarios:
+
+| Scenario Name | Carbon Price ($\$/\text{t}$) | Fuel Price Multiplier | Demand Multiplier | Weather Severity Multiplier | Strategic Focus |
+|:---|:---:|:---:|:---:|:---:|:---|
+| **Baseline Macro Outlook** | $\$80/\text{t}$ | $1.0\times$ | $1.0\times$ | $1.0\times$ | Current market consensus |
+| **Low Carbon Price Stagnation** | $\$30/\text{t}$ | $0.9\times$ | $0.95\times$ | $1.0\times$ | Regulatory delay hedge |
+| **High Carbon Tax Surge** | $\$150/\text{t}$ | $1.1\times$ | $1.05\times$ | $1.05\times$ | Aggressive ETS escalation |
+| **Fuel Price Geopolitical Shock** | $\$80/\text{t}$ | $1.4\times$ | $0.90\times$ | $1.0\times$ | Bunker market volatility |
+| **High Cargo Demand Boom** | $\$90/\text{t}$ | $1.15\times$ | $1.30\times$ | $1.0\times$ | Global trade expansion |
+| **Strict Environmental Regulation** | $\$130/\text{t}$ | $1.2\times$ | $1.0\times$ | $1.15\times$ | Tightened IMO CII boundaries |
+
+---
+
+### 12.5 Executive Investment Economics & Decision Engine
+
+The [`ExecutiveRecommendationEngine`](file:///src/decision_support/executive_recommendation_engine.py) translates technical optimization outputs into boardroom-ready financial decisions:
+- **Return on Investment (ROI):**
+  $$\text{ROI} = \frac{\text{Annual Net Benefit} \times T - \text{Total Capex}}{\text{Total Capex}} \times 100\%$$
+- **Simple Payback Period:**
+  $$\text{Payback (years)} = \begin{cases} \frac{\text{Total Capex}}{\text{Annual Net Benefit}} & \text{if } \text{Annual Net Benefit} > 0 \\ \text{None (NO\_PAYBACK)} & \text{otherwise} \end{cases}$$
+- **Priority Executive Actions:** Phased roadmap across immediate operational throttling (Months 1–6), shipyard capex sizing (Months 6–18), bunkering infrastructure contracting (Months 18–36), and schedule buffer maintenance.
+- **Operational Risk Mitigation Matrix:** Actionable mitigations against alternative fuel price spikes, drydock bottlenecks, CII rating downgrades, and bunkering port congestion.
+
+---
+
+### 12.6 Evidence vs. Assumption Ontological Layer
+
+To protect scientific integrity and provide absolute transparency to evaluators and classification societies, every data point and forecast parameter is classified into one of four ontological tiers:
+1. **`STATUTORY`:** Enacted regulatory requirements (e.g. IMO MEPC.400(83) Z-factors, FuelEU Maritime Regulation (EU) 2023/1805 penalty formulas).
+2. **`MODELLED`:** First-principles naval architecture and engineering formulas (Admiralty cubic power law, engine specific fuel consumption).
+3. **`ASSUMED`:** Industry-standard empirical operational distributions (Gaussian sea-state degradation, port turnaround delay factors).
+4. **`SCENARIO`:** Forward-looking exploratory projections (post-2030 CII annual tightening assumptions, long-term carbon tax trajectories).
+
+---
+
+### 12.7 Industrial Case Studies & Executive Reporting
+
+The [`IndustrialCaseStudySuite`](file:///case_studies/run_case_studies.py) executes 4 end-to-end industrial case studies:
+- **Case A: Conventional Diesel Fleet (Baseline):** 100% conventional VLSFO/MGO baseline.
+- **Case B: LNG Transition Fleet:** 50% dual-fuel LNG transition fleet with methane-slip mitigation.
+- **Case C: Methanol Transition Fleet:** 40% green e-methanol fleet on Panamax trade lanes.
+- **Case D: Hydrogen Future Fleet:** 75% fuel-cell hydrogen & green ammonia zero-carbon Capesize fleet.
+
+#### Multi-Format Report Generation:
+The [`ExecutiveReportGenerator`](file:///src/reporting/executive_report_generator.py) produces publication-grade deliverables across three formats:
+1. **Executive PDF Report:** `outputs/reports/SIH26138_Executive_Decision_Report.pdf` (High-density visual layout generated via ReportLab).
+2. **Management Markdown:** `outputs/reports/SIH26138_Executive_Decision_Report.md`.
+3. **Structured Machine-Readable JSON:** `outputs/reports/SIH26138_Executive_Decision_Report.json`.
+
 

@@ -6,7 +6,7 @@ and optimization components.
 """
 
 from dataclasses import asdict, dataclass, field
-from enum import StrEnum
+from enum import Enum, StrEnum
 import json
 from typing import Any, Optional, Self
 
@@ -832,5 +832,279 @@ class WorkflowBenchmarkResult:
     def from_dict(cls, data: dict[str, Any]) -> Self:
         """Deserialize dictionary into WorkflowBenchmarkResult."""
         return cls(**data)
+
+
+# =============================================================================
+# PHASE 4: DECISION SUPPORT & STRATEGIC DECARBONIZATION SCHEMAS
+# =============================================================================
+
+class EvidenceCategory(str, Enum):
+    """Ontological classification of data, parameters, and forecast items."""
+
+    STATUTORY = "STATUTORY"  # Official ratified regulatory requirement (e.g. MEPC.400(83), Reg 2023/1805)
+    MODELLED = "MODELLED"    # First-principles physics or established engineering formula
+    ASSUMED = "ASSUMED"      # Industry-standard operational assumption (e.g. weather/delay distributions)
+    SCENARIO = "SCENARIO"    # Forward-looking exploratory projection (e.g. post-2030 CII extrapolation)
+
+
+@dataclass(frozen=True, slots=True)
+class FuelLifecycleProfile:
+    """Detailed Well-to-Wake lifecycle emission and cost profile for specific fuel pathway."""
+
+    fuel_name: str
+    production_pathway: str  # e.g., 'grey', 'blue', 'green', 'bio', 'e-fuel', 'fossil'
+    production_emission_factor: float  # t CO2e / t fuel
+    transport_emission_factor: float   # t CO2e / t fuel
+    storage_emission_factor: float     # t CO2e / t fuel (boil-off, slip, fugitives)
+    tank_to_wake_factor: float         # t CO2e / t fuel (combustion)
+    energy_density_mj_per_ton: float   # LHV in MJ / ton
+    renewable_fraction: float = 0.0    # 0.0 to 1.0
+    cost_per_ton_usd: float = 650.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        return asdict(self)
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into FuelLifecycleProfile."""
+        return cls(**data)
+
+
+@dataclass(frozen=True, slots=True)
+class LifecycleAssessmentResult:
+    """Well-to-Wake lifecycle assessment outcome for voyage or fleet profile."""
+
+    fuel_type: str
+    pathway: str
+    fuel_consumption_tons: float
+    tank_to_wake_emissions: float      # Direct combustion emissions (t CO2e)
+    well_to_tank_emissions: float      # Total upstream emissions (t CO2e)
+    well_to_wake_emissions: float      # Total lifecycle footprint (t CO2e)
+    fuel_production_emissions: float   # Upstream feedstock & synthesis emissions (t CO2e)
+    fuel_transport_emissions: float    # Upstream transport & bunkering emissions (t CO2e)
+    fuel_storage_emissions: float      # Fugitive & boil-off emissions (t CO2e)
+    lifecycle_cost: float              # Total fuel + carbon + penalty expenditures (USD)
+    energy_content_mj: float           # Total energy delivered (MJ)
+    emission_intensity_g_per_mj: float # WTW GHG intensity (g CO2e / MJ)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        return asdict(self)
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into LifecycleAssessmentResult."""
+        return cls(**data)
+
+
+@dataclass(frozen=True, slots=True)
+class TransitionMilestone:
+    """Single-year fleet composition, fuel mix, and compliance checkpoint in a transition roadmap."""
+
+    year: int
+    fleet_mix: dict[str, int]
+    fuel_shares: dict[str, float]
+    avg_speed_knots: float
+    capex_usd: float
+    opex_usd: float
+    annual_emissions_tons: float
+    cii_rating: str
+    fueleu_penalty_usd: float
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class TransitionRoadmap:
+    """Multi-year fleet decarbonization and dual-fuel transition roadmap."""
+
+    roadmap_id: str
+    start_year: int
+    end_year: int
+    milestones: tuple[TransitionMilestone, ...]
+    total_transition_capex: float
+    total_transition_opex: float
+    total_transition_cost: float
+    cumulative_emissions_tons: float
+    emissions_reduction_pct: float
+    regulatory_risk_score: float
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        d = asdict(self)
+        d["milestones"] = [m.to_dict() if hasattr(m, "to_dict") else m for m in self.milestones]
+        return d
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into TransitionRoadmap."""
+        clean = dict(data)
+        if "milestones" in clean and isinstance(clean["milestones"], list):
+            clean["milestones"] = tuple(TransitionMilestone(**m) for m in clean["milestones"])
+        return cls(**clean)
+
+
+@dataclass(frozen=True, slots=True)
+class RegulatoryForecastResult:
+    """Forward compliance trajectory across IMO CII and EU FuelEU Maritime regulations."""
+
+    forecast_id: str
+    planning_horizon: tuple[int, ...]
+    future_cii_ratings: dict[int, str]        # Year -> Rating ('A'..'E')
+    future_fueleu_status: dict[int, str]      # Year -> 'COMPLIANT' / 'DEFICIT'
+    projected_penalties_eur: dict[int, float] # Year -> Statutory Penalty EUR
+    projected_penalties_usd: dict[int, float] # Year -> Penalty USD
+    estimated_compliance_probability: dict[int, float]  # Year -> Estimated prob (0.0 to 1.0)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        d = asdict(self)
+        d["planning_horizon"] = list(self.planning_horizon)
+        return d
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into RegulatoryForecastResult."""
+        clean = dict(data)
+        if "planning_horizon" in clean and isinstance(clean["planning_horizon"], list):
+            clean["planning_horizon"] = tuple(clean["planning_horizon"])
+        return cls(**clean)
+
+
+@dataclass(frozen=True, slots=True)
+class ScenarioDefinition:
+    """Parameterized macro-economic scenario for maritime stress testing."""
+
+    name: str
+    description: str
+    carbon_price: float
+    demand_multiplier: float = 1.0
+    fossil_fuel_multiplier: float = 1.0
+    alt_fuel_multiplier: float = 1.0
+    regulation_factor: float = 1.0
+    weather_severity_multiplier: float = 1.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        return asdict(self)
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into ScenarioDefinition."""
+        return cls(**data)
+
+
+@dataclass(frozen=True, slots=True)
+class ScenarioComparisonResult:
+    """Multi-scenario sensitivity matrix and ranking outcome."""
+
+    scenario_names: tuple[str, ...]
+    metrics_comparison: dict[str, dict[str, float]]
+    ranking: tuple[str, ...]
+    best_scenario: str
+    worst_scenario: str
+    sensitivity_analysis: dict[str, Any]
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        d = asdict(self)
+        d["scenario_names"] = list(self.scenario_names)
+        d["ranking"] = list(self.ranking)
+        return d
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into ScenarioComparisonResult."""
+        clean = dict(data)
+        if "scenario_names" in clean and isinstance(clean["scenario_names"], list):
+            clean["scenario_names"] = tuple(clean["scenario_names"])
+        if "ranking" in clean and isinstance(clean["ranking"], list):
+            clean["ranking"] = tuple(clean["ranking"])
+        return cls(**clean)
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutiveRecommendation:
+    """Executive decision brief synthesizing strategy, investment ROI, and risk management."""
+
+    recommendation_id: str
+    recommended_fleet_mix: dict[str, int]
+    recommended_fuel_strategy: dict[str, float]
+    recommended_cruising_speed: float
+    total_investment_capex: float
+    annual_net_benefit_usd: float
+    roi_percentage: float | None
+    payback_years: float | None
+    payback_status: str               # e.g., 'OPTIMAL', 'ACCEPTABLE', 'NO_PAYBACK'
+    expected_cost_savings_usd: float
+    expected_cost_savings_pct: float
+    expected_emissions_reduction_tons: float
+    expected_emissions_reduction_pct: float
+    expected_compliance_benefits: dict[str, Any]
+    expected_reliability_impact: dict[str, Any]
+    priority_actions: tuple[str, ...]
+    risk_and_mitigations: tuple[dict[str, str], ...]
+    evidence_items: tuple[dict[str, str], ...]  # [{item, category: STATUTORY/MODELLED/ASSUMED/SCENARIO, notes}]
+    executive_summary_text: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize dataclass to dictionary."""
+        d = asdict(self)
+        d["priority_actions"] = list(self.priority_actions)
+        d["risk_and_mitigations"] = list(self.risk_and_mitigations)
+        d["evidence_items"] = list(self.evidence_items)
+        return d
+
+    def to_json(self) -> str:
+        """Serialize dataclass to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialize dictionary into ExecutiveRecommendation."""
+        clean = dict(data)
+        if "priority_actions" in clean and isinstance(clean["priority_actions"], list):
+            clean["priority_actions"] = tuple(clean["priority_actions"])
+        if "risk_and_mitigations" in clean and isinstance(clean["risk_and_mitigations"], list):
+            clean["risk_and_mitigations"] = tuple(clean["risk_and_mitigations"])
+        if "evidence_items" in clean and isinstance(clean["evidence_items"], list):
+            clean["evidence_items"] = tuple(clean["evidence_items"])
+        return cls(**clean)
+
 
 

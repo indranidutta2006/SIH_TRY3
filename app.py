@@ -53,6 +53,7 @@ page_selection = st.sidebar.radio(
         "6. Fleet Strategy Optimization",
         "7. Operational Reliability",
         "8. Benchmarking & Validation",
+        "9. Decision Intelligence",
     ],
     index=0,
 )
@@ -69,6 +70,7 @@ st.sidebar.markdown(
     - 🎯 Strategy Engine: `Mix + Capacity + Speed`
     - ⚓ Reliability Engine: `Demand + Schedule Buffer`
     - 📊 Benchmarking: `Quantum Advantage + Baselines`
+    - 🧭 Decision Intel: `LCA + Transition + ROI`
     """
 )
 
@@ -92,4 +94,6 @@ elif page_selection == "7. Operational Reliability":
     render_reliability_page()
 elif page_selection == "8. Benchmarking & Validation":
     render_benchmarking_page()
+elif page_selection == "9. Decision Intelligence":
+    render_decision_intelligence_page()
 

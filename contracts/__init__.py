@@ -62,6 +62,15 @@ from contracts.schemas import (
     StatisticalStabilityResult,
     VoyageRecord,
     WorkflowBenchmarkResult,
+    EvidenceCategory,
+    FuelLifecycleProfile,
+    LifecycleAssessmentResult,
+    TransitionMilestone,
+    TransitionRoadmap,
+    RegulatoryForecastResult,
+    ScenarioDefinition,
+    ScenarioComparisonResult,
+    ExecutiveRecommendation,
 )
 
 __all__ = [
@@ -121,5 +130,15 @@ __all__ = [
     "ParetoResult",
     "StatisticalStabilityResult",
     "WorkflowBenchmarkResult",
+    # Phase 4 Decision Support
+    "EvidenceCategory",
+    "FuelLifecycleProfile",
+    "LifecycleAssessmentResult",
+    "TransitionMilestone",
+    "TransitionRoadmap",
+    "RegulatoryForecastResult",
+    "ScenarioDefinition",
+    "ScenarioComparisonResult",
+    "ExecutiveRecommendation",
 ]
 
