@@ -147,12 +147,19 @@ class IndustrialCaseStudySuite:
             total_fuel_units = sum(fuel_mix_raw.values())
             fuel_shares = {k: v / max(total_fuel_units, 1) for k, v in fuel_mix_raw.items()}
 
+            case_pathways = {
+                "Diesel": "fossil",
+                cfg["primary_fuel"]: "e_methanol" if cfg["primary_fuel"] == "Methanol" else ("bio_lng" if cfg["primary_fuel"] == "LNG" else "green"),
+                cfg["secondary_fuel"]: "green" if cfg["secondary_fuel"] != "Diesel" else "fossil",
+            }
+
             # 2. Multi-Year Transition Roadmap
             roadmap = self.transition_planner.plan_transition(
                 scenario=scen,
                 vessel_class=v_class,
                 primary_green_fuel=cfg["primary_fuel"],
                 secondary_green_fuel=cfg["secondary_fuel"],
+                fuel_pathways=case_pathways,
             )
 
             # 3. Lifecycle Assessment (LCA)
@@ -163,6 +170,7 @@ class IndustrialCaseStudySuite:
             }
             lca_results = self.lca_engine.assess_fleet_lifecycle(
                 fuel_consumption=fuel_split,
+                pathways=case_pathways,
                 carbon_price_usd=scen.carbon_price,
             )
             total_wtw = sum(r.well_to_wake_emissions for r in lca_results.values())
@@ -178,6 +186,7 @@ class IndustrialCaseStudySuite:
                 fuel_shares=fuel_shares,
                 start_year=2026,
                 end_year=2035,
+                fuel_pathways=case_pathways,
             )
 
             # 5. Executive Recommendation

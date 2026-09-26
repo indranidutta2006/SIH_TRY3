@@ -369,7 +369,7 @@ def test_page_decision_intelligence_render(tmp_path: Path) -> None:
          patch("streamlit.columns", side_effect=lambda n: [MagicMock() for _ in range(n if isinstance(n, int) else len(n))]), \
          patch("streamlit.number_input", side_effect=[250000.0, 3500.0, 260.0]), \
          patch("streamlit.slider", side_effect=[80.0, 10]), \
-         patch("streamlit.selectbox", side_effect=["PANAMAX", "Methanol", "Hydrogen"]), \
+         patch("streamlit.selectbox", side_effect=["PANAMAX", "Methanol", "e_methanol", "Hydrogen"]), \
          patch("streamlit.subheader"), \
          patch("streamlit.metric"), \
          patch("streamlit.info"), \
@@ -380,4 +380,137 @@ def test_page_decision_intelligence_render(tmp_path: Path) -> None:
          patch("streamlit.button", return_value=True):
         mock_exp.return_value.__enter__.return_value = MagicMock()
         render_decision_intelligence_page()
+
+
+# =============================================================================
+# 9. GRANULAR LCA PATHWAYS & REGULATORY DIVERGENCE TESTS (ISSUE 3)
+# =============================================================================
+
+def test_regulatory_forecast_granular_lca_pathway_divergence() -> None:
+    """Verify that Grey vs Green Hydrogen and Fossil vs E-Methanol diverge in FuelEU compliance."""
+    engine = RegulatoryForecastEngine()
+
+    # 1. Hydrogen: Grey (SMR) vs Green (Electrolysis) in 2030 (target = 85.69 gCO2eq/MJ)
+    forecast_grey_h2 = engine.forecast_compliance_trajectory(
+        vessel_type="Bulk carrier",
+        capacity_dwt=45000.0,
+        annual_fuel_consumption_tons=2000.0,
+        annual_distance_nm=50000.0,
+        fuel_shares={"Hydrogen": 1.0},
+        start_year=2030,
+        end_year=2030,
+        fuel_pathways={"Hydrogen": "grey"},
+    )
+    forecast_green_h2 = engine.forecast_compliance_trajectory(
+        vessel_type="Bulk carrier",
+        capacity_dwt=45000.0,
+        annual_fuel_consumption_tons=2000.0,
+        annual_distance_nm=50000.0,
+        fuel_shares={"Hydrogen": 1.0},
+        start_year=2030,
+        end_year=2030,
+        fuel_pathways={"Hydrogen": "green"},
+    )
+
+    # Grey Hydrogen has ~87.5 g/MJ > 85.69 g/MJ -> DEFICIT with financial penalty
+    assert forecast_grey_h2.metadata["fuel_pathways"]["Hydrogen"] == "grey"
+    assert forecast_grey_h2.metadata["fuel_ghg_intensities_g_per_mj"]["Hydrogen"] == pytest.approx(87.5, abs=0.5)
+    assert forecast_grey_h2.future_fueleu_status[2030] == "DEFICIT"
+    assert forecast_grey_h2.projected_penalties_eur[2030] > 100_000.0
+
+    # Green Hydrogen has ~2.92 g/MJ << 85.69 g/MJ -> COMPLIANT with zero penalty
+    assert forecast_green_h2.metadata["fuel_pathways"]["Hydrogen"] == "green"
+    assert forecast_green_h2.metadata["fuel_ghg_intensities_g_per_mj"]["Hydrogen"] == pytest.approx(2.92, abs=0.5)
+    assert forecast_green_h2.future_fueleu_status[2030] == "COMPLIANT"
+    assert forecast_green_h2.projected_penalties_eur[2030] == 0.0
+
+    # 2. Methanol: Fossil (Natural Gas) vs E-Methanol (DAC+H2) in 2030
+    forecast_fossil_meth = engine.forecast_compliance_trajectory(
+        vessel_type="Bulk carrier",
+        capacity_dwt=45000.0,
+        annual_fuel_consumption_tons=3000.0,
+        annual_distance_nm=50000.0,
+        fuel_shares={"Methanol": 1.0},
+        start_year=2030,
+        end_year=2030,
+        fuel_pathways={"Methanol": "fossil"},
+    )
+    forecast_e_meth = engine.forecast_compliance_trajectory(
+        vessel_type="Bulk carrier",
+        capacity_dwt=45000.0,
+        annual_fuel_consumption_tons=3000.0,
+        annual_distance_nm=50000.0,
+        fuel_shares={"Methanol": 1.0},
+        start_year=2030,
+        end_year=2030,
+        fuel_pathways={"Methanol": "e_methanol"},
+    )
+
+    # Fossil Methanol (89.2 g/MJ) is in DEFICIT in 2030
+    assert forecast_fossil_meth.future_fueleu_status[2030] == "DEFICIT"
+    assert forecast_fossil_meth.projected_penalties_eur[2030] > 0.0
+
+    # E-Methanol (~5.03 g/MJ) is COMPLIANT in 2030
+    assert forecast_e_meth.future_fueleu_status[2030] == "COMPLIANT"
+    assert forecast_e_meth.projected_penalties_eur[2030] == 0.0
+
+
+def test_regulatory_forecast_profile_and_intensity_overrides() -> None:
+    """Verify direct injection of custom FuelLifecycleProfile, custom intensities, and direct overrides."""
+    engine = RegulatoryForecastEngine()
+
+    # 1. Custom GHG intensity map override
+    res_custom = engine.forecast_compliance_trajectory(
+        vessel_type="Bulk carrier",
+        capacity_dwt=45000.0,
+        annual_fuel_consumption_tons=2500.0,
+        annual_distance_nm=60000.0,
+        fuel_shares={"Methanol": 0.5, "Diesel": 0.5},
+        start_year=2026,
+        end_year=2028,
+        custom_ghg_intensities={"Methanol": 15.0, "Diesel": 89.0},
+    )
+    assert res_custom.metadata["fuel_ghg_intensities_g_per_mj"]["Methanol"] == 15.0
+    assert res_custom.metadata["fuel_ghg_intensities_g_per_mj"]["Diesel"] == 89.0
+
+    # 2. Custom FuelLifecycleProfile injection
+    custom_profile = FuelLifecycleProfile(
+        fuel_name="Ammonia",
+        production_pathway="certified_solar",
+        production_emission_factor=0.04,
+        transport_emission_factor=0.06,
+        storage_emission_factor=0.0,
+        tank_to_wake_factor=0.0,
+        energy_density_mj_per_ton=18600.0,
+        renewable_fraction=1.0,
+        cost_per_ton_usd=1200.0,
+    )
+    res_prof = engine.forecast_compliance_trajectory(
+        vessel_type="Bulk carrier",
+        capacity_dwt=45000.0,
+        annual_fuel_consumption_tons=2000.0,
+        annual_distance_nm=50000.0,
+        fuel_shares={"Ammonia": 1.0},
+        start_year=2030,
+        end_year=2030,
+        lifecycle_profiles=[custom_profile],
+    )
+    assert res_prof.metadata["fuel_pathways"]["Ammonia"] == "certified_solar"
+    assert res_prof.future_fueleu_status[2030] == "COMPLIANT"
+
+    # 3. Direct fleet-wide override
+    res_direct = engine.forecast_compliance_trajectory(
+        vessel_type="Bulk carrier",
+        capacity_dwt=45000.0,
+        annual_fuel_consumption_tons=2000.0,
+        annual_distance_nm=50000.0,
+        fuel_shares={"Diesel": 1.0},
+        start_year=2030,
+        end_year=2030,
+        wtw_ghg_intensity=20.0,
+        annual_energy_mj=80_000_000.0,
+    )
+    assert res_direct.metadata["effective_ghg_intensity_g_per_mj"] == 20.0
+    assert res_direct.future_fueleu_status[2030] == "COMPLIANT"
+
 

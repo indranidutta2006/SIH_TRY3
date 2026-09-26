@@ -77,6 +77,7 @@ class FuelTransitionPlanner:
         secondary_green_fuel: str = "Hydrogen",
         max_retrofit_rate_per_period: float = 0.25,
         carbon_price_escalation_pct: float = 0.05,
+        fuel_pathways: dict[str, str] | None = None,
     ) -> TransitionRoadmap:
         """Generate multi-year fleet transition roadmap minimizing total cost and emissions.
 
@@ -88,6 +89,7 @@ class FuelTransitionPlanner:
             secondary_green_fuel: Long-term deep decarbonization fuel.
             max_retrofit_rate_per_period: Maximum fraction of fleet convertible per planning interval.
             carbon_price_escalation_pct: Annual carbon price escalation rate.
+            fuel_pathways: Optional custom feedstock pathways mapping (e.g. {'Hydrogen': 'green'}).
 
         Returns:
             TransitionRoadmap capturing milestone decisions, costs, and emissions trajectory.
@@ -153,8 +155,17 @@ class FuelTransitionPlanner:
             fleet_fuel_tons = required_vessels * base_annual_fuel_per_vessel
             fuel_split = {f: fleet_fuel_tons * sh for f, sh in fuel_shares.items() if sh > 0.0}
 
+            pathways_map = {
+                "Diesel": "fossil",
+                primary_green_fuel: "e_methanol" if primary_green_fuel == "Methanol" else ("bio_lng" if primary_green_fuel == "LNG" else "green"),
+                secondary_green_fuel: "green",
+            }
+            if fuel_pathways:
+                pathways_map.update(fuel_pathways)
+
             lca_results = self.lca_engine.assess_fleet_lifecycle(
                 fuel_consumption=fuel_split,
+                pathways=pathways_map,
                 carbon_price_usd=carbon_price,
             )
 
@@ -173,6 +184,7 @@ class FuelTransitionPlanner:
                 fuel_shares=fuel_shares,
                 start_year=yr,
                 end_year=yr,
+                fuel_pathways=pathways_map,
             )
 
             cii_rate = reg_res.future_cii_ratings.get(yr, "C")

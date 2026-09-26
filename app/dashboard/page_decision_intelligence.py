@@ -82,6 +82,18 @@ def render_decision_intelligence_page() -> None:
         with c3:
             vessel_class = st.selectbox("Vessel Class", ["PANAMAX", "HANDYMAX", "CAPESIZE"], index=0)
             primary_green_fuel = st.selectbox("Primary Transition Fuel", ["Methanol", "LNG", "Hydrogen", "Ammonia"], index=0)
+            pathway_options = {
+                "Methanol": ["e_methanol", "bio_methanol", "fossil"],
+                "LNG": ["bio_lng", "fossil"],
+                "Hydrogen": ["green", "blue", "grey"],
+                "Ammonia": ["green", "blue", "grey"],
+            }
+            primary_pathway = st.selectbox(
+                "Feedstock Pathway",
+                pathway_options.get(primary_green_fuel, ["green", "fossil"]),
+                index=0,
+                help="Granular LCA production pathway affecting FuelEU GHG intensity and compliance penalties."
+            )
         with c4:
             secondary_green_fuel = st.selectbox("Secondary Fuel (Post-2032)", ["Hydrogen", "Ammonia", "Methanol"], index=0)
             horizon_years = st.slider("Investment Horizon (years)", 5, 20, 10)
@@ -113,11 +125,18 @@ def render_decision_intelligence_page() -> None:
     total_fuel_units = max(1, sum(fuel_counts.values()))
     fuel_shares = {k: v / total_fuel_units for k, v in fuel_counts.items()}
 
+    fuel_pathways = {
+        "Diesel": "fossil",
+        primary_green_fuel: primary_pathway,
+        secondary_green_fuel: "green",
+    }
+
     roadmap = transition_planner.plan_transition(
         scenario=scenario,
         vessel_class=vessel_class,
         primary_green_fuel=primary_green_fuel,
         secondary_green_fuel=secondary_green_fuel,
+        fuel_pathways=fuel_pathways,
     )
     forecast = reg_engine.forecast_compliance_trajectory(
         vessel_type="Bulk carrier",
@@ -127,6 +146,7 @@ def render_decision_intelligence_page() -> None:
         fuel_shares=fuel_shares,
         start_year=2026,
         end_year=2040,
+        fuel_pathways=fuel_pathways,
     )
     rec = exec_engine.generate_recommendation(
         strategy_recommendation=strat_rec,
@@ -204,7 +224,11 @@ def render_decision_intelligence_page() -> None:
             for f, sh in fuel_shares.items()
             if sh > 0.0
         }
-        lca_res = lca_engine.assess_fleet_lifecycle(fuel_consumption=fuel_split, carbon_price_usd=carbon_price)
+        lca_res = lca_engine.assess_fleet_lifecycle(
+            fuel_consumption=fuel_split,
+            pathways=fuel_pathways,
+            carbon_price_usd=carbon_price,
+        )
         lca_rows = []
         for f, res in lca_res.items():
             lca_rows.append({"Fuel": f, "Stage": "Tank-to-Wake (Direct Combustion)", "CO2e (tons)": res.tank_to_wake_emissions})
