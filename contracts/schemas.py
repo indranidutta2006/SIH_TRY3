@@ -407,6 +407,7 @@ class OptimizationScenario:
     annual_voyages: int | None = None  # Annual voyages / round-trips derived from strategy
     annual_distance: float | None = None  # Cumulative annual operating distance (nm)
     port_limits: dict[str, Any] | None = None  # Draft, beam, length or air draft port restrictions
+    buffer_percentage: float = 0.15  # Operational buffer capacity fraction (default 0.15 = 15%)
 
     @property
     def effective_vessel_capacity(self) -> float | None:
@@ -573,6 +574,11 @@ class DemandSatisfactionMetrics:
         """Demand satisfaction rate represented as percentage (0.0 to 100.0%)."""
         return round(self.demand_satisfaction_rate * 100.0, 2)
 
+    @property
+    def service_gap(self) -> float:
+        """Service gap from full satisfaction: max(0.0, 1.0 - satisfaction_rate)."""
+        return round(max(0.0, 1.0 - self.demand_satisfaction_rate), 4)
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize dataclass to dictionary."""
         return asdict(self)
@@ -600,11 +606,49 @@ class ReliabilityMetrics:
     score_breakdown: dict[str, float]  # {"on_time_component": ..., "delay_penalty": ..., "missed_voyage_penalty": ...}
     route_reliability: dict[str, float]  # {route_id: score}
     reliability_trace: tuple[dict[str, Any], ...] = ()
+    route_delays: dict[str, float] = field(default_factory=dict)
+    route_demands: dict[str, float] = field(default_factory=dict)
+    route_utilizations: dict[str, float] = field(default_factory=dict)
 
     @property
     def schedule_reliability_score(self) -> float:
         """Alias for compatibility."""
         return self.reliability_score
+
+    @property
+    def on_time_rate(self) -> float:
+        """On-time arrival rate alias (0.0 to 1.0)."""
+        return self.on_time_arrival_rate
+
+    @property
+    def delay_rate(self) -> float:
+        """Proportion of voyages experiencing transit delay."""
+        return round(max(0.0, 1.0 - self.on_time_arrival_rate), 4)
+
+    @property
+    def route_delay(self) -> dict[str, float]:
+        """Corridor average delay hours mapping."""
+        return self.route_delays
+
+    @property
+    def route_demand(self) -> dict[str, float]:
+        """Corridor cargo demand mapping."""
+        return self.route_demands
+
+    @property
+    def route_utilization(self) -> dict[str, float]:
+        """Corridor capacity utilization mapping."""
+        return self.route_utilizations
+
+    @property
+    def on_time_voyages(self) -> int:
+        """Count of voyages arriving on time."""
+        return int(round(self.on_time_arrival_rate * self.total_voyages))
+
+    @property
+    def delayed_voyages(self) -> int:
+        """Count of voyages delayed (excluding missed voyages)."""
+        return max(0, self.total_voyages - self.on_time_voyages - self.missed_voyages)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize dataclass to dictionary."""

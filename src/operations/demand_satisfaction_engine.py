@@ -27,46 +27,77 @@ class CargoDemandSatisfactionEngine:
 
     def evaluate_demand_satisfaction(
         self,
-        scenario: OptimizationScenario,
+        scenario: OptimizationScenario | None = None,
+        cargo_demand: float | None = None,
         delivered_cargo: float | None = None,
         fleet_composition: FleetCompositionResult | None = None,
+        fleet_mix: FleetCompositionResult | dict[str, int] | None = None,
+        capacity_plan: Any | None = None,
         deployment_plan: dict[str, list[dict[str, Any]]] | None = None,
+        service_level: float | None = None,
     ) -> DemandSatisfactionMetrics:
         """Evaluate cargo delivery fulfillment against scenario target and service level.
 
         Workflow:
-            1. Resolve required demand (prioritizing forecasted_demand if provided, else cargo_demand).
-            2. Compute delivered cargo volume from explicit parameter, fleet composition, or deployment plan.
+            1. Resolve required demand (prioritizing explicit cargo_demand, then forecasted_demand, then scenario cargo_demand).
+            2. Compute delivered cargo volume from explicit parameter, fleet composition, deployment plan, or capacity plan.
             3. Calculate satisfaction rate, capped strictly at 1.0 (100%).
             4. Compute unserved cargo and distance to target service level.
 
         Args:
             scenario: Operational scenario context containing demand and service level targets.
+            cargo_demand: Explicit cargo demand volume in metric tons.
             delivered_cargo: Explicitly provided delivered tonnage, if precomputed.
             fleet_composition: Fleet composition result providing total annual fleet capacity.
+            fleet_mix: Fleet composition result or size/fuel dictionary.
+            capacity_plan: Capacity optimization result providing vessel-level sizing.
             deployment_plan: Route-to-vessel deployment allocations.
+            service_level: Optional explicit target service level (default from scenario or 0.95).
 
         Returns:
             DemandSatisfactionMetrics with satisfaction rate, unserved volume, gap, and status.
         """
         # 1. Resolve required demand
-        required_demand = (
-            scenario.forecasted_demand
-            if scenario.forecasted_demand is not None
-            else scenario.cargo_demand
+        if cargo_demand is not None:
+            required_demand = float(cargo_demand)
+        elif scenario is not None:
+            required_demand = (
+                scenario.forecasted_demand
+                if scenario.forecasted_demand is not None
+                else scenario.cargo_demand
+            )
+        else:
+            required_demand = 0.0
+
+        # 2. Resolve target service level
+        target_sl = (
+            service_level
+            if service_level is not None
+            else (scenario.service_level if scenario is not None else 0.95)
         )
 
-        # 2. Resolve delivered cargo
+        # 3. Resolve delivered cargo
         if delivered_cargo is not None:
             actual_delivered = float(delivered_cargo)
         elif fleet_composition is not None:
             actual_delivered = float(fleet_composition.total_capacity)
+        elif fleet_mix is not None:
+            if isinstance(fleet_mix, FleetCompositionResult):
+                actual_delivered = float(fleet_mix.total_capacity)
+            elif isinstance(fleet_mix, dict):
+                actual_delivered = self._sum_fleet_mix_capacity(fleet_mix, capacity_plan)
+            else:
+                actual_delivered = 0.0
         elif deployment_plan is not None:
             actual_delivered = self._sum_deployment_capacity(deployment_plan)
+        elif capacity_plan is not None:
+            trips = getattr(capacity_plan, "optimal_trips", 1)
+            cap = getattr(capacity_plan, "recommended_capacity", 0.0)
+            actual_delivered = float(cap * trips)
         else:
             actual_delivered = 0.0
 
-        # 3. Handle zero or negative demand edge case
+        # 4. Handle zero or negative demand edge case
         if required_demand <= 0.0:
             self.logger.info("Scenario demand is zero or negative (%.1f tons). Marked fully satisfied.", required_demand)
             return DemandSatisfactionMetrics(
@@ -79,13 +110,13 @@ class CargoDemandSatisfactionEngine:
                 status="SATISFIED",
             )
 
-        # 4. Standard demand satisfaction metrics
+        # 5. Standard demand satisfaction metrics
         delivered_effective = max(0.0, actual_delivered)
         raw_ratio = delivered_effective / required_demand
         satisfaction_rate = min(1.0, max(0.0, raw_ratio))
         unserved = max(0.0, required_demand - delivered_effective)
-        service_gap = max(0.0, scenario.service_level - satisfaction_rate)
-        is_satisfied = satisfaction_rate >= scenario.service_level
+        service_gap = max(0.0, target_sl - satisfaction_rate)
+        is_satisfied = satisfaction_rate >= target_sl
 
         status = "SATISFIED" if is_satisfied else "UNSATISFIED"
 
@@ -94,7 +125,7 @@ class CargoDemandSatisfactionEngine:
             required_demand,
             delivered_effective,
             satisfaction_rate * 100.0,
-            scenario.service_level * 100.0,
+            target_sl * 100.0,
             status,
         )
 
@@ -118,5 +149,37 @@ class CargoDemandSatisfactionEngine:
         total = 0.0
         for vessels in deployment_plan.values():
             for v in vessels:
-                total += float(v.get("allocated_capacity_dwt", 0.0))
+                annual_v = float(v.get("voyages_per_year", v.get("annual_voyages", 1)))
+                dwt = float(v.get("allocated_capacity_dwt", 0.0))
+                total += dwt * 0.85 * annual_v
         return total
+
+    def _sum_fleet_mix_capacity(
+        self,
+        fleet_mix: dict[str, int],
+        capacity_plan: Any | None = None,
+    ) -> float:
+        """Estimate annual cargo throughput for a fleet mix dictionary."""
+        # Standard annual capacities per vessel class (DWT * 0.85 * annual voyages)
+        annual_class_throughput = {
+            "feeder": 12000.0 * 0.85 * 35,
+            "medium": 45000.0 * 0.85 * 20,
+            "large": 120000.0 * 0.85 * 10,
+        }
+        total = 0.0
+        for k, count in fleet_mix.items():
+            k_clean = k.lower().split("_")[0]
+            if k_clean in annual_class_throughput and count > 0:
+                total += annual_class_throughput[k_clean] * count
+
+        if total == 0.0 and capacity_plan is not None:
+            total_ships = sum(v for k, v in fleet_mix.items() if k in {"feeder", "medium", "large"})
+            cap = getattr(capacity_plan, "recommended_capacity", 45000.0)
+            trips = getattr(capacity_plan, "optimal_trips", 20)
+            total = cap * 0.85 * trips * max(1, total_ships)
+
+        return total
+
+
+# Canonical alias for Phase 2 operational consistency
+DemandSatisfactionEngine = CargoDemandSatisfactionEngine

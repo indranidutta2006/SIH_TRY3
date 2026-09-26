@@ -120,11 +120,13 @@ class FleetStrategyOptimizer:
         )
 
         # 4. Generate Fleet Deployment Plan (Route-to-Vessel Allocation)
+        buffer_percentage = kwargs.get("buffer_percentage", getattr(scenario, "buffer_percentage", 0.15))
         deployment_plan = self._generate_deployment_plan(
             scenario=scenario,
             composition=comp_res,
             capacity=cap_res,
             speed=speed_res,
+            buffer_percentage=buffer_percentage,
         )
 
         # 5. Cargo Demand Satisfaction Evaluation
@@ -270,6 +272,7 @@ class FleetStrategyOptimizer:
         composition: FleetCompositionResult,
         capacity: CapacityOptimizationResult,
         speed: SpeedOptimizationResult,
+        buffer_percentage: float = 0.15,
     ) -> dict[str, list[dict[str, Any]]]:
         """Construct operational route-to-vessel deployment allocations."""
         plan: dict[str, list[dict[str, Any]]] = {}
@@ -385,9 +388,16 @@ class FleetStrategyOptimizer:
             est_voyage_hours = dist / max(speed.optimal_speed, 1.0)
             r_score = route_scores.get(r_id, 95.0)
 
-            # Capacity buffer calculation
+            # Dynamic reliability buffer calculations (configurable percentage)
+            buffer_pct = max(0.0, min(1.0, float(buffer_percentage)))
             route_demand_share = scenario.cargo_demand / max(1, len(routes))
-            buffer_cap = max(0.0, capacity.recommended_capacity - route_demand_share)
+            spare_cap = round(capacity.recommended_capacity * buffer_pct, 2)
+            buffer_cap = round(max(spare_cap, capacity.recommended_capacity - route_demand_share), 2)
+            redundancy_factor = round(1.0 + buffer_pct, 2)
+
+            port_buffer_h = round(max(0.0, (scenario.port_delay_factor - 1.0) * 12.0) * (1.0 + buffer_pct), 2)
+            weather_buffer_h = round(est_voyage_hours * max(0.0, scenario.weather_factor - 1.0) * buffer_pct, 2)
+            deadline_buffer_h = round(max(0.0, scenario.deadline_hours - est_voyage_hours), 2)
 
             for v in route_vessel_map[r_id]:
                 assigned_for_route.append({
@@ -395,8 +405,13 @@ class FleetStrategyOptimizer:
                     "vessel_class": v["vessel_class"],
                     "fuel_type": v["fuel_type"],
                     "allocated_capacity_dwt": capacity.recommended_capacity,
-                    "buffer_capacity_dwt": round(buffer_cap, 2),
-                    "redundancy_factor": 1.15,
+                    "spare_capacity_dwt": spare_cap,
+                    "buffer_capacity_dwt": buffer_cap,
+                    "redundancy_factor": redundancy_factor,
+                    "port_turnaround_buffer_hours": port_buffer_h,
+                    "weather_buffer_hours": weather_buffer_h,
+                    "deadline_buffer_hours": deadline_buffer_h,
+                    "buffer_percentage": round(buffer_pct * 100.0, 1),
                     "route_reliability_score": r_score,
                     "cruising_speed_knots": speed.optimal_speed,
                     "voyage_eta_hours": round(est_voyage_hours, 1),

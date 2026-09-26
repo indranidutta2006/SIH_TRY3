@@ -117,6 +117,14 @@ def render_reliability_page() -> None:
                 value=260.0,
                 step=10.0,
             )
+            buffer_percentage = st.slider(
+                "Buffer Capacity Redundancy (%)",
+                min_value=5.0,
+                max_value=30.0,
+                value=15.0,
+                step=1.0,
+                help="Spare capacity and operational contingency buffer on transit corridors.",
+            ) / 100.0
 
     # 2. Build Operational Scenario and Run Optimization
     scenario = OptimizationScenario(
@@ -134,6 +142,7 @@ def render_reliability_page() -> None:
         target_reliability=target_reliability,
         port_delay_factor=port_delay_factor,
         forecasted_demand=forecasted_demand,
+        buffer_percentage=buffer_percentage,
     )
 
     with st.spinner("Running Integrated Reliability & Demand Satisfaction Optimization..."):
@@ -155,40 +164,53 @@ def render_reliability_page() -> None:
     st.markdown("---")
 
     # 4. Top-Level Executive KPI Scorecard
-    kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
+    kpi1, kpi2, kpi3, kpi4, kpi5, kpi6, kpi7 = st.columns(7)
     with kpi1:
         st.metric(
-            label="Schedule Reliability Score",
+            label="Demand Satisfaction",
+            value=f"{dem.satisfaction_percentage:.1f}%",
+            delta=f"Target: {service_level_target * 100.0:.0f}%",
+            delta_color="normal" if dem.is_satisfied else "inverse",
+        )
+    with kpi2:
+        st.metric(
+            label="Delivered Cargo",
+            value=f"{dem.delivered_cargo:,.0f} t",
+            delta=f"Req: {dem.required_demand:,.0f} t",
+        )
+    with kpi3:
+        st.metric(
+            label="Unserved Cargo",
+            value=f"{dem.unserved_cargo:,.0f} t",
+            delta="Zero Shortfall" if dem.unserved_cargo == 0 else "Cargo Deficit",
+            delta_color="normal" if dem.unserved_cargo == 0 else "inverse",
+        )
+    with kpi4:
+        st.metric(
+            label="Reliability Score",
             value=f"{rel.reliability_score:.1f} / 100",
             delta=f"{rel.reliability_score - target_reliability:+.1f} vs Target",
             delta_color="normal" if rel.reliability_score >= target_reliability else "inverse",
         )
-    with kpi2:
-        st.metric(
-            label="On-Time Arrival Rate",
-            value=f"{rel.on_time_arrival_rate * 100.0:.1f}%",
-            delta=f"Total: {rel.total_voyages} voyages",
-        )
-    with kpi3:
-        st.metric(
-            label="Demand Satisfaction",
-            value=f"{dem.satisfaction_percentage:.1f}%",
-            delta=f"Service Level: {service_level_target * 100.0:.0f}%",
-            delta_color="normal" if dem.is_satisfied else "inverse",
-        )
-    with kpi4:
-        st.metric(
-            label="Unserved Cargo Volume",
-            value=f"{dem.unserved_cargo:,.0f} tons",
-            delta="Zero Shortfall" if dem.unserved_cargo == 0 else "Cargo Deficit",
-            delta_color="normal" if dem.unserved_cargo == 0 else "inverse",
-        )
     with kpi5:
+        st.metric(
+            label="On-Time Rate",
+            value=f"{rel.on_time_arrival_rate * 100.0:.1f}%",
+            delta=f"{rel.on_time_voyages}/{rel.total_voyages} on time",
+        )
+    with kpi6:
         st.metric(
             label="Average Delay",
             value=f"{rel.average_delay_hours:.1f} hrs",
             delta=f"Max: {rel.max_delay_hours:.1f} hrs",
             delta_color="inverse" if rel.average_delay_hours > 0 else "normal",
+        )
+    with kpi7:
+        st.metric(
+            label="Missed Voyages",
+            value=f"{rel.missed_voyages}",
+            delta=f"Total: {rel.total_voyages} voyages",
+            delta_color="normal" if rel.missed_voyages == 0 else "inverse",
         )
 
     st.markdown("---")
@@ -288,9 +310,18 @@ def render_reliability_page() -> None:
 
         with col_r2:
             st.markdown("**Corridor Operational Statistics**")
-            st.dataframe(route_df, use_container_width=True, hide_index=True)
+            corridor_records = []
+            for r_id, score in rel.route_reliability.items():
+                corridor_records.append({
+                    "Route Corridor": r_id,
+                    "Reliability Score": f"{score:.1f}",
+                    "Average Delay (hrs)": f"{rel.route_delays.get(r_id, 0.0):.1f}",
+                    "Cargo Demand (tons)": f"{rel.route_demands.get(r_id, 0.0):,.0f}",
+                    "Corridor Utilization": f"{rel.route_utilizations.get(r_id, 0.0) * 100.0:.1f}%",
+                })
+            st.dataframe(pd.DataFrame(corridor_records), use_container_width=True, hide_index=True)
             st.info(
-                f"💡 **Buffer Capacity**: Fleet vessels maintain a minimum 15% DWT capacity redundancy "
+                f"💡 **Buffer Capacity**: Fleet vessels maintain a {buffer_percentage * 100.0:.0f}% DWT capacity redundancy "
                 f"to absorb demand surges without violating departure windows."
             )
 
@@ -304,8 +335,10 @@ def render_reliability_page() -> None:
                     "Class": v.get("vessel_class"),
                     "Fuel Powertrain": v.get("fuel_type"),
                     "Allocated DWT": f"{v.get('allocated_capacity_dwt', 0.0):,.0f}",
-                    "Buffer Capacity (DWT)": f"{v.get('buffer_capacity_dwt', 0.0):,.0f}",
-                    "Redundancy Factor": f"{v.get('redundancy_factor', 1.15):.2f}x",
+                    "Buffer DWT": f"{v.get('buffer_capacity_dwt', 0.0):,.0f}",
+                    "Port Buffer (h)": f"{v.get('port_turnaround_buffer_hours', 0.0):.1f}",
+                    "Weather Buffer (h)": f"{v.get('weather_buffer_hours', 0.0):.1f}",
+                    "Slack (h)": f"{v.get('deadline_buffer_hours', 0.0):.1f}",
                     "Corridor Reliability": f"{v.get('route_reliability_score', 90.0):.1f}%",
                     "Cruising Speed": f"{v.get('cruising_speed_knots', 14.0):.1f} kts",
                     "Transit ETA": f"{v.get('voyage_eta_hours', 0.0):.1f}h",

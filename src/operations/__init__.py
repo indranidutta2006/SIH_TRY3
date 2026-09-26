@@ -5,10 +5,14 @@ Phase 2 Deliverable: Cargo demand satisfaction, schedule reliability engineering
 service-level optimization, and operational risk telemetry.
 """
 
-from src.operations.demand_satisfaction_engine import CargoDemandSatisfactionEngine
+from src.operations.demand_satisfaction_engine import (
+    CargoDemandSatisfactionEngine,
+    DemandSatisfactionEngine,
+)
 from src.operations.reliability_engine import ScheduleReliabilityEngine
 
 __all__ = [
     "CargoDemandSatisfactionEngine",
+    "DemandSatisfactionEngine",
     "ScheduleReliabilityEngine",
 ]
