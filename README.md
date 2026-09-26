@@ -1072,7 +1072,7 @@ Phase 4 elevates the platform from an operations research optimizer into an **en
 
 ### 12.1 Lifecycle Greenhouse Gas Accounting (Well-to-Wake LCA)
 
-The [`MaritimeLifecycleAssessmentEngine`](file:///src/lifecycle/lifecycle_assessment_engine.py) models the true cradle-to-grave climate impact of marine fuels across Well-to-Tank (upstream extraction, synthesis, liquefaction, transport) and Tank-to-Wake (onboard combustion/fuel cell):
+The [`MaritimeLifecycleAssessmentEngine`](file:///src/lifecycle/lifecycle_assessment_engine.py) models the complete Well-to-Wake (WTW) lifecycle emissions of marine fuels across Well-to-Tank (upstream feedstock extraction, synthesis, liquefaction, transport) and Tank-to-Wake (onboard combustion and fuel cell operations):
 
 $$\text{WTW} = \text{WTT} + \text{TTW} = (\text{EF}_{\text{production}} + \text{EF}_{\text{transport}}) + (\text{EF}_{\text{combustion}} + \text{GWP}_{\text{slip}} \times C_{\text{slip}})$$
 
