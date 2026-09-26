@@ -13,3 +13,7 @@ pyarrow>=17.0.0
 # Executive Web Dashboard & Visual Analytics
 streamlit==1.64.0
 plotly==7.0.0
+
+# Executive Reporting & Document Synthesis
+reportlab>=4.0.0
+
