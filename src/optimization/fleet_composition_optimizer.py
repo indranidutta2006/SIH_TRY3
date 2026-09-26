@@ -151,116 +151,157 @@ class FleetCompositionOptimizer:
         iteration_count = 0
 
         # Candidate size distributions (feeder, medium, large)
-        # Search systematically over realistic fleet integer grids
+        # Search systematically over realistic fleet integer grids ordered by ascending fleet size
+        size_candidates = []
         for x_l in range(0, min(VESSEL_SPECS["large"]["max_available"] + 1, max_fleet_size + 1)):
             for x_m in range(0, min(VESSEL_SPECS["medium"]["max_available"] + 1, max_fleet_size - x_l + 1)):
                 for x_f in range(0, min(VESSEL_SPECS["feeder"]["max_available"] + 1, max_fleet_size - x_l - x_m + 1)):
-                    total_vessels = x_f + x_m + x_l
-                    if total_vessels == 0:
-                        continue
+                    tot = x_f + x_m + x_l
+                    if tot > 0:
+                        size_candidates.append((tot, x_l, x_m, x_f))
 
-                    # Total annual throughput capacity
-                    ann_cap = (
-                        x_f * VESSEL_SPECS["feeder"]["dwt"] * 0.85 * VESSEL_SPECS["feeder"]["annual_voyages"]
-                        + x_m * VESSEL_SPECS["medium"]["dwt"] * 0.85 * VESSEL_SPECS["medium"]["annual_voyages"]
-                        + x_l * VESSEL_SPECS["large"]["dwt"] * 0.85 * VESSEL_SPECS["large"]["annual_voyages"]
-                    )
+        size_candidates.sort(key=lambda t: (t[0], t[1], t[2], t[3]))
 
-                    if ann_cap < target_demand:
-                        continue
+        for total_vessels, x_l, x_m, x_f in size_candidates:
+            # Total annual throughput capacity
+            ann_cap = (
+                x_f * VESSEL_SPECS["feeder"]["dwt"] * 0.85 * VESSEL_SPECS["feeder"]["annual_voyages"]
+                + x_m * VESSEL_SPECS["medium"]["dwt"] * 0.85 * VESSEL_SPECS["medium"]["annual_voyages"]
+                + x_l * VESSEL_SPECS["large"]["dwt"] * 0.85 * VESSEL_SPECS["large"]["annual_voyages"]
+            )
 
-                    infeasible_due_to_demand = False
+            if ann_cap < target_demand:
+                continue
 
-                    # Base capital / charter costs
-                    base_fleet_capital = (
-                        x_f * VESSEL_SPECS["feeder"]["capex_usd"] * 0.10  # 10% annual financing cost
-                        + x_m * VESSEL_SPECS["medium"]["capex_usd"] * 0.10
-                        + x_l * VESSEL_SPECS["large"]["capex_usd"] * 0.10
-                    )
+            infeasible_due_to_demand = False
 
-                    if base_fleet_capital > scenario.budget:
-                        infeasible_due_to_budget = True
-                        continue
+            # Base capital / charter costs
+            base_fleet_capital = (
+                x_f * VESSEL_SPECS["feeder"]["capex_usd"] * 0.10  # 10% annual financing cost
+                + x_m * VESSEL_SPECS["medium"]["capex_usd"] * 0.10
+                + x_l * VESSEL_SPECS["large"]["capex_usd"] * 0.10
+            )
 
-                    # Evaluate fuel technology allocation strategies respecting max_transition_rate
-                    # Allowed alternative vessels count: floor(total_vessels * max_transition_rate)
-                    max_alt = int(total_vessels * scenario.max_transition_rate)
+            if base_fleet_capital > scenario.budget:
+                infeasible_due_to_budget = True
+                continue
 
-                    candidate_fuel_mixes = self._generate_fuel_mix_candidates(total_vessels, max_alt)
+            # Branch-and-bound lower bound: if base capital alone exceeds best score, no fuel allocation can beat it
+            if w_cost * (base_fleet_capital / 10_000_000.0) >= best_score:
+                continue
 
-                    for fuel_mix in candidate_fuel_mixes:
-                        iteration_count += 1
-                        y_D = fuel_mix["diesel"]
-                        y_L = fuel_mix["lng"]
-                        y_M = fuel_mix["methanol"]
-                        y_H = fuel_mix["hydrogen"]
-                        y_A = fuel_mix["ammonia"]
+            # Evaluate fuel technology allocation strategies respecting max_transition_rate
+            # Allowed alternative vessels count: floor(total_vessels * max_transition_rate)
+            max_alt = int(total_vessels * scenario.max_transition_rate)
 
-                        # Check transition rate constraint strictly
-                        alt_count = y_L + y_M + y_H + y_A
-                        if total_vessels > 0 and (alt_count / total_vessels) > (scenario.max_transition_rate + 1e-6):
-                            continue
+            candidate_fuel_mixes = self._generate_fuel_mix_candidates(total_vessels, max_alt)
 
-                        # Compute capital outlay adjusted for alternative green powertrains
-                        weighted_multiplier = (
-                            y_D * FUEL_CAPEX_MULTIPLIER["Diesel"]
-                            + y_L * FUEL_CAPEX_MULTIPLIER["LNG"]
-                            + y_M * FUEL_CAPEX_MULTIPLIER["Methanol"]
-                            + y_H * FUEL_CAPEX_MULTIPLIER["Hydrogen"]
-                            + y_A * FUEL_CAPEX_MULTIPLIER["Ammonia"]
-                        ) / total_vessels
+            # Pre-calculate unit operational metrics across the 5 fuel types for this size configuration
+            unit_metrics = {
+                f_key: self._evaluate_fleet_operational_costs(
+                    x_f, x_m, x_l, {f_key: 1}, scenario, fuel_prices
+                )
+                for f_key in ("diesel", "lng", "methanol", "hydrogen", "ammonia")
+            }
 
-                        total_capital = base_fleet_capital * weighted_multiplier
-                        if total_capital > scenario.budget:
-                            infeasible_due_to_budget = True
-                            continue
+            for fuel_mix in candidate_fuel_mixes:
+                iteration_count += 1
+                y_D = fuel_mix["diesel"]
+                y_L = fuel_mix["lng"]
+                y_M = fuel_mix["methanol"]
+                y_H = fuel_mix["hydrogen"]
+                y_A = fuel_mix["ammonia"]
 
-                        # Evaluate fuel consumption, emissions, and compliance penalties across representative voyages
-                        fuel_tons, emissions_tons, fuel_cost, reg_penalty = self._evaluate_fleet_operational_costs(
-                            x_f, x_m, x_l, fuel_mix, scenario, fuel_prices
-                        )
+                # Check transition rate constraint strictly
+                alt_count = y_L + y_M + y_H + y_A
+                if total_vessels > 0 and (alt_count / total_vessels) > (scenario.max_transition_rate + 1e-6):
+                    continue
 
-                        carbon_cost = emissions_tons * scenario.carbon_price
-                        total_cost = total_capital + fuel_cost + carbon_cost + reg_penalty
+                # Compute capital outlay adjusted for alternative green powertrains
+                weighted_multiplier = (
+                    y_D * FUEL_CAPEX_MULTIPLIER["Diesel"]
+                    + y_L * FUEL_CAPEX_MULTIPLIER["LNG"]
+                    + y_M * FUEL_CAPEX_MULTIPLIER["Methanol"]
+                    + y_H * FUEL_CAPEX_MULTIPLIER["Hydrogen"]
+                    + y_A * FUEL_CAPEX_MULTIPLIER["Ammonia"]
+                ) / total_vessels
 
-                        # Multi-objective scalar
-                        # Normalize terms for stable comparison: Cost ($10M ref), Fuel (10k t ref), Emissions (30k t ref)
-                        score = (
-                            w_cost * (total_cost / 10_000_000.0)
-                            + w_fuel * (fuel_tons / 10_000.0)
-                            + w_emiss * (emissions_tons / 30_000.0)
-                        )
+                total_capital = base_fleet_capital * weighted_multiplier
+                if total_capital > scenario.budget:
+                    infeasible_due_to_budget = True
+                    continue
 
-                        if iteration_count <= 25 or score < best_score:
-                            optimization_trace.append({"iteration": iteration_count, "score": round(score, 4)})
+                # Linear aggregation of operational metrics across the 5 fuels
+                fuel_tons = (
+                    y_D * unit_metrics["diesel"][0]
+                    + y_L * unit_metrics["lng"][0]
+                    + y_M * unit_metrics["methanol"][0]
+                    + y_H * unit_metrics["hydrogen"][0]
+                    + y_A * unit_metrics["ammonia"][0]
+                )
+                emissions_tons = (
+                    y_D * unit_metrics["diesel"][1]
+                    + y_L * unit_metrics["lng"][1]
+                    + y_M * unit_metrics["methanol"][1]
+                    + y_H * unit_metrics["hydrogen"][1]
+                    + y_A * unit_metrics["ammonia"][1]
+                )
+                fuel_cost = (
+                    y_D * unit_metrics["diesel"][2]
+                    + y_L * unit_metrics["lng"][2]
+                    + y_M * unit_metrics["methanol"][2]
+                    + y_H * unit_metrics["hydrogen"][2]
+                    + y_A * unit_metrics["ammonia"][2]
+                )
+                reg_penalty = (
+                    y_D * unit_metrics["diesel"][3]
+                    + y_L * unit_metrics["lng"][3]
+                    + y_M * unit_metrics["methanol"][3]
+                    + y_H * unit_metrics["hydrogen"][3]
+                    + y_A * unit_metrics["ammonia"][3]
+                )
 
-                        if score < best_score:
-                            best_score = score
-                            service_achieved = min(1.0, ann_cap / max(scenario.cargo_demand, 1.0))
-                            best_candidate = {
-                                "fleet_mix": {
-                                    "feeder": x_f,
-                                    "medium": x_m,
-                                    "large": x_l,
-                                    "diesel": y_D,
-                                    "lng": y_L,
-                                    "methanol": y_M,
-                                    "hydrogen": y_H,
-                                    "ammonia": y_A,
-                                },
-                                "total_capacity": ann_cap,
-                                "fuel_consumption": fuel_tons,
-                                "emissions": emissions_tons,
-                                "operational_cost": total_cost,
-                                "carbon_cost": carbon_cost,
-                                "optimization_score": score,
-                                "service_level_achieved": service_achieved,
-                                "reg_breakdown": {
-                                    "fuel_eu_score": round(reg_penalty, 2),
-                                    "compliance_penalty": round(reg_penalty, 2),
-                                    "cii_score": round(min(1.0, (emissions_tons * 1e6) / (ann_cap * scenario.route_distance + 1e-4)), 4),
-                                },
-                            }
+                carbon_cost = emissions_tons * scenario.carbon_price
+                total_cost = total_capital + fuel_cost + carbon_cost + reg_penalty
+
+                # Multi-objective scalar
+                # Normalize terms for stable comparison: Cost ($10M ref), Fuel (10k t ref), Emissions (30k t ref)
+                score = (
+                    w_cost * (total_cost / 10_000_000.0)
+                    + w_fuel * (fuel_tons / 10_000.0)
+                    + w_emiss * (emissions_tons / 30_000.0)
+                )
+
+                if iteration_count <= 25 or score < best_score:
+                    optimization_trace.append({"iteration": iteration_count, "score": round(score, 4)})
+
+                if score < best_score:
+                    best_score = score
+                    service_achieved = min(1.0, ann_cap / max(scenario.cargo_demand, 1.0))
+                    best_candidate = {
+                        "fleet_mix": {
+                            "feeder": x_f,
+                            "medium": x_m,
+                            "large": x_l,
+                            "diesel": y_D,
+                            "lng": y_L,
+                            "methanol": y_M,
+                            "hydrogen": y_H,
+                            "ammonia": y_A,
+                        },
+                        "total_capacity": ann_cap,
+                        "fuel_consumption": fuel_tons,
+                        "emissions": emissions_tons,
+                        "operational_cost": total_cost,
+                        "carbon_cost": carbon_cost,
+                        "optimization_score": score,
+                        "service_level_achieved": service_achieved,
+                        "reg_breakdown": {
+                            "fuel_eu_score": round(reg_penalty, 2),
+                            "compliance_penalty": round(reg_penalty, 2),
+                            "cii_score": round(min(1.0, (emissions_tons * 1e6) / (ann_cap * scenario.route_distance + 1e-4)), 4),
+                        },
+                    }
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
 
@@ -318,34 +359,33 @@ class FleetCompositionOptimizer:
         )
 
     def _generate_fuel_mix_candidates(self, total_vessels: int, max_alt: int) -> list[dict[str, int]]:
-        """Generate representative integer fuel splits (diesel vs alternative options)."""
+        """Systematically enumerate all feasible integer fuel allocations across the 5-fuel decision space.
+
+        Governing mathematical formulation:
+            y_D + y_L + y_M + y_H + y_A = total_vessels
+            y_L + y_M + y_H + y_A <= max_alt
+            y_i in Z>=0 for all i in {D, L, M, H, A}
+        """
         candidates: list[dict[str, int]] = []
-
-        # 1. 100% Diesel baseline
-        candidates.append({"diesel": total_vessels, "lng": 0, "methanol": 0, "hydrogen": 0, "ammonia": 0})
-
-        if max_alt <= 0:
+        if total_vessels <= 0:
             return candidates
 
-        # 2. Targeted alternative fuel deployments up to max_alt
-        alt_steps = sorted({max(1, max_alt // 2), max_alt})
-        for n_alt in alt_steps:
-            if n_alt > total_vessels:
-                continue
+        bound_alt = min(total_vessels, max(0, max_alt))
+        for n_alt in range(bound_alt + 1):
             n_diesel = total_vessels - n_alt
-
-            # Pure single-fuel alternative options
-            candidates.append({"diesel": n_diesel, "lng": n_alt, "methanol": 0, "hydrogen": 0, "ammonia": 0})
-            candidates.append({"diesel": n_diesel, "lng": 0, "methanol": n_alt, "hydrogen": 0, "ammonia": 0})
-            candidates.append({"diesel": n_diesel, "lng": 0, "methanol": 0, "hydrogen": n_alt, "ammonia": 0})
-            candidates.append({"diesel": n_diesel, "lng": 0, "methanol": 0, "hydrogen": 0, "ammonia": n_alt})
-
-            # Blended transition option (half LNG, half Methanol)
-            if n_alt >= 2:
-                half_lng = n_alt // 2
-                half_meth = n_alt - half_lng
-                candidates.append({"diesel": n_diesel, "lng": half_lng, "methanol": half_meth, "hydrogen": 0, "ammonia": 0})
-
+            for y_L in range(n_alt + 1):
+                rem_L = n_alt - y_L
+                for y_M in range(rem_L + 1):
+                    rem_M = rem_L - y_M
+                    for y_H in range(rem_M + 1):
+                        y_A = rem_M - y_H
+                        candidates.append({
+                            "diesel": n_diesel,
+                            "lng": y_L,
+                            "methanol": y_M,
+                            "hydrogen": y_H,
+                            "ammonia": y_A,
+                        })
         return candidates
 
     def _evaluate_fleet_operational_costs(

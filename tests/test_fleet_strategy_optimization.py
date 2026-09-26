@@ -472,3 +472,76 @@ def test_deployment_plan_exact_fuel_and_size_count_consumption() -> None:
     assert composite_pairs.count(("Medium", "LNG")) == 1
     assert composite_pairs.count(("Large", "Methanol")) == 1
 
+
+def test_fleet_composition_full_5_fuel_decision_space_enumeration() -> None:
+    """Verify FleetCompositionOptimizer systematically enumerates the full 5-fuel decision space.
+
+    Problem Finding 2:
+    The candidate generator must systematically enumerate all integer allocations:
+        y_D + y_L + y_M + y_H + y_A = N
+    subject to:
+        sum_{alt} y_alt <= N * r_max
+    including complex multi-fuel blends (e.g., Diesel+LNG+Hydrogen, Diesel+Methanol+Ammonia,
+    LNG+Methanol+Hydrogen) rather than just single-fuel alternatives or a single 2-fuel blend.
+    """
+    optimizer = FleetCompositionOptimizer()
+
+    # 1. Exact mathematical combinatorial enumeration check:
+    # For N=3, max_alt=3: total allocations = C(3 + 5 - 1, 5 - 1) = C(7, 4) = 35
+    candidates_3 = optimizer._generate_fuel_mix_candidates(total_vessels=3, max_alt=3)
+    assert len(candidates_3) == 35, f"Expected 35 allocations, got {len(candidates_3)}"
+
+    # Verify each candidate satisfies the governing constraints
+    seen = set()
+    for c in candidates_3:
+        y_D = c["diesel"]
+        y_L = c["lng"]
+        y_M = c["methanol"]
+        y_H = c["hydrogen"]
+        y_A = c["ammonia"]
+        assert all(v >= 0 for v in (y_D, y_L, y_M, y_H, y_A))
+        assert y_D + y_L + y_M + y_H + y_A == 3
+        key = (y_D, y_L, y_M, y_H, y_A)
+        assert key not in seen, f"Duplicate candidate found: {key}"
+        seen.add(key)
+
+    # Verify multi-fuel blends beyond 2 fuels are present
+    assert {"diesel": 1, "lng": 1, "methanol": 0, "hydrogen": 1, "ammonia": 0} in candidates_3  # Diesel + LNG + Hydrogen
+    assert {"diesel": 1, "lng": 0, "methanol": 1, "hydrogen": 0, "ammonia": 1} in candidates_3  # Diesel + Methanol + Ammonia
+    assert {"diesel": 0, "lng": 1, "methanol": 1, "hydrogen": 1, "ammonia": 0} in candidates_3  # LNG + Methanol + Hydrogen
+    assert {"diesel": 0, "lng": 0, "methanol": 1, "hydrogen": 1, "ammonia": 1} in candidates_3  # Methanol + Hydrogen + Ammonia
+
+    # 2. Transition rate constraint enforcement:
+    # For N=4, max_alt=2: sum(alt) <= 2
+    candidates_4_2 = optimizer._generate_fuel_mix_candidates(total_vessels=4, max_alt=2)
+    # n_alt=0: 1 (4 diesel)
+    # n_alt=1: C(1+3, 3) = 4
+    # n_alt=2: C(2+3, 3) = 10
+    # Total = 1 + 4 + 10 = 15 candidates
+    assert len(candidates_4_2) == 15, f"Expected 15 allocations for N=4, max_alt=2, got {len(candidates_4_2)}"
+    for c in candidates_4_2:
+        alt_sum = c["lng"] + c["methanol"] + c["hydrogen"] + c["ammonia"]
+        assert alt_sum <= 2
+        assert c["diesel"] + alt_sum == 4
+
+    # 3. End-to-end optimization execution across full decision space
+    scenario = OptimizationScenario(
+        cargo_demand=120_000.0,
+        route_distance=3000.0,
+        deadline_hours=240.0,
+        scenario_id="SCEN-5FUEL-TEST",
+        budget=150_000_000.0,
+        carbon_price=80.0,
+        max_transition_rate=0.60,
+    )
+    result = optimizer.optimize_composition(scenario)
+    assert result.status == OptimizationStatus.SUCCESS
+    assert result.metadata["iterations"] > 0
+    # Verify fleet mix contains all 5 fuel keys and size keys
+    for k in ("feeder", "medium", "large", "diesel", "lng", "methanol", "hydrogen", "ammonia"):
+        assert k in result.fleet_mix
+    total_fuel_vessels = sum(result.fleet_mix[f] for f in ("diesel", "lng", "methanol", "hydrogen", "ammonia"))
+    total_size_vessels = sum(result.fleet_mix[s] for s in ("feeder", "medium", "large"))
+    assert total_fuel_vessels == total_size_vessels
+
+
