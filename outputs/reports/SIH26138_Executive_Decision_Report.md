@@ -4,13 +4,13 @@
 **Cargo Throughput Demand:** `250,000 tons`  
 **Trade Corridor Distance:** `3,500 nm`  
 **Delivery Window:** `260.0 hours`  
-**Reporting Timestamp:** `2026-09-26 17:41:01 UTC`  
+**Reporting Timestamp:** `2026-09-26 17:47:16 UTC`  
 
 ---
 
 ## 1. Executive Summary & Management Brief
 
-The proposed green fleet strategy transitions 1 vessels on the 3,500 nm corridor, achieving $2.02M in annual operational savings (43.8%) and eliminating 4,822 metric tons of Well-to-Wake CO₂e emissions (16.1%). Savings are decomposed as: fuel bunker differential $1.19M [MODELLED], carbon cost savings $0.39M [MODELLED], and FuelEU penalty avoidance $0.44M [MODELLED]. With a retrofit CAPEX of $19.5M [MODELLED] across 0 assets, the plan delivers a projected 10-year ROI of 3.51% with a simple payback of 9.7 years (EXTENDED). Crucially, schedule reliability is maintained at 100.0% through intelligent hydrodynamic eco-speed management (13.5 knots), ensuring statutory compliance under both IMO MEPC.400(83) and EU FuelEU Maritime regulations.
+The proposed green fleet strategy transitions 1 vessels on the 3,500 nm corridor, achieving $2.02M in annual operational savings (20.5%) and eliminating 4,822 metric tons of Well-to-Wake CO₂e emissions (16.1%). Savings are decomposed as: fuel bunker differential $1.19M [MODELLED], carbon cost savings $0.39M [MODELLED], and FuelEU penalty avoidance $0.44M [MODELLED]. With a retrofit CAPEX of $19.5M [MODELLED] across 0 assets, the plan delivers a projected 10-year ROI of 3.51% with a simple payback of 9.7 years (EXTENDED). Crucially, schedule reliability is maintained at 100.0% through intelligent hydrodynamic eco-speed management (13.5 knots), ensuring statutory compliance under both IMO MEPC.400(83) and EU FuelEU Maritime regulations.
 
 ---
 
@@ -22,7 +22,7 @@ The proposed green fleet strategy transitions 1 vessels on the 3,500 nm corridor
 | **Annual Net Benefit** | **$2.02M** | Net annual savings after incremental maintenance & crew training |
 | **Return on Investment (ROI)** | **3.51%** | Projected 10-year cumulative return over baseline |
 | **Simple Payback Period** | **9.66 years** | Status: **EXTENDED** |
-| **Annual Cost Savings** | **$2.02M (43.84%)** | Total operational expenditure reduction |
+| **Annual Cost Savings** | **$2.02M (20.47%)** | Total operational expenditure reduction |
 | **Annual WTW Emissions Reduction** | **4,822 t CO2e (16.09%)** | Net Well-to-Wake decarbonization |
 
 ---

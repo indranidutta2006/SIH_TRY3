@@ -259,9 +259,6 @@ class ExecutiveRecommendationEngine:
         annual_carbon_savings = annual_emiss_reduction * scenario.carbon_price
 
         emiss_reduction_pct = (annual_emiss_reduction / max(baseline_emissions, 1.0)) * 100.0
-        legacy_emiss_pct = base_comp.get("deltas", {}).get("emissions_abated_pct", 0.0)
-        if legacy_emiss_pct != 0.0:
-            emiss_reduction_pct = legacy_emiss_pct
 
         # ── 3. Annual FuelEU Penalty Avoidance (arithmetic mean over horizon) ──────
         # Evidence: MODELLED if forecast provided; ASSUMED (=0) otherwise.
@@ -273,6 +270,7 @@ class ExecutiveRecommendationEngine:
         horizon_years_list = list(range(PLANNING_START_YEAR, horizon_end_year + 1))
 
         annual_penalty_avoidance = 0.0
+        annual_baseline_penalty = 0.0
         penalty_avoidance_evidence = EvidenceCategory.ASSUMED
         penalty_avoidance_note = (
             "No regulatory forecast provided; FuelEU penalty avoidance set to $0 (conservative)."
@@ -292,6 +290,9 @@ class ExecutiveRecommendationEngine:
             )
 
             if baseline_penalties:
+                annual_baseline_penalty = sum(baseline_penalties.values()) / max(
+                    len(baseline_penalties), 1
+                )
                 # Optimized fleet penalty: per-vessel from forecast × fleet size
                 for yr in horizon_years_list:
                     baseline_pen = baseline_penalties.get(yr, 0.0)
@@ -374,14 +375,18 @@ class ExecutiveRecommendationEngine:
         annual_cost_savings = annual_fuel_savings + annual_carbon_savings + annual_penalty_avoidance
         annual_net_benefit = annual_cost_savings - annual_opex_delta
 
-        # Percentage savings: use legacy delta if the optimizer computed it vs full cost
+        # Percentage savings: mathematically consistent with decomposed components
+        # Savings% = (FuelSavings + CarbonSavings + PenaltyAvoidance) / (BaselineBunkerCost + BaselineCarbonCost + BaselinePenalty) * 100
+        baseline_carbon_cost = baseline_emissions * scenario.carbon_price
+        baseline_total_cost = (
+            baseline_bunker_cost
+            + baseline_carbon_cost
+            + annual_baseline_penalty
+        )
         cost_savings_pct = (
             annual_cost_savings
-            / max(baseline_bunker_cost + baseline_emissions * scenario.carbon_price, 1.0)
+            / max(baseline_total_cost, 1.0)
         ) * 100.0
-        legacy_savings_pct = base_comp.get("deltas", {}).get("cost_savings_pct", 0.0)
-        if legacy_savings_pct > 0.0:
-            cost_savings_pct = legacy_savings_pct
 
         # ROI and payback (formula unchanged — same as Phase 3 specification)
         if total_investment > 0.0:
@@ -446,6 +451,13 @@ class ExecutiveRecommendationEngine:
             "total_retrofit_capex_usd": round(total_investment, 2),
             "total_retrofit_capex_evidence": capex_evidence.value,
             "total_retrofit_capex_source": capex_source_note,
+            # Baseline & savings components
+            "baseline_bunker_cost_usd": round(baseline_bunker_cost, 2),
+            "baseline_carbon_cost_usd": round(baseline_carbon_cost, 2),
+            "annual_baseline_penalty_usd": round(annual_baseline_penalty, 2),
+            "baseline_total_cost_usd": round(baseline_total_cost, 2),
+            "annual_cost_savings_usd": round(annual_cost_savings, 2),
+            "cost_savings_pct": round(cost_savings_pct, 2),
             # Derived totals
             "annual_net_benefit_usd": round(annual_net_benefit, 2),
             "investment_horizon_years": investment_horizon_years,

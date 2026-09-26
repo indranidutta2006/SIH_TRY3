@@ -446,6 +446,21 @@ def test_executive_roi_decomposition_sourcing(base_scenario: OptimizationScenari
         "Evidence table must include an OPEX delta entry labelled ASSUMED"
     )
 
+    # ── Remaining Issue 2: Percentage savings strictly derived from decomposed components ──
+    # Savings% = (FuelSavings + CarbonSavings + PenaltyAvoidance) / (BaselineBunker + BaselineCarbon + BaselinePenalty) * 100
+    baseline_bunker = bd["baseline_bunker_cost_usd"]
+    baseline_carbon = bd["baseline_carbon_cost_usd"]
+    baseline_pen = bd["annual_baseline_penalty_usd"]
+    baseline_tot = baseline_bunker + baseline_carbon + baseline_pen
+    total_savings = bd["annual_cost_savings_usd"]
+    expected_pct = (total_savings / baseline_tot) * 100.0
+
+    assert rec.expected_cost_savings_pct == pytest.approx(expected_pct, abs=0.01), (
+        f"Cost savings percentage {rec.expected_cost_savings_pct}% must match decomposed "
+        f"ratio {expected_pct}%, not a legacy total-cost percentage."
+    )
+    assert bd["cost_savings_pct"] == pytest.approx(expected_pct, abs=0.01)
+
 
 def test_executive_roi_signed_negative_fuel_impact() -> None:
     """Verify that when an alternative fuel strategy costs more than baseline diesel,
@@ -552,6 +567,12 @@ def test_executive_roi_signed_negative_fuel_impact() -> None:
     assert net_benefit == pytest.approx(expected_net, abs=1.0)
     assert net_benefit < 0.0
     assert rec.payback_status == "NO_PAYBACK"
+
+    # Ensure legacy cost_savings_pct (-250.0) from strat_rec did NOT override the decomposed calculation
+    assert rec.expected_cost_savings_pct != -250.0
+    decomposed_baseline = bd["baseline_total_cost_usd"]
+    expected_savings_pct = (bd["annual_cost_savings_usd"] / decomposed_baseline) * 100.0
+    assert rec.expected_cost_savings_pct == pytest.approx(expected_savings_pct, abs=0.01)
 
 
 
