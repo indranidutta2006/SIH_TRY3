@@ -51,17 +51,7 @@ class SimulatedAnnealingSolver(BaseBenchmarkSolver):
 
             alt_ratio = float(np.clip(vec[3], 0.0, scenario.max_transition_rate))
             alt_count = int(round(tot * alt_ratio))
-            n_lng = alt_count // 2
-            n_meth = alt_count - n_lng
-            n_diesel = tot - alt_count
-
-            fuel_mix = {
-                "diesel": max(0, n_diesel),
-                "lng": max(0, n_lng),
-                "methanol": max(0, n_meth),
-                "hydrogen": 0,
-                "ammonia": 0,
-            }
+            fuel_mix = self.allocate_fuel_mix(tot, alt_count, scenario)
             speed = float(np.clip(vec[4], 9.5, 17.5))
             res = self.evaluate_candidate(xf, xm, xl, fuel_mix, speed, scenario)
             return res["objective_score"], res

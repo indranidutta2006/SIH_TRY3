@@ -6,9 +6,11 @@ generates normalized comparison matrices, and exports CSV/JSON/Markdown benchmar
 """
 
 from collections.abc import Sequence
+from datetime import datetime, timezone
 import json
 import logging
 from pathlib import Path
+import subprocess
 import time
 from typing import Any
 
@@ -78,6 +80,22 @@ class BenchmarkSuiteOrchestrator:
         # 2. Build Comparison Matrix
         comparison_matrix = self._build_comparison_matrix(results)
 
+        git_commit = "unknown"
+        try:
+            res_git = subprocess.run(
+                ["git", "rev-parse", "--short", "HEAD"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=2,
+            )
+            if res_git.returncode == 0 and res_git.stdout.strip():
+                git_commit = res_git.stdout.strip()
+        except Exception:
+            pass
+
+        now_utc = datetime.now(timezone.utc).isoformat()
+
         suite_result = BenchmarkSuiteResult(
             scenario=scenario,
             results=tuple(results),
@@ -85,7 +103,10 @@ class BenchmarkSuiteOrchestrator:
             comparison_matrix=comparison_matrix,
             metadata={
                 "solver_count": len(results),
-                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "timestamp": now_utc,
+                "generated_at": now_utc,
+                "git_commit": git_commit,
+                "random_seed": seed,
                 "scenario_id": scenario.scenario_id,
             },
         )
@@ -98,14 +119,24 @@ class BenchmarkSuiteOrchestrator:
             return {}
 
         feasible_only = [r for r in results if r.feasible_solution]
-        eval_pool = feasible_only if feasible_only else results
-
-        best_obj = min(eval_pool, key=lambda r: r.objective_score).solver_name
-        lowest_fuel = min(eval_pool, key=lambda r: r.fuel_consumption).solver_name
-        lowest_cost = min(eval_pool, key=lambda r: r.operational_cost).solver_name
-        lowest_emiss = min(eval_pool, key=lambda r: r.emissions).solver_name
         fastest = min(results, key=lambda r: r.runtime_seconds).solver_name
-        highest_reli = max(eval_pool, key=lambda r: r.reliability_score).solver_name
+
+        if not feasible_only:
+            no_feas = "NO FEASIBLE SOLUTION"
+            return {
+                "best_objective": no_feas,
+                "lowest_fuel": no_feas,
+                "lowest_cost": no_feas,
+                "lowest_emissions": no_feas,
+                "lowest_runtime": fastest,
+                "highest_reliability": no_feas,
+            }
+
+        best_obj = min(feasible_only, key=lambda r: r.objective_score).solver_name
+        lowest_fuel = min(feasible_only, key=lambda r: r.fuel_consumption).solver_name
+        lowest_cost = min(feasible_only, key=lambda r: r.operational_cost).solver_name
+        lowest_emiss = min(feasible_only, key=lambda r: r.emissions).solver_name
+        highest_reli = max(feasible_only, key=lambda r: r.reliability_score).solver_name
 
         return {
             "best_objective": best_obj,

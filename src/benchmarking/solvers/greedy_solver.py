@@ -58,17 +58,7 @@ class GreedyFleetSolver(BaseBenchmarkSolver):
 
         # Greedily allocate alternative fuels up to max_transition_rate
         max_alt = int(total_v * scenario.max_transition_rate)
-        n_lng = max_alt // 2
-        n_meth = max_alt - n_lng
-        n_diesel = total_v - max_alt
-
-        fuel_mix = {
-            "diesel": n_diesel,
-            "lng": n_lng,
-            "methanol": n_meth,
-            "hydrogen": 0,
-            "ammonia": 0,
-        }
+        fuel_mix = self.allocate_fuel_mix(total_v, max_alt, scenario)
 
         # Greedy speed: Set speed to just meet deadline with 10% safety buffer
         port_delay = max(0.0, (scenario.port_delay_factor - 1.0) * 12.0)

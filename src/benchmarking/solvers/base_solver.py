@@ -9,6 +9,7 @@ and regulatory compliance models.
 from abc import ABC, abstractmethod
 import logging
 import time
+from collections.abc import Sequence
 from typing import Any, Final
 
 import numpy as np
@@ -100,6 +101,85 @@ class BaseBenchmarkSolver(ABC):
             BenchmarkResult capturing standardized performance metrics.
         """
         pass
+
+    @staticmethod
+    def allocate_fuel_mix(
+        total_vessels: int,
+        alt_count: int,
+        scenario: OptimizationScenario,
+        shares: Sequence[float] | None = None,
+    ) -> dict[str, int]:
+        """Canonical 5-fuel allocation preserving exact vessel counts and scenario intent.
+
+        Distributes vessels across (diesel, lng, methanol, hydrogen, ammonia) such that:
+            sum(fuel_mix.values()) == total_vessels
+            sum(alt_fuels) == alt_count
+        """
+        total = max(1, int(total_vessels))
+        alts = min(max(0, int(alt_count)), total)
+        diesel = total - alts
+
+        alt_fuels = ["lng", "methanol", "hydrogen", "ammonia"]
+
+        if alts == 0:
+            return {
+                "diesel": total,
+                "lng": 0,
+                "methanol": 0,
+                "hydrogen": 0,
+                "ammonia": 0,
+            }
+
+        scen_id = (scenario.scenario_id or "").upper()
+
+        if shares is not None and len(shares) == len(alt_fuels):
+            raw_w = np.array(shares, dtype=float)
+            if np.sum(raw_w) > 0 and np.all(raw_w >= 0):
+                norm_w = raw_w / np.sum(raw_w)
+            else:
+                norm_w = np.array([0.25, 0.25, 0.25, 0.25], dtype=float)
+        elif "HYDROGEN" in scen_id:
+            norm_w = np.array([0.0, 0.0, 1.0, 0.0], dtype=float)
+        elif "AMMONIA" in scen_id:
+            norm_w = np.array([0.0, 0.0, 0.0, 1.0], dtype=float)
+        elif "METHANOL" in scen_id:
+            norm_w = np.array([0.0, 1.0, 0.0, 0.0], dtype=float)
+        elif "LNG" in scen_id:
+            norm_w = np.array([1.0, 0.0, 0.0, 0.0], dtype=float)
+        else:
+            # Default general benchmark: balanced representation across all 4 alternative fuels
+            norm_w = np.array([0.25, 0.25, 0.25, 0.25], dtype=float)
+
+        # Largest remainder method (Hare-Niemeyer) for exact integer representation
+        exact_counts = norm_w * alts
+        base_counts = np.floor(exact_counts).astype(int)
+        remainder = alts - int(np.sum(base_counts))
+
+        if remainder > 0:
+            remainders = exact_counts - base_counts
+            sorted_indices = sorted(range(len(alt_fuels)), key=lambda i: (-remainders[i], i))
+            for idx in sorted_indices[:remainder]:
+                base_counts[idx] += 1
+
+        allocated: dict[str, int] = {
+            "diesel": int(diesel),
+            "lng": int(base_counts[0]),
+            "methanol": int(base_counts[1]),
+            "hydrogen": int(base_counts[2]),
+            "ammonia": int(base_counts[3]),
+        }
+
+        # Sanity validation
+        if sum(allocated.values()) != total:
+            raise ValueError(
+                f"Fuel mix sum {sum(allocated.values())} does not match total vessels {total}"
+            )
+        if sum(allocated[k] for k in alt_fuels) != alts:
+            raise ValueError(
+                f"Alternative fuel sum {sum(allocated[k] for k in alt_fuels)} does not match alt_count {alts}"
+            )
+
+        return allocated
 
     def evaluate_candidate(
         self,
@@ -230,11 +310,23 @@ class BaseBenchmarkSolver(ABC):
         total_operational_cost = total_capital + total_bunker_cost + carbon_cost + delay_cost
 
         # 7. Schedule Reliability
+        total_voyages = max(1, total_vessels)
+        simulated_delays = [delay_hours] * total_voyages
+
+        if len(simulated_delays) != total_voyages:
+            raise ValueError(
+                f"Benchmark evaluation cardinality mismatch: len(simulated_delays)={len(simulated_delays)} != total_voyages={total_voyages}"
+            )
+        if total_voyages < 1:
+            raise ValueError(f"Benchmark evaluation invalid voyages: total_voyages={total_voyages} must be >= 1")
+        if not all(np.isfinite(d) for d in simulated_delays):
+            raise ValueError("Benchmark evaluation simulated delays contain non-finite values")
+
         rel_metrics = self.reliability_engine.evaluate_schedule_reliability(
             scenario=scenario,
-            simulated_delays=[delay_hours] * total_vessels,
+            simulated_delays=simulated_delays,
             missed_voyages=0,
-            total_voyages=max(1, total_vessels * 4),
+            total_voyages=total_voyages,
         )
 
         reliability_deficit = max(0.0, scenario.target_reliability - rel_metrics.reliability_score)

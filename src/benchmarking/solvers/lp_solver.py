@@ -85,17 +85,7 @@ class LinearProgrammingSolver(BaseBenchmarkSolver):
 
         # Allocate allowable alternative fuel up to max_transition_rate
         max_alt = int(tot * scenario.max_transition_rate)
-        n_lng = max_alt // 2
-        n_meth = max_alt - n_lng
-        n_diesel = tot - max_alt
-
-        fuel_mix = {
-            "diesel": max(0, n_diesel),
-            "lng": max(0, n_lng),
-            "methanol": max(0, n_meth),
-            "hydrogen": 0,
-            "ammonia": 0,
-        }
+        fuel_mix = self.allocate_fuel_mix(tot, max_alt, scenario)
 
         # Hydrodynamic eco-speed
         port_delay = max(0.0, (scenario.port_delay_factor - 1.0) * 12.0)

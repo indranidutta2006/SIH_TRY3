@@ -44,10 +44,13 @@ class StatisticalStabilityEvaluator:
 
         seeds = tuple(base_seed + i for i in range(num_seeds))
         objective_values: list[float] = []
+        feasible_count = 0
 
         for s in seeds:
             res = solver.solve(scenario, max_iterations=max_iterations, seed=s)
             objective_values.append(res.objective_score)
+            if res.feasible_solution:
+                feasible_count += 1
 
         obj_arr = np.array(objective_values, dtype=float)
         mean_val = float(np.mean(obj_arr))
@@ -67,6 +70,8 @@ class StatisticalStabilityEvaluator:
             metadata={
                 "coefficient_of_variation": round((std_val / max(abs(mean_val), 1e-4)) * 100.0, 2),
                 "iqr": round(float(np.percentile(obj_arr, 75) - np.percentile(obj_arr, 25)), 4),
+                "feasible_run_count": feasible_count,
+                "feasible_run_rate": round(feasible_count / max(1, num_seeds), 4),
             },
         )
 

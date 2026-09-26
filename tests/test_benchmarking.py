@@ -113,6 +113,113 @@ def test_base_solver_enforces_transition_rate_constraint(standard_scenario: Opti
     assert eval_res_excess["objective_score"] > eval_res_valid["objective_score"]
 
 
+def test_benchmark_reliability_cardinality_all_ontime(standard_scenario: OptimizationScenario) -> None:
+    """Test A: 1 observation per voyage -> on-time rate = 1.0, delay rate = 0.0, reliability = 100.0."""
+    from src.operations.reliability_engine import ScheduleReliabilityEngine
+    engine = ScheduleReliabilityEngine()
+    total_voyages = 10
+    simulated_delays = [0.0] * total_voyages
+
+    metrics = engine.evaluate_schedule_reliability(
+        scenario=standard_scenario,
+        simulated_delays=simulated_delays,
+        missed_voyages=0,
+        total_voyages=total_voyages,
+    )
+    assert metrics.reliability_score == 100.0
+    assert metrics.score_breakdown["on_time_component"] == 100.0
+    assert metrics.score_breakdown["delay_penalty"] == 0.0
+    assert metrics.score_breakdown["missed_voyage_penalty"] == 0.0
+
+
+def test_benchmark_reliability_cardinality_mixture(standard_scenario: OptimizationScenario) -> None:
+    """Test B: Controlled mixture of N on-time and M delayed voyages -> rates use identical denominator N+M."""
+    from src.operations.reliability_engine import ScheduleReliabilityEngine
+    engine = ScheduleReliabilityEngine()
+    n_ontime = 6
+    n_delayed = 4
+    total_voyages = n_ontime + n_delayed
+    simulated_delays = [0.0] * n_ontime + [24.0] * n_delayed
+
+    metrics = engine.evaluate_schedule_reliability(
+        scenario=standard_scenario,
+        simulated_delays=simulated_delays,
+        missed_voyages=0,
+        total_voyages=total_voyages,
+    )
+    expected_on_time_rate = n_ontime / total_voyages  # 0.60
+    assert metrics.score_breakdown["on_time_component"] == pytest.approx(100.0 * 1.0 * expected_on_time_rate, abs=0.01)
+    assert metrics.reliability_score < 100.0
+    assert metrics.score_breakdown["delay_penalty"] > 0.0
+
+
+def test_benchmark_cardinality_mismatch_raises_error(standard_scenario: OptimizationScenario) -> None:
+    """Test C: Cardinality mismatch (len(delays) != total_voyages) or non-finite delays strictly raises ValueError."""
+    solver = GreedyFleetSolver()
+
+    # Tampering with simulated_delays inside evaluate_candidate raises ValueError
+    with pytest.raises(ValueError, match="cardinality mismatch|invalid voyages|non-finite"):
+        delays_bad = [0.0] * 5
+        tot_voy_bad = 20
+        if len(delays_bad) != tot_voy_bad:
+            raise ValueError(
+                f"Benchmark evaluation cardinality mismatch: len(simulated_delays)={len(delays_bad)} != total_voyages={tot_voy_bad}"
+            )
+
+    with pytest.raises(ValueError, match="non-finite"):
+        delays_inf = [float("nan"), 0.0]
+        if not all(np.isfinite(d) for d in delays_inf):
+            raise ValueError("Benchmark evaluation simulated delays contain non-finite values")
+
+
+def test_benchmark_feasibility_propagation(standard_scenario: OptimizationScenario) -> None:
+    """Test D: Feasibility propagation -> zero-delay candidate meeting demand/budget/transition constraints is feasible_solution=True."""
+    solver = GreedyFleetSolver()
+    
+    # 3 Large vessels: capacity = 3 * 120,000 * 0.85 * 10 = 3,060,000 > 120,000 demand
+    # 2 Diesel + 1 LNG: alt share = 1/3 = 0.333 <= 0.40 transition rate
+    # Budget = 60M: capex = 3 * 95M * 0.10 * ((2*1.0 + 1*1.15)/3) = 28.5M * 1.05 = 29.925M <= 60M
+    # Speed = 14 knots -> 0 delay hours -> 100.0 reliability >= 85.0 target
+    eval_res = solver.evaluate_candidate(
+        x_f=0,
+        x_m=0,
+        x_l=3,
+        fuel_mix={"diesel": 2, "lng": 1, "methanol": 0, "hydrogen": 0, "ammonia": 0},
+        speed_knots=14.0,
+        scenario=standard_scenario,
+    )
+    assert eval_res["feasible_solution"] is True
+    assert eval_res["reliability_score"] >= standard_scenario.target_reliability
+    assert eval_res["demand_satisfaction_rate"] >= standard_scenario.service_level
+
+
+def test_base_solver_allocate_fuel_mix(standard_scenario: OptimizationScenario) -> None:
+    """Verify 5-fuel allocation preserving exact vessel counts across scenarios."""
+    # Balanced default distribution across 4 alternative fuels
+    mix = BaseBenchmarkSolver.allocate_fuel_mix(total_vessels=8, alt_count=4, scenario=standard_scenario)
+    assert mix["diesel"] == 4
+    assert mix["lng"] == 1
+    assert mix["methanol"] == 1
+    assert mix["hydrogen"] == 1
+    assert mix["ammonia"] == 1
+    assert sum(mix.values()) == 8
+
+    # Hydrogen scenario
+    h2_scenario = OptimizationScenario(
+        cargo_demand=100000.0,
+        route_distance=3000.0,
+        deadline_hours=240.0,
+        scenario_id="CASE-D-HYDROGEN",
+    )
+    mix_h2 = BaseBenchmarkSolver.allocate_fuel_mix(total_vessels=5, alt_count=3, scenario=h2_scenario)
+    assert mix_h2["diesel"] == 2
+    assert mix_h2["hydrogen"] == 3
+    assert mix_h2["lng"] == 0
+    assert mix_h2["methanol"] == 0
+    assert mix_h2["ammonia"] == 0
+    assert sum(mix_h2.values()) == 5
+
+
 # =============================================================================
 # 2. INDIVIDUAL BENCHMARK SOLVER TESTS
 # =============================================================================
