@@ -620,4 +620,78 @@ def test_fleet_strategy_qpso_integrated_solver() -> None:
     assert rec.demand_metrics.satisfaction_percentage >= 95.0
 
 
+def test_deployment_plan_fails_validation_on_size_fuel_count_mismatch() -> None:
+    """Verify _generate_deployment_plan strictly raises ValueError when size and fuel counts mismatch.
+
+    Problem Finding 4:
+    Silent padding (e.g. extending size_pool with default class or fuel_pool with Diesel)
+    distorts the optimized fuel distribution. The deployment planner must fail validation
+    with an informative error whenever sum(vessel counts) != sum(fuel counts).
+    """
+    optimizer = FleetStrategyOptimizer()
+    scenario = OptimizationScenario(
+        cargo_demand=150_000.0,
+        route_distance=3500.0,
+        deadline_hours=260.0,
+        scenario_id="SCEN-MISMATCH-TEST",
+    )
+    cap = CapacityOptimizationResult(
+        status=OptimizationStatus.SUCCESS,
+        vessel_class="PANAMAX",
+        recommended_capacity=45_000.0,
+        capacity_teu=3200.0,
+        utilization_rate=0.85,
+        fuel_consumption=12000.0,
+        cost=15_000_000.0,
+        emissions=20000.0,
+        optimal_trips=4,
+        metadata={},
+    )
+    speed = SpeedOptimizationResult(
+        status=OptimizationStatus.SUCCESS,
+        optimal_speed=14.0,
+        estimated_eta=250.0,
+        fuel_consumption=12000.0,
+        cost=15_000_000.0,
+        emissions=20000.0,
+        delay_hours=0.0,
+        metadata={},
+    )
+
+    # Case 1: More size vessels (5) than fuel vessels (3)
+    comp_mismatch_sizes = FleetCompositionResult(
+        status=OptimizationStatus.SUCCESS,
+        fleet_mix={"feeder": 3, "medium": 2, "diesel": 2, "lng": 1},  # 5 sizes vs 3 fuels
+        total_capacity=100_000.0,
+        fuel_consumption=5000.0,
+        emissions=8000.0,
+        operational_cost=5_000_000.0,
+        carbon_cost=100_000.0,
+        optimization_score=0.90,
+        service_level_achieved=1.0,
+        metadata={},
+    )
+
+    with pytest.raises(ValueError, match="Fleet mix validation failed.*total vessel size counts.*does not match total fuel counts"):
+        optimizer._generate_deployment_plan(scenario, comp_mismatch_sizes, cap, speed)
+
+    # Case 2: More fuel vessels (6) than size vessels (4)
+    comp_mismatch_fuels = FleetCompositionResult(
+        status=OptimizationStatus.SUCCESS,
+        fleet_mix={"medium": 4, "diesel": 2, "lng": 2, "methanol": 2},  # 4 sizes vs 6 fuels
+        total_capacity=100_000.0,
+        fuel_consumption=5000.0,
+        emissions=8000.0,
+        operational_cost=5_000_000.0,
+        carbon_cost=100_000.0,
+        optimization_score=0.90,
+        service_level_achieved=1.0,
+        metadata={},
+    )
+
+    with pytest.raises(ValueError, match="Fleet mix validation failed.*total vessel size counts.*does not match total fuel counts"):
+        optimizer._generate_deployment_plan(scenario, comp_mismatch_fuels, cap, speed)
+
+
+
 

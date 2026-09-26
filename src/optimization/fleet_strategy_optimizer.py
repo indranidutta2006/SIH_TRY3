@@ -320,14 +320,17 @@ class FleetStrategyOptimizer:
             if count > 0:
                 fuel_pool.extend([_format_fuel(ft)] * count)
 
-        # Reconcile size_pool and fuel_pool lengths so each count is consumed exactly once
-        default_class = (scenario.vessel_class or "Medium").capitalize()
-        default_fuel = "Diesel"
-
-        if len(size_pool) < len(fuel_pool):
-            size_pool.extend([default_class] * (len(fuel_pool) - len(size_pool)))
-        elif len(fuel_pool) < len(size_pool):
-            fuel_pool.extend([default_fuel] * (len(size_pool) - len(fuel_pool)))
+        # Enforce exact mathematical parity: total vessel size counts must equal total fuel counts.
+        # Fail validation rather than silently padding with default class or diesel.
+        if len(size_pool) != len(fuel_pool):
+            size_counts = {vt: int(fleet_mix_remaining.get(vt, 0)) for vt in v_types if fleet_mix_remaining.get(vt, 0) > 0}
+            fuel_counts = {ft: int(fleet_mix_remaining.get(ft, 0)) for ft in fuel_tokens if fleet_mix_remaining.get(ft, 0) > 0}
+            raise ValueError(
+                f"Fleet mix validation failed: total vessel size counts ({len(size_pool)}) "
+                f"does not match total fuel counts ({len(fuel_pool)}). "
+                f"Vessel counts by size: {size_counts}. Fuel counts: {fuel_counts}. "
+                f"Deployment planning requires exact 1-to-1 parity rather than silent padding."
+            )
 
         for cls_name, fuel_name in zip(size_pool, fuel_pool):
             active_specs.append((cls_name, fuel_name))
