@@ -28,6 +28,10 @@ from src.prediction.metrics import (
     evaluate_predictions,
     select_best_model,
 )
+from src.prediction.fuel_prediction_service import (
+    FuelPredictionService,
+    get_fuel_prediction_service,
+)
 from src.prediction.model_manager import ProductionModelManager
 from src.prediction.model_registry import (
     DEFAULT_RANDOM_STATE,
@@ -35,7 +39,11 @@ from src.prediction.model_registry import (
     normalize_model_name,
 )
 from src.prediction.predictor import PredictionInferenceEngine
-from src.prediction.qifcp import QIFCPRegressor
+from src.prediction.qifcp import (
+    NavalPhysicsFuelBaseline,
+    PhysicsInformedQIFCPRegressor,
+    QIFCPRegressor,
+)
 from src.prediction.recommendation_engine import (
     OptimizationRecommendation,
     VoyageOptimizationEngine,
@@ -43,7 +51,11 @@ from src.prediction.recommendation_engine import (
 from src.prediction.trainer import PredictionTrainer, train_all_models
 
 __all__ = [
+    "FuelPredictionService",
+    "get_fuel_prediction_service",
     "QIFCPRegressor",
+    "NavalPhysicsFuelBaseline",
+    "PhysicsInformedQIFCPRegressor",
     "ModelRegistry",
     "PredictionTrainer",
     "PredictionInferenceEngine",

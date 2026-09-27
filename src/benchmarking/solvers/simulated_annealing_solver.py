@@ -16,8 +16,13 @@ from src.benchmarking.solvers.base_solver import BaseBenchmarkSolver, VESSEL_SPE
 class SimulatedAnnealingSolver(BaseBenchmarkSolver):
     """Simulated Annealing baseline solver."""
 
-    def __init__(self, initial_temp: float = 100.0, cooling_rate: float = 0.95) -> None:
-        super().__init__(solver_name="Simulated Annealing")
+    def __init__(
+        self,
+        initial_temp: float = 100.0,
+        cooling_rate: float = 0.95,
+        fuel_service: Any | None = None,
+    ) -> None:
+        super().__init__(solver_name="Simulated Annealing", fuel_service=fuel_service)
         self.initial_temp = initial_temp
         self.cooling_rate = cooling_rate
 

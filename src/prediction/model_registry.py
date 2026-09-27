@@ -25,6 +25,7 @@ MODEL_FILENAME_MAP: Final[dict[str, str]] = {
     "random_forest": "random_forest.pkl",
     "hist_gradient_boosting": "hist_gradient_boosting.pkl",
     "qifcp": "qifcp.pkl",
+    "physics_residual_qifcp": "physics_residual_qifcp.pkl",
 }
 
 
@@ -60,6 +61,9 @@ def normalize_model_name(name: Any) -> str:
         "quantum_inspired": "qifcp",
         "quantum": "qifcp",
         "qnn": "qifcp",
+        "physics_residual_qifcp": "physics_residual_qifcp",
+        "physics_informed_qifcp": "physics_residual_qifcp",
+        "physicsinformedqifcpregressor": "physics_residual_qifcp",
     }
     return mapping.get(cleaned, cleaned)
 
@@ -80,6 +84,11 @@ class ModelRegistry:
             "random_forest": self._build_random_forest,
             "hist_gradient_boosting": self._build_hist_gradient_boosting,
             "qifcp": self._build_qifcp,
+            "qifcp_v1": lambda **kwargs: self._build_qifcp(qifcp_mode="v1", harmonic_order=1, **kwargs),
+            "qifcp_v2_k1": lambda **kwargs: self._build_qifcp(qifcp_mode="v2", harmonic_order=1, **kwargs),
+            "qifcp_v2_k2": lambda **kwargs: self._build_qifcp(qifcp_mode="v2", harmonic_order=2, **kwargs),
+            "qifcp_v2_k3": lambda **kwargs: self._build_qifcp(qifcp_mode="v2", harmonic_order=3, **kwargs),
+            "physics_residual_qifcp": self._build_physics_residual_qifcp,
         }
 
     @staticmethod
@@ -163,6 +172,22 @@ class ModelRegistry:
         }
         params.update(kwargs)
         return QIFCPRegressor(**params)
+
+    def _build_physics_residual_qifcp(self, **kwargs: Any) -> RegressorMixin:
+        """Instantiate canonical Physics-Informed Residual QIFCP Regressor."""
+        from src.prediction.qifcp import PhysicsInformedQIFCPRegressor
+
+        params = {
+            "lambda_residual": 1.0,
+            "n_entanglement_pairs": 15,
+            "harmonic_order": 3,
+            "qifcp_mode": "v2",
+            "entanglement_mode": "adaptive",
+            "gamma_mode": "grouped",
+            "random_state": self.random_state,
+        }
+        params.update(kwargs)
+        return PhysicsInformedQIFCPRegressor(**params)
 
     def create_model(
         self,

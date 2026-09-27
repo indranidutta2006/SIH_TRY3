@@ -27,6 +27,10 @@ from src.compliance.compliance_engine import MaritimeComplianceEngine
 from src.optimization.qpso import QPSOOptimizer
 from src.physics.fuel_physics_engine import MaritimeFuelPhysicsEngine
 from src.prediction.emission_engine import MaritimeEmissionEngine
+from src.prediction.fuel_prediction_service import (
+    FuelPredictionService,
+    get_fuel_prediction_service,
+)
 
 logger = logging.getLogger("maritime_system")
 
@@ -79,12 +83,14 @@ class FleetCompositionOptimizer:
         emission_engine: MaritimeEmissionEngine | None = None,
         physics_engine: MaritimeFuelPhysicsEngine | None = None,
         compliance_engine: MaritimeComplianceEngine | None = None,
+        fuel_service: FuelPredictionService | None = None,
         default_solver: str = "deterministic",
     ) -> None:
         """Initialize fleet composition optimizer reusing existing engines."""
         self.emission_engine = emission_engine or MaritimeEmissionEngine()
         self.physics_engine = physics_engine or MaritimeFuelPhysicsEngine()
         self.compliance_engine = compliance_engine or MaritimeComplianceEngine()
+        self.fuel_service = fuel_service or get_fuel_prediction_service()
         self.default_solver = default_solver
         self.logger = logger
 
@@ -366,6 +372,11 @@ class FleetCompositionOptimizer:
                 "runtime_ms": round(elapsed_ms, 2),
                 "iterations": iteration_count,
                 "convergence_score": 1.0,
+                "predicted_fuel_consumption": round(best_candidate["fuel_consumption"], 2),
+                "fuel_cost": round(best_candidate["operational_cost"] - best_candidate["carbon_cost"], 2),
+                "co2_emissions": round(best_candidate["emissions"], 2),
+                "predictor": getattr(self.fuel_service, "model_name", "physics_residual_qifcp"),
+                "fuel_prediction_source": "canonical_qifcp",
                 "optimization_trace": optimization_trace[-10:] if len(optimization_trace) > 10 else optimization_trace,
                 "regulatory_breakdown": best_candidate["reg_breakdown"],
             },
@@ -451,14 +462,15 @@ class FleetCompositionOptimizer:
             if count <= 0:
                 continue
             f_name = fuel_mapping[key]
-            # Hydrodynamic fuel consumption per single voyage
-            voyage_fuel = self.physics_engine.calculate_fuel_use(
+            # Predicted fuel consumption per single voyage via production predictor
+            voyage_fuel = self.fuel_service.calculate_fuel(
                 distance_nm=scenario.route_distance,
                 speed_knots=avg_speed,
                 cargo_tons=avg_dwt * 0.8,
                 weather_factor=scenario.weather_factor,
                 fuel_type=f_name,
                 vessel_dwt=avg_dwt,
+                vessel_type=getattr(scenario, "vessel_type", "Bulk Carrier"),
             )
             annual_vessel_fuel = voyage_fuel * avg_voyages
             fleet_fuel_type = annual_vessel_fuel * count
@@ -766,6 +778,11 @@ class FleetCompositionOptimizer:
                 "iterations": qpso_res.iterations,
                 "n_evaluations": qpso_res.n_evaluations,
                 "convergence_score": 1.0 if qpso_res.converged else 0.90,
+                "predicted_fuel_consumption": round(best["fuel_consumption"], 2),
+                "fuel_cost": round(best["operational_cost"] - best["carbon_cost"], 2),
+                "co2_emissions": round(best["emissions"], 2),
+                "predictor": getattr(self.fuel_service, "model_name", "physics_residual_qifcp"),
+                "fuel_prediction_source": "canonical_qifcp",
                 "optimization_trace": [{"iteration": i, "score": round(float(s), 4)} for i, s in enumerate(qpso_res.history)],
                 "regulatory_breakdown": best["reg_breakdown"],
             },

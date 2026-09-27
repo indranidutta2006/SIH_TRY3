@@ -20,8 +20,8 @@ from src.benchmarking.solvers.base_solver import (
 class ClassicalPSOSolver(BaseBenchmarkSolver):
     """Classical Particle Swarm Optimization baseline solver."""
 
-    def __init__(self, population_size: int = 20) -> None:
-        super().__init__(solver_name="Classical PSO")
+    def __init__(self, population_size: int = 20, fuel_service: Any | None = None) -> None:
+        super().__init__(solver_name="Classical PSO", fuel_service=fuel_service)
         self.population_size = population_size
 
     def solve(

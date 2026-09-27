@@ -17,8 +17,13 @@ from src.benchmarking.solvers.base_solver import BaseBenchmarkSolver, VESSEL_SPE
 class GeneticAlgorithmSolver(BaseBenchmarkSolver):
     """Genetic Algorithm baseline solver."""
 
-    def __init__(self, population_size: int = 24, mutation_rate: float = 0.15) -> None:
-        super().__init__(solver_name="Genetic Algorithm")
+    def __init__(
+        self,
+        population_size: int = 24,
+        mutation_rate: float = 0.15,
+        fuel_service: Any | None = None,
+    ) -> None:
+        super().__init__(solver_name="Genetic Algorithm", fuel_service=fuel_service)
         self.population_size = population_size
         self.mutation_rate = mutation_rate
 

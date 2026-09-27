@@ -176,3 +176,15 @@ class ProductionModelManager:
         best_name = self.get_best_model_name()
         self.logger.info("Auto-deploying best production model: '%s'", best_name)
         return self.load_model(best_name)
+
+    def get_production_predictor(self) -> PredictionInferenceEngine:
+        """Retrieve canonical frozen PhysicsInformedQIFCPRegressor inference engine."""
+        from src.prediction.fuel_prediction_service import get_fuel_prediction_service
+
+        return get_fuel_prediction_service().predictor_engine
+
+    def get_fuel_prediction_service(self) -> Any:
+        """Retrieve canonical production FuelPredictionService singleton."""
+        from src.prediction.fuel_prediction_service import get_fuel_prediction_service
+
+        return get_fuel_prediction_service()

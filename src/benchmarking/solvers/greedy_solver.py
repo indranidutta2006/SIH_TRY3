@@ -15,8 +15,8 @@ from src.benchmarking.solvers.base_solver import BaseBenchmarkSolver, VESSEL_SPE
 class GreedyFleetSolver(BaseBenchmarkSolver):
     """Deterministic greedy baseline solver for fleet mix and speed allocation."""
 
-    def __init__(self) -> None:
-        super().__init__(solver_name="Greedy Allocation")
+    def __init__(self, fuel_service: Any | None = None) -> None:
+        super().__init__(solver_name="Greedy Allocation", fuel_service=fuel_service)
 
     def solve(
         self,

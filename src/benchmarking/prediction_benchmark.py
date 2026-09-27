@@ -80,6 +80,7 @@ class PredictionModelBenchmarker:
             mae = float(mean_absolute_error(y_test, y_pred))
             rmse = float(np.sqrt(mean_squared_error(y_test, y_pred)))
             r2 = float(r2_score(y_test, y_pred))
+            smape = float(100.0 / len(y_test) * np.sum(np.abs(y_pred - y_test) / ((np.abs(y_test) + np.abs(y_pred)) / 2.0 + 1e-8)))
 
             # 4. Error distribution metrics (bias and standard deviation)
             residuals = y_pred - y_test
@@ -101,6 +102,7 @@ class PredictionModelBenchmarker:
                     metadata={
                         "fit_time_seconds": round(fit_time, 4),
                         "test_samples": n_samples,
+                        "smape": round(smape, 4),
                     },
                 )
             )
@@ -114,6 +116,10 @@ class PredictionModelBenchmarker:
             "random_forest": "Random Forest",
             "hist_gradient_boosting": "HistGBDT (Production Tree)",
             "qifcp": "Quantum-Inspired Predictor (QIFCP)",
+            "qifcp_v1": "Quantum-Inspired Predictor (QIFCP-v1)",
+            "qifcp_v2_k1": "Quantum-Inspired Predictor (QIFCP-v2 K=1)",
+            "qifcp_v2_k2": "Quantum-Inspired Predictor (QIFCP-v2 K=2)",
+            "qifcp_v2_k3": "Quantum-Inspired Predictor (QIFCP-v2 K=3)",
         }
         return mapping.get(model_id, model_id.replace("_", " ").title())
 

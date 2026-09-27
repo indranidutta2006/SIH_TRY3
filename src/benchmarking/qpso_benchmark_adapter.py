@@ -30,8 +30,9 @@ class QPSOBenchmarkAdapter(BaseBenchmarkSolver):
         stagnation_patience: int = 5,
         reinit_fraction: float = 0.25,
         elite_capacity: int = 5,
+        fuel_service: Any | None = None,
     ) -> None:
-        super().__init__(solver_name="Quantum-Inspired PSO (QPSO)")
+        super().__init__(solver_name="Quantum-Inspired PSO (QPSO)", fuel_service=fuel_service)
         self.population_size = population_size
         self.alpha_start = alpha_start
         self.alpha_end = alpha_end

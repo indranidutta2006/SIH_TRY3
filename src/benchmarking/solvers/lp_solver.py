@@ -18,8 +18,8 @@ from src.benchmarking.solvers.base_solver import BaseBenchmarkSolver, VESSEL_SPE
 class LinearProgrammingSolver(BaseBenchmarkSolver):
     """Linear Programming continuous relaxation with integer projection solver."""
 
-    def __init__(self) -> None:
-        super().__init__(solver_name="Linear Programming (Relaxed)")
+    def __init__(self, fuel_service: Any | None = None) -> None:
+        super().__init__(solver_name="Linear Programming (Relaxed)", fuel_service=fuel_service)
 
     def solve(
         self,

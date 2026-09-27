@@ -30,12 +30,20 @@ from src.operations.demand_satisfaction_engine import CargoDemandSatisfactionEng
 from src.operations.reliability_engine import ScheduleReliabilityEngine
 from src.physics.fuel_physics_engine import MaritimeFuelPhysicsEngine
 from src.prediction.emission_engine import MaritimeEmissionEngine
+from src.prediction.fuel_prediction_service import (
+    FuelPredictionService,
+    get_fuel_prediction_service,
+)
 
 logger = logging.getLogger("maritime_system")
 
 
 def compute_scenario_fingerprint(scenario: OptimizationScenario) -> str:
     """Compute an immutable deterministic SHA-256 fingerprint for scenario physics and economics."""
+    fuel_prices = {
+        str(k): float(v)
+        for k, v in (scenario.fuel_prices or FUEL_PRICES_USD_PER_TON).items()
+    }
     payload = {
         "demand": float(scenario.forecasted_demand if scenario.forecasted_demand is not None else scenario.cargo_demand),
         "distance": float(scenario.route_distance),
@@ -48,6 +56,7 @@ def compute_scenario_fingerprint(scenario: OptimizationScenario) -> str:
         "max_transition": float(scenario.max_transition_rate),
         "reliability": float(scenario.target_reliability),
         "port_delay": float(scenario.port_delay_factor),
+        "fuel_prices": fuel_prices,
         "scenario_id": str(scenario.scenario_id or ""),
     }
     raw = json.dumps(payload, sort_keys=True)
@@ -127,7 +136,11 @@ FUEL_CAPEX_MULTIPLIER: Final[dict[str, float]] = {
 class BaseBenchmarkSolver(ABC):
     """Abstract base class for all benchmark optimization solvers."""
 
-    def __init__(self, solver_name: str) -> None:
+    def __init__(
+        self,
+        solver_name: str,
+        fuel_service: FuelPredictionService | None = None,
+    ) -> None:
         """Initialize benchmark solver with identification name and engines."""
         self.solver_name = solver_name
         self.physics_engine = MaritimeFuelPhysicsEngine()
@@ -135,6 +148,7 @@ class BaseBenchmarkSolver(ABC):
         self.compliance_engine = MaritimeComplianceEngine()
         self.demand_engine = CargoDemandSatisfactionEngine()
         self.reliability_engine = ScheduleReliabilityEngine()
+        self.fuel_service = fuel_service or get_fuel_prediction_service()
         self.logger = logger
 
     @abstractmethod
@@ -340,7 +354,7 @@ class BaseBenchmarkSolver(ABC):
         """
         fp = compute_scenario_fingerprint(scenario)
         speed = float(np.clip(speed_knots, 9.0, 18.0))
-        speed_rounded = round(speed, 2)
+        speed_rounded = round(speed, 6)
 
         cache_key = (
             int(x_f),
@@ -453,7 +467,7 @@ class BaseBenchmarkSolver(ABC):
             f_type = fuel_type_map.get(f_key, FuelType.DIESEL.value)
             f_price = fuel_prices.get(f_type, 650.0)
 
-            fuel_vsl = self.physics_engine.calculate_fuel_use(
+            fuel_vsl = self.fuel_service.calculate_fuel(
                 distance_nm=scenario.route_distance,
                 speed_knots=speed,
                 cargo_tons=weighted_dwt * 0.85,
@@ -461,6 +475,7 @@ class BaseBenchmarkSolver(ABC):
                 fuel_type=f_type,
                 vessel_dwt=weighted_dwt,
                 admiralty_coeff=weighted_adm,
+                vessel_type=getattr(scenario, "vessel_type", "Bulk Carrier"),
             )
             emiss_vsl = float(self.emission_engine.calculate_wtw(fuel_vsl, f_type).co2e)
 
@@ -524,14 +539,19 @@ class BaseBenchmarkSolver(ABC):
         res_dict = {
             "objective_score": round(composite_score, 4),
             "fuel_consumption": round(total_fuel, 2),
+            "predicted_fuel_consumption": round(total_fuel, 2),
+            "fuel_cost": round(total_bunker_cost, 2),
             "operational_cost": round(total_operational_cost, 2),
             "emissions": round(total_emissions, 2),
+            "co2_emissions": round(total_emissions, 2),
             "reliability_score": round(rel_metrics.reliability_score, 2),
             "demand_satisfaction_rate": round(dem_metrics.demand_satisfaction_rate, 4),
             "feasible_solution": is_feasible,
             "fleet_mix": {**fuel_mix, "feeder": x_f, "medium": x_m, "large": x_l},
             "speed_knots": speed,
             "ann_capacity": round(ann_capacity, 2),
+            "predictor": getattr(self.fuel_service, "model_name", "physics_residual_qifcp"),
+            "fuel_prediction_source": "canonical_qifcp",
         }
 
         if cache is not None:

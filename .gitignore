@@ -25,6 +25,7 @@ artifacts/models/*.pkl
 artifacts/metrics/*.json
 outputs/logs/*.log*
 outputs/reports/*.json
+!outputs/reports/final_integrated_optimization_benchmark.json
 outputs/figures/*.png
 
 # IDE & OS files
@@ -32,3 +33,14 @@ outputs/figures/*.png
 .idea/
 .DS_Store
 Thumbs.db
+
+# Secrets & Credentials
+.env
+.env.*
+*.key
+*service-account*.json
+*credentials*.json
+
+# Scratch
+scratch/
+

@@ -89,10 +89,12 @@ class VesselCapacityOptimizer:
         self,
         physics_engine: MaritimeFuelPhysicsEngine | None = None,
         emission_engine: MaritimeEmissionEngine | None = None,
+        fuel_service: Any | None = None,
     ) -> None:
-        """Initialize capacity optimizer reusing hydrodynamics and emission engines."""
+        """Initialize capacity optimizer reusing hydrodynamics/prediction and emission engines."""
         self.physics_engine = physics_engine or MaritimeFuelPhysicsEngine()
         self.emission_engine = emission_engine or MaritimeEmissionEngine()
+        self.fuel_service = fuel_service
         self.logger = logger
 
     def optimize_capacity(
@@ -218,15 +220,26 @@ class VesselCapacityOptimizer:
             # Admiralty resistance scales with displacement Delta^(2/3)
             # Lightship weight approx 22% of capacity + carried cargo
             v_speed = profile["design_speed_knots"]
-            trip_fuel = self.physics_engine.calculate_fuel_use(
-                distance_nm=scenario.route_distance,
-                speed_knots=v_speed,
-                cargo_tons=actual_cargo_per_trip,
-                weather_factor=scenario.weather_factor,
-                fuel_type=target_fuel_type,
-                vessel_dwt=cap,
-                admiralty_coeff=profile["admiralty_coeff"],
-            )
+            if self.fuel_service is not None:
+                trip_fuel = self.fuel_service.calculate_fuel(
+                    distance_nm=scenario.route_distance,
+                    speed_knots=v_speed,
+                    cargo_tons=actual_cargo_per_trip,
+                    weather_factor=scenario.weather_factor,
+                    fuel_type=target_fuel_type,
+                    vessel_dwt=cap,
+                    admiralty_coeff=profile["admiralty_coeff"],
+                )
+            else:
+                trip_fuel = self.physics_engine.calculate_fuel_use(
+                    distance_nm=scenario.route_distance,
+                    speed_knots=v_speed,
+                    cargo_tons=actual_cargo_per_trip,
+                    weather_factor=scenario.weather_factor,
+                    fuel_type=target_fuel_type,
+                    vessel_dwt=cap,
+                    admiralty_coeff=profile["admiralty_coeff"],
+                )
 
             total_fuel = trip_fuel * trips
 

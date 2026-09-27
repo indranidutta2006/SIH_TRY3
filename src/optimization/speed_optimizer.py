@@ -64,10 +64,12 @@ class EcoSpeedOptimizer:
         self,
         physics_engine: MaritimeFuelPhysicsEngine | None = None,
         emission_engine: MaritimeEmissionEngine | None = None,
+        fuel_service: Any | None = None,
     ) -> None:
-        """Initialize eco-speed optimizer reusing physics and emissions engines."""
+        """Initialize eco-speed optimizer reusing physics/prediction and emissions engines."""
         self.physics_engine = physics_engine or MaritimeFuelPhysicsEngine()
         self.emission_engine = emission_engine or MaritimeEmissionEngine()
+        self.fuel_service = fuel_service
         self.logger = logger
 
     def optimize_speed(
@@ -127,15 +129,26 @@ class EcoSpeedOptimizer:
                 port_delay,
             )
             # Run at max speed to minimize deadline deficit
-            fuel_cons = self.physics_engine.calculate_fuel_use(
-                distance_nm=dist,
-                speed_knots=max_speed,
-                cargo_tons=c_load,
-                weather_factor=scenario.weather_factor,
-                fuel_type=fuel_type,
-                vessel_dwt=dwt,
-                admiralty_coeff=adm_coeff,
-            )
+            if self.fuel_service is not None:
+                fuel_cons = self.fuel_service.calculate_fuel(
+                    distance_nm=dist,
+                    speed_knots=max_speed,
+                    cargo_tons=c_load,
+                    weather_factor=scenario.weather_factor,
+                    fuel_type=fuel_type,
+                    vessel_dwt=dwt,
+                    admiralty_coeff=adm_coeff,
+                )
+            else:
+                fuel_cons = self.physics_engine.calculate_fuel_use(
+                    distance_nm=dist,
+                    speed_knots=max_speed,
+                    cargo_tons=c_load,
+                    weather_factor=scenario.weather_factor,
+                    fuel_type=fuel_type,
+                    vessel_dwt=dwt,
+                    admiralty_coeff=adm_coeff,
+                )
             emiss = float(self.emission_engine.calculate_wtw(fuel_cons, fuel_type).co2e)
             delay = min_possible_duration - deadline
             bunker_cost = fuel_cons * fuel_price
@@ -187,16 +200,27 @@ class EcoSpeedOptimizer:
             delay_h = max(0.0, total_duration - deadline)
 
 
-            # Fuel consumption from Admiralty power law (P prop ~ Delta^(2/3) * V^3)
-            fuel = self.physics_engine.calculate_fuel_use(
-                distance_nm=dist,
-                speed_knots=v_curr,
-                cargo_tons=c_load,
-                weather_factor=scenario.weather_factor,
-                fuel_type=fuel_type,
-                vessel_dwt=dwt,
-                admiralty_coeff=adm_coeff,
-            )
+            # Fuel consumption prediction via canonical predictor service (or fallback physics)
+            if self.fuel_service is not None:
+                fuel = self.fuel_service.calculate_fuel(
+                    distance_nm=dist,
+                    speed_knots=v_curr,
+                    cargo_tons=c_load,
+                    weather_factor=scenario.weather_factor,
+                    fuel_type=fuel_type,
+                    vessel_dwt=dwt,
+                    admiralty_coeff=adm_coeff,
+                )
+            else:
+                fuel = self.physics_engine.calculate_fuel_use(
+                    distance_nm=dist,
+                    speed_knots=v_curr,
+                    cargo_tons=c_load,
+                    weather_factor=scenario.weather_factor,
+                    fuel_type=fuel_type,
+                    vessel_dwt=dwt,
+                    admiralty_coeff=adm_coeff,
+                )
 
             emiss = float(self.emission_engine.calculate_wtw(fuel, fuel_type).co2e)
             carbon_cost = emiss * scenario.carbon_price

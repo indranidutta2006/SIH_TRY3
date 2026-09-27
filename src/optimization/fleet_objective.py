@@ -24,6 +24,7 @@ from contracts.schemas import FleetAssignment, VoyageRecord
 from src.compliance.compliance_engine import MaritimeComplianceEngine
 from src.physics.fuel_physics_engine import MaritimeFuelPhysicsEngine
 from src.prediction.emission_engine import MaritimeEmissionEngine
+from src.prediction.fuel_prediction_service import get_fuel_prediction_service
 from src.prediction.model_manager import ProductionModelManager
 
 logger = logging.getLogger("maritime_system")
@@ -72,7 +73,7 @@ def get_cached_engines() -> tuple[Any, MaritimeEmissionEngine, MaritimeComplianc
     """Retrieve or lazily initialize shared production model, emission, compliance, and physics engines."""
     global _CACHED_PROD_MODEL, _CACHED_EMISSION_ENGINE, _CACHED_COMPLIANCE_ENGINE, _CACHED_PHYSICS_ENGINE
     if _CACHED_PROD_MODEL is None:
-        _CACHED_PROD_MODEL = ProductionModelManager().get_best_model()
+        _CACHED_PROD_MODEL = get_fuel_prediction_service()
     if _CACHED_EMISSION_ENGINE is None:
         _CACHED_EMISSION_ENGINE = MaritimeEmissionEngine()
     if _CACHED_COMPLIANCE_ENGINE is None:

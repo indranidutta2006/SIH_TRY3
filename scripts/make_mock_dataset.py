@@ -144,6 +144,9 @@ def calculate_physics_fuel(
     sea_state: int,
     fuel_type: str,
     rng: np.random.Generator,
+    admiralty_multiplier: float = 1.0,
+    sfoc_multiplier: float = 1.0,
+    noise_sigma: float = 0.02,
 ) -> tuple[float, float]:
     """Derive fuel consumption and CO2 emissions via hydrodynamic principles.
 
@@ -158,7 +161,7 @@ def calculate_physics_fuel(
 
     # 2. Admiralty coefficient for vessel hull efficiency
     adm_min, adm_max = VESSEL_CONFIGS[vessel_type]["admiralty"]
-    admiralty_coeff = (adm_min + adm_max) / 2.0
+    admiralty_coeff = ((adm_min + adm_max) / 2.0) * admiralty_multiplier
 
     # 3. Main engine propulsion power (kW): P = (Delta^(2/3) * V^3) / C_adm
     propulsion_power_kw = (displacement_tons ** (2.0 / 3.0) * (speed_knots ** 3.0)) / admiralty_coeff
@@ -169,7 +172,7 @@ def calculate_physics_fuel(
     total_power_kw = propulsion_power_kw + auxiliary_power_kw
 
     # 5. Specific Fuel Oil Consumption (SFOC)
-    sfoc_g_kwh = SFOC_MAP[fuel_type]
+    sfoc_g_kwh = SFOC_MAP[fuel_type] * sfoc_multiplier
 
     # 6. Environmental resistance multiplier
     # Weather severity and sea state increase required effective thrust
@@ -180,8 +183,8 @@ def calculate_physics_fuel(
         (total_power_kw * sfoc_g_kwh * hours_at_sea) / 1_000_000.0
     ) * environmental_multiplier
 
-    # 8. Minor stochastic variance representing hull fouling, trim, and current drift (sigma ~ 2%)
-    stochastic_factor = rng.normal(loc=1.0, scale=0.02)
+    # 8. Minor stochastic variance representing hull fouling, trim, and current drift
+    stochastic_factor = rng.normal(loc=1.0, scale=noise_sigma)
     fuel_consumption = max(0.1, float(nominal_fuel_tons * stochastic_factor))
     fuel_consumption = round(fuel_consumption, 2)
 
@@ -218,12 +221,24 @@ def validate_record(record: VoyageRecord) -> bool:
 def generate_synthetic_voyages(
     num_rows: int,
     seed: int = 42,
+    admiralty_multiplier: float = 1.0,
+    sfoc_multiplier: float = 1.0,
+    noise_sigma: float = 0.02,
+    port_buffer_range: tuple[float, float] = (0.5, 2.5),
+    weather_base_shift: float = 0.0,
+    sea_state_probs: list[float] | None = None,
 ) -> list[VoyageRecord]:
     """Generate a deterministic sequence of physically plausible VoyageRecord instances.
 
     Args:
         num_rows: Number of valid voyage records to produce.
         seed: Fixed random integer for reproducible pseudorandom generation.
+        admiralty_multiplier: Scale multiplier on vessel Admiralty coefficients (e.g. 1.05 for +5%).
+        sfoc_multiplier: Scale multiplier on fuel SFOC (e.g. 0.97 for -3%).
+        noise_sigma: Standard deviation of multiplicative Gaussian noise on fuel consumption.
+        port_buffer_range: Min and max hours added for port maneuvering and departure buffers.
+        weather_base_shift: Additive shift on baseline weather factor.
+        sea_state_probs: Probability distribution over Douglas sea states 1 to 7.
 
     Returns:
         List of validated VoyageRecord instances.
@@ -263,12 +278,13 @@ def generate_synthetic_voyages(
         speed_knots = float(np.clip(speed_knots, spd_min - 1.5, spd_max + 1.5))
 
         # Voyage duration (hours) with minor port departure/arrival buffer
-        hours_at_sea = round((distance_nm / speed_knots) + py_rng.uniform(0.5, 2.5), 2)
+        hours_at_sea = round((distance_nm / speed_knots) + py_rng.uniform(port_buffer_range[0], port_buffer_range[1]), 2)
 
         # Sea state (Douglas scale 0 to 7) and correlated weather multiplier (1.00 to 1.35)
-        sea_state = int(np_rng.choice([1, 2, 3, 4, 5, 6, 7], p=[0.10, 0.25, 0.30, 0.20, 0.10, 0.03, 0.02]))
-        base_weather = 1.0 + (0.04 * sea_state)
-        weather_factor = round(float(np.clip(np_rng.normal(base_weather, 0.02), 1.00, 1.38)), 2)
+        probs = sea_state_probs if sea_state_probs is not None else [0.10, 0.25, 0.30, 0.20, 0.10, 0.03, 0.02]
+        sea_state = int(np_rng.choice([1, 2, 3, 4, 5, 6, 7], p=probs))
+        base_weather = 1.0 + (0.04 * sea_state) + weather_base_shift
+        weather_factor = round(float(np.clip(np_rng.normal(base_weather, 0.02), 1.00, 1.38 + weather_base_shift)), 2)
 
         # Compute physics-based fuel and emissions
         fuel_consumption, co2_emissions = calculate_physics_fuel(
@@ -281,6 +297,9 @@ def generate_synthetic_voyages(
             sea_state=sea_state,
             fuel_type=fuel_type,
             rng=np_rng,
+            admiralty_multiplier=admiralty_multiplier,
+            sfoc_multiplier=sfoc_multiplier,
+            noise_sigma=noise_sigma,
         )
 
         record = VoyageRecord(
