@@ -16,6 +16,15 @@ htmlcov/
 artifacts/models/*.pkl
 artifacts/metrics/*.json
 outputs/reports/*.json
+!outputs/reports/final_prediction_benchmark.json
+!outputs/reports/final_integrated_optimization_benchmark.json
+!outputs/reports/qifcp_out_of_generator_stress_test.json
+!outputs/reports/qifcp_phase2d_physics_residual_5seed.json
+!outputs/reports/qifcp_phase2c_grouped_gamma_5seed.json
+!outputs/reports/qifcp_v2_prediction_benchmark.json
+!outputs/reports/qifcp_v2_entanglement_benchmark.json
+!outputs/reports/qifcp_adaptive_robustness_5seed.json
+!outputs/reports/data_generation_physics_audit.json
 outputs/logs/*.log
 data/raw/*.csv
 data/processed/*.csv

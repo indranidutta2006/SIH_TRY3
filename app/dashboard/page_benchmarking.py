@@ -28,6 +28,7 @@ from src.prediction.benchmark_loader import (
     DEFAULT_CANONICAL_BENCHMARK_PATH,
     get_canonical_benchmark_metadata,
     get_canonical_prediction_dataframe,
+    resolve_canonical_benchmark_path,
 )
 
 
@@ -292,10 +293,11 @@ def render_benchmarking_page() -> None:
 
     with tab4:
         st.subheader("Predictive Model Accuracy Leaderboard (Canonical 5-Seed Benchmark)")
-        if DEFAULT_CANONICAL_BENCHMARK_PATH.exists():
-            meta = get_canonical_benchmark_metadata()
+        report_path = resolve_canonical_benchmark_path()
+        if report_path.exists():
+            meta = get_canonical_benchmark_metadata(report_path=report_path)
             st.caption(f"{meta.subtitle} • Dataset: `{meta.dataset_path}`")
-            df_pred = get_canonical_prediction_dataframe()
+            df_pred = get_canonical_prediction_dataframe(report_path=report_path)
             display_cols = [
                 "Model Architecture",
                 "Status",

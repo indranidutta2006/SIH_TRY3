@@ -12,7 +12,10 @@ from typing import Any
 import pandas as pd
 
 
-DEFAULT_CANONICAL_BENCHMARK_PATH = Path("outputs/reports/final_prediction_benchmark.json")
+PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
+DEFAULT_CANONICAL_BENCHMARK_PATH: Path = (
+    PROJECT_ROOT / "outputs" / "reports" / "final_prediction_benchmark.json"
+)
 
 # Authoritative model mapping and display order for the final benchmark
 CANONICAL_BENCHMARK_MODELS = (
@@ -37,6 +40,51 @@ class CanonicalBenchmarkMetadata:
     accuracy_claim: str
 
 
+def resolve_canonical_benchmark_path(
+    report_path: Path | str | None = None,
+) -> Path:
+    """Resolve the canonical prediction benchmark path robustly across environments.
+
+    Searches in:
+    1. Direct file path if given and existing
+    2. Given path relative to PROJECT_ROOT
+    3. Given path relative to current working directory
+    4. Canonical DEFAULT_CANONICAL_BENCHMARK_PATH (PROJECT_ROOT / outputs/reports/...)
+    5. Standard container path (/app/outputs/reports/final_prediction_benchmark.json)
+    6. CWD-relative outputs/reports/final_prediction_benchmark.json
+
+    Returns:
+        Resolved existing Path if found, otherwise canonical target Path.
+    """
+    if report_path is not None:
+        p = Path(report_path)
+        if p.is_file():
+            return p.resolve()
+        candidate = (PROJECT_ROOT / p).resolve()
+        if candidate.is_file():
+            return candidate
+        candidate = (Path.cwd() / p).resolve()
+        if candidate.is_file():
+            return candidate
+
+    # 4. Check canonical PROJECT_ROOT path
+    if DEFAULT_CANONICAL_BENCHMARK_PATH.is_file():
+        return DEFAULT_CANONICAL_BENCHMARK_PATH.resolve()
+
+    # 5. Check container /app directory
+    container_cand = Path("/app/outputs/reports/final_prediction_benchmark.json")
+    if container_cand.is_file():
+        return container_cand.resolve()
+
+    # 6. Check CWD relative path
+    cwd_cand = (Path.cwd() / "outputs" / "reports" / "final_prediction_benchmark.json").resolve()
+    if cwd_cand.is_file():
+        return cwd_cand
+
+    # Fallback to absolute canonical path
+    return DEFAULT_CANONICAL_BENCHMARK_PATH.resolve()
+
+
 def load_canonical_prediction_benchmark(
     report_path: Path | str = DEFAULT_CANONICAL_BENCHMARK_PATH,
 ) -> dict[str, Any]:
@@ -51,10 +99,13 @@ def load_canonical_prediction_benchmark(
     Raises:
         FileNotFoundError: If the report file does not exist.
     """
-    p = Path(report_path)
-    if not p.exists():
-        raise FileNotFoundError(f"Canonical prediction benchmark report missing at: {p}")
-    return json.loads(p.read_text(encoding="utf-8"))
+    resolved = resolve_canonical_benchmark_path(report_path)
+    if not resolved.exists():
+        raise FileNotFoundError(
+            f"Canonical prediction benchmark report missing at: {resolved}. "
+            f"Searched relative to PROJECT_ROOT ({PROJECT_ROOT}) and CWD ({Path.cwd()})."
+        )
+    return json.loads(resolved.read_text(encoding="utf-8"))
 
 
 def get_canonical_benchmark_metadata(

@@ -18,7 +18,14 @@ mkdir -p data/raw data/processed artifacts/models artifacts/metrics outputs/repo
 # Run complete end-to-end maritime intelligence & green fleet optimization pipeline
 python scripts/run_full_pipeline.py --rows 10000
 
+# Verify that canonical prediction benchmark report exists and is bundled
+if [ ! -f "outputs/reports/final_prediction_benchmark.json" ]; then
+    echo "[SIH26138 BUILD] ERROR: Canonical prediction benchmark artifact 'outputs/reports/final_prediction_benchmark.json' not found!"
+    exit 1
+fi
+echo "[SIH26138 BUILD] Verified canonical prediction benchmark artifact is present."
 
 echo "======================================================================"
 echo "[SIH26138 BUILD] Deployment build completed successfully!"
 echo "======================================================================"
+

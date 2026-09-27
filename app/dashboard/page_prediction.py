@@ -16,6 +16,7 @@ from src.prediction.benchmark_loader import (
     get_canonical_benchmark_metadata,
     get_canonical_prediction_dataframe,
     load_canonical_prediction_benchmark,
+    resolve_canonical_benchmark_path,
 )
 from src.prediction.fuel_prediction_service import get_fuel_prediction_service
 
@@ -30,7 +31,7 @@ def render_prediction_page() -> None:
         """
     )
 
-    report_path = DEFAULT_CANONICAL_BENCHMARK_PATH
+    report_path = resolve_canonical_benchmark_path()
     if not report_path.exists():
         st.warning(f"Canonical prediction benchmark report `{report_path}` not found. Please ensure reports are generated.")
         return

@@ -21,6 +21,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from app.dashboard import (
     render_benchmarking_page,
     render_compliance_page,
+    render_decision_intelligence_page,
     render_optimization_page,
     render_overview_page,
     render_prediction_page,
