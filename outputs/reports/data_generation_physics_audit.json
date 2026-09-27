@@ -1,0 +1,142 @@
+{
+  "audit_metadata": {
+    "timestamp": "2026-09-27T09:55:15.768835+00:00",
+    "dataset_path": "data\\raw\\voyages_sample.csv",
+    "dataset_sha256": "069dfc97f9c3b75ad5e903a772095151692aa6501d07c2c648175cfe27ddcd2c",
+    "records_count": 500,
+    "unique_vessels": 60,
+    "audit_verdict": "LEVEL 3 \u2014 Target generated primarily from same physical equations as baseline"
+  },
+  "generator_trace": {
+    "file": "scripts/make_mock_dataset.py",
+    "function": "generate_synthetic_voyages",
+    "physics_function": "calculate_physics_fuel",
+    "fleet_class": "SyntheticFleet",
+    "random_seed": 42,
+    "admiralty_by_vessel_type": {
+      "Bulk Carrier": 520.0,
+      "Container Ship": 595.0,
+      "Oil Tanker": 500.0,
+      "General Cargo": 460.0
+    },
+    "sfoc_by_fuel_g_per_kwh": {
+      "Diesel": 175.0,
+      "LNG": 145.0,
+      "Methanol": 345.0
+    },
+    "hours_at_sea_formula": "(distance_nm / speed_knots) + uniform(0.5, 2.5)",
+    "environmental_multiplier_formula": "weather_factor * (1.0 + 0.025 * sea_state)",
+    "propulsion_power_kw_formula": "((0.20 * vessel_dwt + cargo_tons)**(2/3) * speed_knots**3) / admiralty_coeff",
+    "auxiliary_power_kw_formula": "0.05 * (vessel_dwt**0.6) * 100.0",
+    "noise_distribution": "normal(loc=1.0, scale=0.02)"
+  },
+  "physics_baseline_trace": {
+    "class": "NavalPhysicsFuelBaseline",
+    "module": "src.prediction.qifcp",
+    "nominal_admiralty_coeff": 500.0,
+    "thermal_efficiency": 0.45,
+    "lhv_mj_per_kg": {
+      "Diesel": 42.7,
+      "LNG": 50.0,
+      "Methanol": 19.9,
+      "Hydrogen": 120.0,
+      "Ammonia": 18.6
+    },
+    "hours_used": "implied_hours = distance_nm / speed_knots",
+    "environmental_multiplier_used": "max(weather_factor, 1.0)",
+    "calibration_method": "Ordinary Least Squares without intercept on X_train, y_train only",
+    "fitted_parameters_mean_5seed": {
+      "c_prop": 0.8194,
+      "c_aux": 1.2771,
+      "effective_admiralty_coeff": 610.24
+    }
+  },
+  "quantitative_overlap_training_only": {
+    "regression_a_physics_baseline": {
+      "formula": "fuel_consumption ~ NavalPhysicsFuelBaseline(X_train)",
+      "r2": 0.9905,
+      "rmse_t": 89.31,
+      "mae_t": 51.13
+    },
+    "regression_b_generator_terms": {
+      "formula": "fuel_consumption ~ c1 * f_prop_generator + c2 * f_aux_generator",
+      "r2": 0.9991,
+      "rmse_t": 28.07,
+      "mae_t": 17.72,
+      "fitted_c1_prop": 0.9964,
+      "fitted_c2_aux": 1.0208,
+      "unexplained_variance_source": "2% multiplicative Gaussian noise + uniform(0.5, 2.5)h port buffer"
+    }
+  },
+  "feature_leakage_audit": {
+    "total_features": 27,
+    "category_a_directly_observed": 15,
+    "category_b_derived_legitimate": 12,
+    "category_c_derived_from_target": 0,
+    "category_d_derived_from_post_voyage_correlated": 0,
+    "category_e_ambiguous": 0,
+    "leakage_status": "CLEAN (Zero Target Leakage)"
+  },
+  "calibration_and_residual_leakage": {
+    "physics_baseline_calibration_data": "X_train, y_train only",
+    "test_partition_leakage": false,
+    "residual_target_formation": "r_train = y_train - y_phys_train",
+    "residual_test_inference": "y_test not accessed; y_final = y_phys_test + r_hat_test"
+  },
+  "dataset_realism_summary": {
+    "fuel_consumption": {
+      "min": 10.95,
+      "max": 6840.87,
+      "mean": 1073.43,
+      "median": 839.66,
+      "std": 907.09
+    },
+    "vessel_dwt": {
+      "min": 5100.0,
+      "max": 292600.0,
+      "mean": 111248.2,
+      "median": 106100.0,
+      "std": 77251.48
+    },
+    "cargo_tons": {
+      "min": 2926.3,
+      "max": 270779.1,
+      "mean": 86725.44,
+      "median": 78106.3,
+      "std": 64478.4
+    },
+    "distance_nm": {
+      "min": 303.7,
+      "max": 7462.7,
+      "mean": 3924.22,
+      "median": 3937.55,
+      "std": 2042.29
+    },
+    "speed_knots": {
+      "min": 9.8,
+      "max": 20.5,
+      "mean": 14.31,
+      "median": 13.3,
+      "std": 2.63
+    },
+    "weather_factor": {
+      "min": 1.0,
+      "max": 1.31,
+      "mean": 1.12,
+      "median": 1.12,
+      "std": 0.06
+    },
+    "sea_state": {
+      "min": 1.0,
+      "max": 7.0,
+      "mean": 3.12,
+      "median": 3.0,
+      "std": 1.52
+    }
+  },
+  "circularity_classification": {
+    "level": 3,
+    "level_title": "LEVEL 3: Target is generated primarily from the same physical equations used by the baseline",
+    "justification": "Both generator and baseline share identical core equations: displacement Delta^(2/3) * Speed^3 / C_adm + 0.05 * DWT^0.6 * 100 * duration * weather. Differences are parameterizations (SFOC lookup vs LHV, vessel-specific vs calibrated scalar C_adm, sea-state term in multiplier, port buffer in hours)."
+  }
+}

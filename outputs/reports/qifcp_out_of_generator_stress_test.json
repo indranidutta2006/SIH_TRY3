@@ -1,0 +1,3095 @@
+{
+  "metadata": {
+    "timestamp": "2026-09-27T10:26:32.824138+00:00",
+    "git_commit": "7e2f710efa71474fd03c515fb59c013f6da02641",
+    "benchmark_name": "QIFCP-v2 Out-of-Generator Stress Test & Distribution Shift Audit",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "canonical_dataset": {
+      "path": "data\\raw\\voyages_sample.csv",
+      "sha256": "069dfc97f9c3b75ad5e903a772095151692aa6501d07c2c648175cfe27ddcd2c",
+      "n_samples": 500
+    },
+    "stress_level_datasets": {
+      "level1": {
+        "path": "data\\validation\\out_of_generator_level1.csv",
+        "sha256": "aa4dd04aafb14e0140d1a8f0f358e758ab4ccb6389236f4fc5986184354cf9bd",
+        "n_samples": 500
+      },
+      "level2": {
+        "path": "data\\validation\\out_of_generator_level2.csv",
+        "sha256": "116caa0eef427e31d8b3615c9f1481e48c5ca53f51c53c6f10952a5b78940ca0",
+        "n_samples": 500
+      },
+      "level3": {
+        "path": "data\\validation\\out_of_generator_level3.csv",
+        "sha256": "1cbb26fc6cef040fc5aea6cfc473c4052cbc82191ac07a0e80e6e2a52a3d2685",
+        "n_samples": 500
+      }
+    },
+    "target_mode": "absolute"
+  },
+  "shift_specifications": {
+    "level1": {
+      "name": "Level 1 (Mild Shift)",
+      "admiralty_multiplier": 1.05,
+      "sfoc_multiplier": 1.0,
+      "noise_sigma": 0.03,
+      "port_buffer_range": [
+        1.0,
+        3.5
+      ],
+      "weather_base_shift": 0.02,
+      "sea_state_probs": [
+        0.05,
+        0.2,
+        0.3,
+        0.25,
+        0.12,
+        0.05,
+        0.03
+      ],
+      "description": "5% higher hull efficiency (lower fuel demand), 3% noise, +0.02 weather severity"
+    },
+    "level2": {
+      "name": "Level 2 (Moderate Shift)",
+      "admiralty_multiplier": 1.1,
+      "sfoc_multiplier": 0.97,
+      "noise_sigma": 0.05,
+      "port_buffer_range": [
+        1.5,
+        5.0
+      ],
+      "weather_base_shift": 0.05,
+      "sea_state_probs": [
+        0.02,
+        0.15,
+        0.25,
+        0.28,
+        0.18,
+        0.08,
+        0.04
+      ],
+      "description": "10% higher hull efficiency, 3% lower SFOC, 5% noise, +0.05 weather severity"
+    },
+    "level3": {
+      "name": "Level 3 (Strong Shift)",
+      "admiralty_multiplier": 1.15,
+      "sfoc_multiplier": 0.95,
+      "noise_sigma": 0.08,
+      "port_buffer_range": [
+        2.0,
+        8.0
+      ],
+      "weather_base_shift": 0.08,
+      "sea_state_probs": [
+        0.01,
+        0.08,
+        0.2,
+        0.3,
+        0.23,
+        0.12,
+        0.06
+      ],
+      "description": "15% higher hull efficiency, 5% lower SFOC, 8% noise, +0.08 weather severity, 2-8h port buffer"
+    }
+  },
+  "seed42_frozen_results": {
+    "in_domain": {
+      "physics_residual_qifcp": {
+        "seed": 42,
+        "condition": "in_domain",
+        "model_id": "physics_residual_qifcp",
+        "display_name": "Physics + QIFCP Residual",
+        "n_eval_samples": 106,
+        "mae": 42.2762,
+        "rmse": 61.3811,
+        "r2": 0.9948,
+        "smape": 6.3748,
+        "bias": 15.891,
+        "residual_std": 59.2884
+      },
+      "physics_baseline": {
+        "seed": 42,
+        "condition": "in_domain",
+        "model_id": "physics_baseline",
+        "display_name": "Naval Physics Baseline",
+        "n_eval_samples": 106,
+        "mae": 65.8925,
+        "rmse": 94.6373,
+        "r2": 0.9876,
+        "smape": 5.3725,
+        "bias": -39.2662,
+        "residual_std": 86.1068
+      },
+      "adaptive_grouped_gamma": {
+        "seed": 42,
+        "condition": "in_domain",
+        "model_id": "adaptive_grouped_gamma",
+        "display_name": "Adaptive Grouped QIFCP (Direct)",
+        "n_eval_samples": 106,
+        "mae": 97.5094,
+        "rmse": 140.5478,
+        "r2": 0.9726,
+        "smape": 12.3305,
+        "bias": 34.091,
+        "residual_std": 136.3506
+      },
+      "random_forest": {
+        "seed": 42,
+        "condition": "in_domain",
+        "model_id": "random_forest",
+        "display_name": "Random Forest Regressor",
+        "n_eval_samples": 106,
+        "mae": 138.3716,
+        "rmse": 195.9091,
+        "r2": 0.9467,
+        "smape": 14.8367,
+        "bias": 65.0732,
+        "residual_std": 184.786
+      },
+      "hist_gradient_boosting": {
+        "seed": 42,
+        "condition": "in_domain",
+        "model_id": "hist_gradient_boosting",
+        "display_name": "HistGradientBoosting Regressor",
+        "n_eval_samples": 106,
+        "mae": 152.4002,
+        "rmse": 255.4352,
+        "r2": 0.9094,
+        "smape": 13.9647,
+        "bias": 82.9255,
+        "residual_std": 241.5999
+      }
+    },
+    "level1": {
+      "physics_residual_qifcp": {
+        "seed": 42,
+        "condition": "level1",
+        "model_id": "physics_residual_qifcp",
+        "display_name": "Physics + QIFCP Residual",
+        "n_eval_samples": 500,
+        "mae": 62.7824,
+        "rmse": 95.7598,
+        "r2": 0.9888,
+        "smape": 8.5476,
+        "bias": 57.1879,
+        "residual_std": 76.8081
+      },
+      "physics_baseline": {
+        "seed": 42,
+        "condition": "level1",
+        "model_id": "physics_baseline",
+        "display_name": "Naval Physics Baseline",
+        "n_eval_samples": 500,
+        "mae": 61.5542,
+        "rmse": 101.0915,
+        "r2": 0.9875,
+        "smape": 5.5651,
+        "bias": 19.4846,
+        "residual_std": 99.196
+      },
+      "adaptive_grouped_gamma": {
+        "seed": 42,
+        "condition": "level1",
+        "model_id": "adaptive_grouped_gamma",
+        "display_name": "Adaptive Grouped QIFCP (Direct)",
+        "n_eval_samples": 500,
+        "mae": 94.3721,
+        "rmse": 135.3142,
+        "r2": 0.9777,
+        "smape": 17.2577,
+        "bias": 42.243,
+        "residual_std": 128.5514
+      },
+      "random_forest": {
+        "seed": 42,
+        "condition": "level1",
+        "model_id": "random_forest",
+        "display_name": "Random Forest Regressor",
+        "n_eval_samples": 500,
+        "mae": 93.013,
+        "rmse": 171.8789,
+        "r2": 0.964,
+        "smape": 10.2757,
+        "bias": 29.8929,
+        "residual_std": 169.2595
+      },
+      "hist_gradient_boosting": {
+        "seed": 42,
+        "condition": "level1",
+        "model_id": "hist_gradient_boosting",
+        "display_name": "HistGradientBoosting Regressor",
+        "n_eval_samples": 500,
+        "mae": 100.2305,
+        "rmse": 194.9351,
+        "r2": 0.9536,
+        "smape": 11.0866,
+        "bias": 50.0653,
+        "residual_std": 188.3962
+      }
+    },
+    "level2": {
+      "physics_residual_qifcp": {
+        "seed": 42,
+        "condition": "level2",
+        "model_id": "physics_residual_qifcp",
+        "display_name": "Physics + QIFCP Residual",
+        "n_eval_samples": 500,
+        "mae": 126.0537,
+        "rmse": 180.312,
+        "r2": 0.9593,
+        "smape": 14.4376,
+        "bias": 124.599,
+        "residual_std": 130.3361
+      },
+      "physics_baseline": {
+        "seed": 42,
+        "condition": "level2",
+        "model_id": "physics_baseline",
+        "display_name": "Naval Physics Baseline",
+        "n_eval_samples": 500,
+        "mae": 94.4822,
+        "rmse": 153.5947,
+        "r2": 0.9704,
+        "smape": 8.6799,
+        "bias": 76.0366,
+        "residual_std": 133.4532
+      },
+      "adaptive_grouped_gamma": {
+        "seed": 42,
+        "condition": "level2",
+        "model_id": "adaptive_grouped_gamma",
+        "display_name": "Adaptive Grouped QIFCP (Direct)",
+        "n_eval_samples": 500,
+        "mae": 136.3477,
+        "rmse": 196.761,
+        "r2": 0.9515,
+        "smape": 21.1487,
+        "bias": 103.7199,
+        "residual_std": 167.2037
+      },
+      "random_forest": {
+        "seed": 42,
+        "condition": "level2",
+        "model_id": "random_forest",
+        "display_name": "Random Forest Regressor",
+        "n_eval_samples": 500,
+        "mae": 123.8302,
+        "rmse": 200.7739,
+        "r2": 0.9495,
+        "smape": 13.2051,
+        "bias": 73.5272,
+        "residual_std": 186.8259
+      },
+      "hist_gradient_boosting": {
+        "seed": 42,
+        "condition": "level2",
+        "model_id": "hist_gradient_boosting",
+        "display_name": "HistGradientBoosting Regressor",
+        "n_eval_samples": 500,
+        "mae": 147.538,
+        "rmse": 234.1454,
+        "r2": 0.9313,
+        "smape": 16.7854,
+        "bias": 110.9732,
+        "residual_std": 206.1771
+      }
+    },
+    "level3": {
+      "physics_residual_qifcp": {
+        "seed": 42,
+        "condition": "level3",
+        "model_id": "physics_residual_qifcp",
+        "display_name": "Physics + QIFCP Residual",
+        "n_eval_samples": 500,
+        "mae": 184.2041,
+        "rmse": 263.8847,
+        "r2": 0.9123,
+        "smape": 20.5664,
+        "bias": 181.9401,
+        "residual_std": 191.1359
+      },
+      "physics_baseline": {
+        "seed": 42,
+        "condition": "level3",
+        "model_id": "physics_baseline",
+        "display_name": "Naval Physics Baseline",
+        "n_eval_samples": 500,
+        "mae": 137.9743,
+        "rmse": 219.7316,
+        "r2": 0.9392,
+        "smape": 12.7481,
+        "bias": 119.7879,
+        "residual_std": 184.2087
+      },
+      "adaptive_grouped_gamma": {
+        "seed": 42,
+        "condition": "level3",
+        "model_id": "adaptive_grouped_gamma",
+        "display_name": "Adaptive Grouped QIFCP (Direct)",
+        "n_eval_samples": 500,
+        "mae": 182.3268,
+        "rmse": 264.8583,
+        "r2": 0.9117,
+        "smape": 26.0983,
+        "bias": 149.3247,
+        "residual_std": 218.7511
+      },
+      "random_forest": {
+        "seed": 42,
+        "condition": "level3",
+        "model_id": "random_forest",
+        "display_name": "Random Forest Regressor",
+        "n_eval_samples": 500,
+        "mae": 151.569,
+        "rmse": 233.0058,
+        "r2": 0.9316,
+        "smape": 15.9957,
+        "bias": 101.2821,
+        "residual_std": 209.842
+      },
+      "hist_gradient_boosting": {
+        "seed": 42,
+        "condition": "level3",
+        "model_id": "hist_gradient_boosting",
+        "display_name": "HistGradientBoosting Regressor",
+        "n_eval_samples": 500,
+        "mae": 187.9996,
+        "rmse": 277.9337,
+        "r2": 0.9027,
+        "smape": 21.2604,
+        "bias": 154.7634,
+        "residual_std": 230.8581
+      }
+    }
+  },
+  "aggregate_results": {
+    "in_domain": {
+      "physics_residual_qifcp": {
+        "model_id": "physics_residual_qifcp",
+        "display_name": "Physics + QIFCP Residual",
+        "mae": {
+          "mean": 40.0694,
+          "std": 7.8261,
+          "min": 29.0574,
+          "max": 48.5009
+        },
+        "rmse": {
+          "mean": 61.5454,
+          "std": 17.8289,
+          "min": 38.6827,
+          "max": 83.7773
+        },
+        "r2": {
+          "mean": 0.9933,
+          "std": 0.0038,
+          "min": 0.9886,
+          "max": 0.9976
+        },
+        "smape": {
+          "mean": 7.8891,
+          "std": 3.6648,
+          "min": 4.505,
+          "max": 14.1265
+        },
+        "bias": {
+          "mean": 21.4519,
+          "std": 9.156,
+          "min": 10.9462,
+          "max": 33.0375
+        },
+        "residual_std": {
+          "mean": 57.5069,
+          "std": 16.1179,
+          "min": 37.1017,
+          "max": 78.7149
+        }
+      },
+      "physics_baseline": {
+        "model_id": "physics_baseline",
+        "display_name": "Naval Physics Baseline",
+        "mae": {
+          "mean": 50.7908,
+          "std": 10.1776,
+          "min": 39.605,
+          "max": 65.8925
+        },
+        "rmse": {
+          "mean": 78.9968,
+          "std": 13.8418,
+          "min": 63.2359,
+          "max": 94.6373
+        },
+        "r2": {
+          "mean": 0.9897,
+          "std": 0.0031,
+          "min": 0.9864,
+          "max": 0.9931
+        },
+        "smape": {
+          "mean": 5.0365,
+          "std": 0.2736,
+          "min": 4.7265,
+          "max": 5.3725
+        },
+        "bias": {
+          "mean": -8.1927,
+          "std": 24.7686,
+          "min": -39.2662,
+          "max": 19.7084
+        },
+        "residual_std": {
+          "mean": 75.5132,
+          "std": 12.9235,
+          "min": 61.427,
+          "max": 89.4611
+        }
+      },
+      "adaptive_grouped_gamma": {
+        "model_id": "adaptive_grouped_gamma",
+        "display_name": "Adaptive Grouped QIFCP (Direct)",
+        "mae": {
+          "mean": 110.8786,
+          "std": 23.7919,
+          "min": 85.2452,
+          "max": 148.5706
+        },
+        "rmse": {
+          "mean": 156.3959,
+          "std": 26.3735,
+          "min": 140.5478,
+          "max": 202.9305
+        },
+        "r2": {
+          "mean": 0.9567,
+          "std": 0.0249,
+          "min": 0.9124,
+          "max": 0.9726
+        },
+        "smape": {
+          "mean": 24.9485,
+          "std": 10.0552,
+          "min": 12.3305,
+          "max": 35.7905
+        },
+        "bias": {
+          "mean": 7.7559,
+          "std": 23.686,
+          "min": -26.4834,
+          "max": 34.091
+        },
+        "residual_std": {
+          "mean": 154.6937,
+          "std": 26.8562,
+          "min": 136.3506,
+          "max": 201.9931
+        }
+      },
+      "random_forest": {
+        "model_id": "random_forest",
+        "display_name": "Random Forest Regressor",
+        "mae": {
+          "mean": 99.8978,
+          "std": 24.8743,
+          "min": 75.3521,
+          "max": 138.3716
+        },
+        "rmse": {
+          "mean": 149.0295,
+          "std": 39.424,
+          "min": 99.5505,
+          "max": 195.9091
+        },
+        "r2": {
+          "mean": 0.9625,
+          "std": 0.0162,
+          "min": 0.9467,
+          "max": 0.9828
+        },
+        "smape": {
+          "mean": 16.0776,
+          "std": 5.3804,
+          "min": 9.8112,
+          "max": 24.5992
+        },
+        "bias": {
+          "mean": 29.8491,
+          "std": 44.5006,
+          "min": -41.4061,
+          "max": 69.7777
+        },
+        "residual_std": {
+          "mean": 141.3377,
+          "std": 35.3838,
+          "min": 95.7921,
+          "max": 184.786
+        }
+      },
+      "hist_gradient_boosting": {
+        "model_id": "hist_gradient_boosting",
+        "display_name": "HistGradientBoosting Regressor",
+        "mae": {
+          "mean": 99.5267,
+          "std": 36.3375,
+          "min": 65.0729,
+          "max": 152.4002
+        },
+        "rmse": {
+          "mean": 161.0011,
+          "std": 69.0569,
+          "min": 87.4906,
+          "max": 255.4352
+        },
+        "r2": {
+          "mean": 0.9529,
+          "std": 0.0329,
+          "min": 0.9094,
+          "max": 0.9867
+        },
+        "smape": {
+          "mean": 14.0984,
+          "std": 3.9508,
+          "min": 9.4245,
+          "max": 20.0363
+        },
+        "bias": {
+          "mean": 39.7398,
+          "std": 36.5806,
+          "min": 1.4737,
+          "max": 82.9255
+        },
+        "residual_std": {
+          "mean": 154.6939,
+          "std": 62.8142,
+          "min": 85.4068,
+          "max": 241.5999
+        }
+      }
+    },
+    "level1": {
+      "physics_residual_qifcp": {
+        "model_id": "physics_residual_qifcp",
+        "display_name": "Physics + QIFCP Residual",
+        "mae": {
+          "mean": 65.869,
+          "std": 2.3609,
+          "min": 62.7824,
+          "max": 68.1853
+        },
+        "rmse": {
+          "mean": 100.1174,
+          "std": 3.8286,
+          "min": 95.7598,
+          "max": 104.1253
+        },
+        "r2": {
+          "mean": 0.9878,
+          "std": 0.0009,
+          "min": 0.9868,
+          "max": 0.9888
+        },
+        "smape": {
+          "mean": 8.4785,
+          "std": 0.8796,
+          "min": 7.7346,
+          "max": 9.9431
+        },
+        "bias": {
+          "mean": 60.1342,
+          "std": 2.5573,
+          "min": 57.1879,
+          "max": 62.8286
+        },
+        "residual_std": {
+          "mean": 80.035,
+          "std": 3.2176,
+          "min": 76.8081,
+          "max": 83.8335
+        }
+      },
+      "physics_baseline": {
+        "model_id": "physics_baseline",
+        "display_name": "Naval Physics Baseline",
+        "mae": {
+          "mean": 63.1281,
+          "std": 1.5337,
+          "min": 61.5542,
+          "max": 65.0252
+        },
+        "rmse": {
+          "mean": 103.6318,
+          "std": 2.3766,
+          "min": 101.0915,
+          "max": 106.4127
+        },
+        "r2": {
+          "mean": 0.9869,
+          "std": 0.0006,
+          "min": 0.9862,
+          "max": 0.9875
+        },
+        "smape": {
+          "mean": 5.7157,
+          "std": 0.1403,
+          "min": 5.5651,
+          "max": 5.8644
+        },
+        "bias": {
+          "mean": 26.8067,
+          "std": 5.718,
+          "min": 19.4846,
+          "max": 32.8512
+        },
+        "residual_std": {
+          "mean": 99.992,
+          "std": 1.0695,
+          "min": 98.8382,
+          "max": 101.5827
+        }
+      },
+      "adaptive_grouped_gamma": {
+        "model_id": "adaptive_grouped_gamma",
+        "display_name": "Adaptive Grouped QIFCP (Direct)",
+        "mae": {
+          "mean": 135.8495,
+          "std": 24.1481,
+          "min": 94.3721,
+          "max": 156.7012
+        },
+        "rmse": {
+          "mean": 215.6777,
+          "std": 46.1536,
+          "min": 135.3142,
+          "max": 250.9328
+        },
+        "r2": {
+          "mean": 0.9412,
+          "std": 0.0213,
+          "min": 0.9232,
+          "max": 0.9777
+        },
+        "smape": {
+          "mean": 27.2641,
+          "std": 5.883,
+          "min": 17.2577,
+          "max": 31.9265
+        },
+        "bias": {
+          "mean": 43.5352,
+          "std": 10.3091,
+          "min": 27.5937,
+          "max": 55.7271
+        },
+        "residual_std": {
+          "mean": 210.8024,
+          "std": 47.4735,
+          "min": 128.5514,
+          "max": 247.0341
+        }
+      },
+      "random_forest": {
+        "model_id": "random_forest",
+        "display_name": "Random Forest Regressor",
+        "mae": {
+          "mean": 79.8456,
+          "std": 7.8714,
+          "min": 73.5569,
+          "max": 93.013
+        },
+        "rmse": {
+          "mean": 146.9879,
+          "std": 15.6698,
+          "min": 133.6041,
+          "max": 171.8789
+        },
+        "r2": {
+          "mean": 0.9734,
+          "std": 0.0058,
+          "min": 0.964,
+          "max": 0.9782
+        },
+        "smape": {
+          "mean": 9.8717,
+          "std": 0.9351,
+          "min": 8.5867,
+          "max": 10.8997
+        },
+        "bias": {
+          "mean": 20.1516,
+          "std": 9.6241,
+          "min": 6.2288,
+          "max": 29.8929
+        },
+        "residual_std": {
+          "mean": 145.4154,
+          "std": 14.8352,
+          "min": 132.685,
+          "max": 169.2595
+        }
+      },
+      "hist_gradient_boosting": {
+        "model_id": "hist_gradient_boosting",
+        "display_name": "HistGradientBoosting Regressor",
+        "mae": {
+          "mean": 87.8667,
+          "std": 8.241,
+          "min": 78.9362,
+          "max": 100.2305
+        },
+        "rmse": {
+          "mean": 163.9687,
+          "std": 19.8631,
+          "min": 144.545,
+          "max": 194.9351
+        },
+        "r2": {
+          "mean": 0.9668,
+          "std": 0.0083,
+          "min": 0.9536,
+          "max": 0.9745
+        },
+        "smape": {
+          "mean": 11.4759,
+          "std": 0.8825,
+          "min": 10.4141,
+          "max": 12.8287
+        },
+        "bias": {
+          "mean": 45.3481,
+          "std": 8.2029,
+          "min": 35.6104,
+          "max": 56.6454
+        },
+        "residual_std": {
+          "mean": 157.4907,
+          "std": 18.9655,
+          "min": 140.0898,
+          "max": 188.3962
+        }
+      }
+    },
+    "level2": {
+      "physics_residual_qifcp": {
+        "model_id": "physics_residual_qifcp",
+        "display_name": "Physics + QIFCP Residual",
+        "mae": {
+          "mean": 128.4318,
+          "std": 3.1179,
+          "min": 125.1959,
+          "max": 132.4927
+        },
+        "rmse": {
+          "mean": 183.2105,
+          "std": 4.5981,
+          "min": 177.706,
+          "max": 189.4551
+        },
+        "r2": {
+          "mean": 0.9579,
+          "std": 0.0021,
+          "min": 0.955,
+          "max": 0.9604
+        },
+        "smape": {
+          "mean": 14.5086,
+          "std": 0.4747,
+          "min": 14.1325,
+          "max": 15.3344
+        },
+        "bias": {
+          "mean": 126.5688,
+          "std": 2.6595,
+          "min": 123.92,
+          "max": 129.9489
+        },
+        "residual_std": {
+          "mean": 132.4587,
+          "std": 3.9318,
+          "min": 127.3706,
+          "max": 137.8641
+        }
+      },
+      "physics_baseline": {
+        "model_id": "physics_baseline",
+        "display_name": "Naval Physics Baseline",
+        "mae": {
+          "mean": 99.2519,
+          "std": 3.9137,
+          "min": 94.4822,
+          "max": 103.0924
+        },
+        "rmse": {
+          "mean": 159.6839,
+          "std": 5.1446,
+          "min": 153.5947,
+          "max": 165.158
+        },
+        "r2": {
+          "mean": 0.968,
+          "std": 0.0021,
+          "min": 0.9658,
+          "max": 0.9704
+        },
+        "smape": {
+          "mean": 9.1568,
+          "std": 0.3768,
+          "min": 8.6799,
+          "max": 9.6082
+        },
+        "bias": {
+          "mean": 83.6502,
+          "std": 5.9457,
+          "min": 76.0366,
+          "max": 89.9351
+        },
+        "residual_std": {
+          "mean": 135.9758,
+          "std": 2.5173,
+          "min": 133.4532,
+          "max": 139.296
+        }
+      },
+      "adaptive_grouped_gamma": {
+        "model_id": "adaptive_grouped_gamma",
+        "display_name": "Adaptive Grouped QIFCP (Direct)",
+        "mae": {
+          "mean": 186.6192,
+          "std": 36.1199,
+          "min": 136.3477,
+          "max": 222.7904
+        },
+        "rmse": {
+          "mean": 263.9444,
+          "std": 41.8622,
+          "min": 196.761,
+          "max": 302.3589
+        },
+        "r2": {
+          "mean": 0.9109,
+          "std": 0.026,
+          "min": 0.8854,
+          "max": 0.9515
+        },
+        "smape": {
+          "mean": 34.1141,
+          "std": 8.539,
+          "min": 21.1487,
+          "max": 44.0582
+        },
+        "bias": {
+          "mean": 127.0714,
+          "std": 41.1624,
+          "min": 78.112,
+          "max": 174.3639
+        },
+        "residual_std": {
+          "mean": 229.2316,
+          "std": 35.6876,
+          "min": 167.2037,
+          "max": 257.433
+        }
+      },
+      "random_forest": {
+        "model_id": "random_forest",
+        "display_name": "Random Forest Regressor",
+        "mae": {
+          "mean": 107.7743,
+          "std": 10.2133,
+          "min": 97.6644,
+          "max": 123.8302
+        },
+        "rmse": {
+          "mean": 169.305,
+          "std": 19.8134,
+          "min": 151.4527,
+          "max": 200.7739
+        },
+        "r2": {
+          "mean": 0.9637,
+          "std": 0.0088,
+          "min": 0.9495,
+          "max": 0.9713
+        },
+        "smape": {
+          "mean": 12.7726,
+          "std": 0.9201,
+          "min": 11.2845,
+          "max": 13.6471
+        },
+        "bias": {
+          "mean": 61.9145,
+          "std": 10.4835,
+          "min": 48.8644,
+          "max": 73.5272
+        },
+        "residual_std": {
+          "mean": 157.4827,
+          "std": 17.8919,
+          "min": 141.7262,
+          "max": 186.8259
+        }
+      },
+      "hist_gradient_boosting": {
+        "model_id": "hist_gradient_boosting",
+        "display_name": "HistGradientBoosting Regressor",
+        "mae": {
+          "mean": 139.3332,
+          "std": 9.0685,
+          "min": 125.7849,
+          "max": 147.538
+        },
+        "rmse": {
+          "mean": 211.318,
+          "std": 18.206,
+          "min": 187.9839,
+          "max": 234.1454
+        },
+        "r2": {
+          "mean": 0.9437,
+          "std": 0.0096,
+          "min": 0.9313,
+          "max": 0.9557
+        },
+        "smape": {
+          "mean": 17.2373,
+          "std": 1.0455,
+          "min": 15.6646,
+          "max": 18.3661
+        },
+        "bias": {
+          "mean": 110.6466,
+          "std": 10.2921,
+          "min": 98.8695,
+          "max": 126.4656
+        },
+        "residual_std": {
+          "mean": 179.8756,
+          "std": 17.2425,
+          "min": 159.8836,
+          "max": 206.1771
+        }
+      }
+    },
+    "level3": {
+      "physics_residual_qifcp": {
+        "model_id": "physics_residual_qifcp",
+        "display_name": "Physics + QIFCP Residual",
+        "mae": {
+          "mean": 184.3184,
+          "std": 4.4137,
+          "min": 179.8797,
+          "max": 189.6627
+        },
+        "rmse": {
+          "mean": 264.4496,
+          "std": 6.5199,
+          "min": 256.8823,
+          "max": 272.9646
+        },
+        "r2": {
+          "mean": 0.9119,
+          "std": 0.0043,
+          "min": 0.9062,
+          "max": 0.9169
+        },
+        "smape": {
+          "mean": 20.2937,
+          "std": 0.6424,
+          "min": 19.471,
+          "max": 21.2057
+        },
+        "bias": {
+          "mean": 181.4569,
+          "std": 4.1313,
+          "min": 176.9568,
+          "max": 186.3771
+        },
+        "residual_std": {
+          "mean": 192.3669,
+          "std": 5.2801,
+          "min": 185.5969,
+          "max": 199.4324
+        }
+      },
+      "physics_baseline": {
+        "model_id": "physics_baseline",
+        "display_name": "Naval Physics Baseline",
+        "mae": {
+          "mean": 143.7185,
+          "std": 4.6248,
+          "min": 137.9743,
+          "max": 148.3333
+        },
+        "rmse": {
+          "mean": 226.6684,
+          "std": 5.8215,
+          "min": 219.7316,
+          "max": 232.8542
+        },
+        "r2": {
+          "mean": 0.9353,
+          "std": 0.0033,
+          "min": 0.9317,
+          "max": 0.9392
+        },
+        "smape": {
+          "mean": 13.3079,
+          "std": 0.436,
+          "min": 12.7481,
+          "max": 13.8259
+        },
+        "bias": {
+          "mean": 127.6922,
+          "std": 6.1731,
+          "min": 119.7879,
+          "max": 134.2163
+        },
+        "residual_std": {
+          "mean": 187.2506,
+          "std": 2.9816,
+          "min": 184.2087,
+          "max": 191.1531
+        }
+      },
+      "adaptive_grouped_gamma": {
+        "model_id": "adaptive_grouped_gamma",
+        "display_name": "Adaptive Grouped QIFCP (Direct)",
+        "mae": {
+          "mean": 262.2569,
+          "std": 83.289,
+          "min": 182.3268,
+          "max": 369.6265
+        },
+        "rmse": {
+          "mean": 344.7049,
+          "std": 81.6326,
+          "min": 264.8583,
+          "max": 455.0593
+        },
+        "r2": {
+          "mean": 0.8437,
+          "std": 0.0737,
+          "min": 0.7393,
+          "max": 0.9117
+        },
+        "smape": {
+          "mean": 47.1376,
+          "std": 18.9463,
+          "min": 26.0983,
+          "max": 69.2412
+        },
+        "bias": {
+          "mean": 217.5892,
+          "std": 101.468,
+          "min": 118.3365,
+          "max": 348.947
+        },
+        "residual_std": {
+          "mean": 260.6291,
+          "std": 28.3581,
+          "min": 218.7511,
+          "max": 292.0872
+        }
+      },
+      "random_forest": {
+        "model_id": "random_forest",
+        "display_name": "Random Forest Regressor",
+        "mae": {
+          "mean": 134.3947,
+          "std": 11.0239,
+          "min": 123.0787,
+          "max": 151.569
+        },
+        "rmse": {
+          "mean": 200.2856,
+          "std": 20.1935,
+          "min": 182.0137,
+          "max": 233.0058
+        },
+        "r2": {
+          "mean": 0.9491,
+          "std": 0.0106,
+          "min": 0.9316,
+          "max": 0.9583
+        },
+        "smape": {
+          "mean": 15.4456,
+          "std": 0.9038,
+          "min": 13.8997,
+          "max": 16.1774
+        },
+        "bias": {
+          "mean": 87.4139,
+          "std": 11.5377,
+          "min": 74.726,
+          "max": 101.2821
+        },
+        "residual_std": {
+          "mean": 180.1247,
+          "std": 17.6054,
+          "min": 165.2996,
+          "max": 209.842
+        }
+      },
+      "hist_gradient_boosting": {
+        "model_id": "hist_gradient_boosting",
+        "display_name": "HistGradientBoosting Regressor",
+        "mae": {
+          "mean": 186.1814,
+          "std": 11.437,
+          "min": 171.2207,
+          "max": 199.2642
+        },
+        "rmse": {
+          "mean": 263.8917,
+          "std": 17.9991,
+          "min": 239.5843,
+          "max": 280.2692
+        },
+        "r2": {
+          "mean": 0.912,
+          "std": 0.0118,
+          "min": 0.9011,
+          "max": 0.9277
+        },
+        "smape": {
+          "mean": 22.6807,
+          "std": 1.8423,
+          "min": 20.3491,
+          "max": 24.6213
+        },
+        "bias": {
+          "mean": 159.32,
+          "std": 13.1363,
+          "min": 146.2455,
+          "max": 180.1088
+        },
+        "residual_std": {
+          "mean": 210.1652,
+          "std": 16.1132,
+          "min": 189.7707,
+          "max": 230.8581
+        }
+      }
+    }
+  },
+  "degradation_summary": {
+    "level1": {
+      "physics_residual_qifcp": {
+        "model_id": "physics_residual_qifcp",
+        "display_name": "Physics + QIFCP Residual",
+        "mae_in_domain": 40.0694,
+        "mae_shifted": 65.869,
+        "delta_mae": 25.7996,
+        "pct_delta_mae": 64.39,
+        "rmse_in_domain": 61.5454,
+        "rmse_shifted": 100.1174,
+        "delta_rmse": 38.572,
+        "pct_delta_rmse": 62.67,
+        "delta_r2": -0.0055
+      },
+      "physics_baseline": {
+        "model_id": "physics_baseline",
+        "display_name": "Naval Physics Baseline",
+        "mae_in_domain": 50.7908,
+        "mae_shifted": 63.1281,
+        "delta_mae": 12.3373,
+        "pct_delta_mae": 24.29,
+        "rmse_in_domain": 78.9968,
+        "rmse_shifted": 103.6318,
+        "delta_rmse": 24.635,
+        "pct_delta_rmse": 31.18,
+        "delta_r2": -0.0028
+      },
+      "adaptive_grouped_gamma": {
+        "model_id": "adaptive_grouped_gamma",
+        "display_name": "Adaptive Grouped QIFCP (Direct)",
+        "mae_in_domain": 110.8786,
+        "mae_shifted": 135.8495,
+        "delta_mae": 24.9709,
+        "pct_delta_mae": 22.52,
+        "rmse_in_domain": 156.3959,
+        "rmse_shifted": 215.6777,
+        "delta_rmse": 59.2818,
+        "pct_delta_rmse": 37.9,
+        "delta_r2": -0.0155
+      },
+      "random_forest": {
+        "model_id": "random_forest",
+        "display_name": "Random Forest Regressor",
+        "mae_in_domain": 99.8978,
+        "mae_shifted": 79.8456,
+        "delta_mae": -20.0522,
+        "pct_delta_mae": -20.07,
+        "rmse_in_domain": 149.0295,
+        "rmse_shifted": 146.9879,
+        "delta_rmse": -2.0416,
+        "pct_delta_rmse": -1.37,
+        "delta_r2": 0.0109
+      },
+      "hist_gradient_boosting": {
+        "model_id": "hist_gradient_boosting",
+        "display_name": "HistGradientBoosting Regressor",
+        "mae_in_domain": 99.5267,
+        "mae_shifted": 87.8667,
+        "delta_mae": -11.66,
+        "pct_delta_mae": -11.72,
+        "rmse_in_domain": 161.0011,
+        "rmse_shifted": 163.9687,
+        "delta_rmse": 2.9676,
+        "pct_delta_rmse": 1.84,
+        "delta_r2": 0.0139
+      }
+    },
+    "level2": {
+      "physics_residual_qifcp": {
+        "model_id": "physics_residual_qifcp",
+        "display_name": "Physics + QIFCP Residual",
+        "mae_in_domain": 40.0694,
+        "mae_shifted": 128.4318,
+        "delta_mae": 88.3624,
+        "pct_delta_mae": 220.52,
+        "rmse_in_domain": 61.5454,
+        "rmse_shifted": 183.2105,
+        "delta_rmse": 121.6651,
+        "pct_delta_rmse": 197.68,
+        "delta_r2": -0.0354
+      },
+      "physics_baseline": {
+        "model_id": "physics_baseline",
+        "display_name": "Naval Physics Baseline",
+        "mae_in_domain": 50.7908,
+        "mae_shifted": 99.2519,
+        "delta_mae": 48.4611,
+        "pct_delta_mae": 95.41,
+        "rmse_in_domain": 78.9968,
+        "rmse_shifted": 159.6839,
+        "delta_rmse": 80.6871,
+        "pct_delta_rmse": 102.14,
+        "delta_r2": -0.0217
+      },
+      "adaptive_grouped_gamma": {
+        "model_id": "adaptive_grouped_gamma",
+        "display_name": "Adaptive Grouped QIFCP (Direct)",
+        "mae_in_domain": 110.8786,
+        "mae_shifted": 186.6192,
+        "delta_mae": 75.7406,
+        "pct_delta_mae": 68.31,
+        "rmse_in_domain": 156.3959,
+        "rmse_shifted": 263.9444,
+        "delta_rmse": 107.5485,
+        "pct_delta_rmse": 68.77,
+        "delta_r2": -0.0458
+      },
+      "random_forest": {
+        "model_id": "random_forest",
+        "display_name": "Random Forest Regressor",
+        "mae_in_domain": 99.8978,
+        "mae_shifted": 107.7743,
+        "delta_mae": 7.8765,
+        "pct_delta_mae": 7.88,
+        "rmse_in_domain": 149.0295,
+        "rmse_shifted": 169.305,
+        "delta_rmse": 20.2755,
+        "pct_delta_rmse": 13.61,
+        "delta_r2": 0.0012
+      },
+      "hist_gradient_boosting": {
+        "model_id": "hist_gradient_boosting",
+        "display_name": "HistGradientBoosting Regressor",
+        "mae_in_domain": 99.5267,
+        "mae_shifted": 139.3332,
+        "delta_mae": 39.8065,
+        "pct_delta_mae": 40.0,
+        "rmse_in_domain": 161.0011,
+        "rmse_shifted": 211.318,
+        "delta_rmse": 50.3169,
+        "pct_delta_rmse": 31.25,
+        "delta_r2": -0.0092
+      }
+    },
+    "level3": {
+      "physics_residual_qifcp": {
+        "model_id": "physics_residual_qifcp",
+        "display_name": "Physics + QIFCP Residual",
+        "mae_in_domain": 40.0694,
+        "mae_shifted": 184.3184,
+        "delta_mae": 144.249,
+        "pct_delta_mae": 360.0,
+        "rmse_in_domain": 61.5454,
+        "rmse_shifted": 264.4496,
+        "delta_rmse": 202.9042,
+        "pct_delta_rmse": 329.68,
+        "delta_r2": -0.0814
+      },
+      "physics_baseline": {
+        "model_id": "physics_baseline",
+        "display_name": "Naval Physics Baseline",
+        "mae_in_domain": 50.7908,
+        "mae_shifted": 143.7185,
+        "delta_mae": 92.9277,
+        "pct_delta_mae": 182.96,
+        "rmse_in_domain": 78.9968,
+        "rmse_shifted": 226.6684,
+        "delta_rmse": 147.6716,
+        "pct_delta_rmse": 186.93,
+        "delta_r2": -0.0544
+      },
+      "adaptive_grouped_gamma": {
+        "model_id": "adaptive_grouped_gamma",
+        "display_name": "Adaptive Grouped QIFCP (Direct)",
+        "mae_in_domain": 110.8786,
+        "mae_shifted": 262.2569,
+        "delta_mae": 151.3783,
+        "pct_delta_mae": 136.53,
+        "rmse_in_domain": 156.3959,
+        "rmse_shifted": 344.7049,
+        "delta_rmse": 188.309,
+        "pct_delta_rmse": 120.41,
+        "delta_r2": -0.113
+      },
+      "random_forest": {
+        "model_id": "random_forest",
+        "display_name": "Random Forest Regressor",
+        "mae_in_domain": 99.8978,
+        "mae_shifted": 134.3947,
+        "delta_mae": 34.4969,
+        "pct_delta_mae": 34.53,
+        "rmse_in_domain": 149.0295,
+        "rmse_shifted": 200.2856,
+        "delta_rmse": 51.2561,
+        "pct_delta_rmse": 34.39,
+        "delta_r2": -0.0134
+      },
+      "hist_gradient_boosting": {
+        "model_id": "hist_gradient_boosting",
+        "display_name": "HistGradientBoosting Regressor",
+        "mae_in_domain": 99.5267,
+        "mae_shifted": 186.1814,
+        "delta_mae": 86.6547,
+        "pct_delta_mae": 87.07,
+        "rmse_in_domain": 161.0011,
+        "rmse_shifted": 263.8917,
+        "delta_rmse": 102.8906,
+        "pct_delta_rmse": 63.91,
+        "delta_r2": -0.0409
+      }
+    }
+  },
+  "model_rankings": {
+    "in_domain": [
+      {
+        "model_id": "physics_residual_qifcp",
+        "display_name": "Physics + QIFCP Residual",
+        "mae": 40.0694,
+        "rmse": 61.5454,
+        "r2": 0.9933
+      },
+      {
+        "model_id": "physics_baseline",
+        "display_name": "Naval Physics Baseline",
+        "mae": 50.7908,
+        "rmse": 78.9968,
+        "r2": 0.9897
+      },
+      {
+        "model_id": "hist_gradient_boosting",
+        "display_name": "HistGradientBoosting Regressor",
+        "mae": 99.5267,
+        "rmse": 161.0011,
+        "r2": 0.9529
+      },
+      {
+        "model_id": "random_forest",
+        "display_name": "Random Forest Regressor",
+        "mae": 99.8978,
+        "rmse": 149.0295,
+        "r2": 0.9625
+      },
+      {
+        "model_id": "adaptive_grouped_gamma",
+        "display_name": "Adaptive Grouped QIFCP (Direct)",
+        "mae": 110.8786,
+        "rmse": 156.3959,
+        "r2": 0.9567
+      }
+    ],
+    "level1": [
+      {
+        "model_id": "physics_baseline",
+        "display_name": "Naval Physics Baseline",
+        "mae": 63.1281,
+        "rmse": 103.6318,
+        "r2": 0.9869
+      },
+      {
+        "model_id": "physics_residual_qifcp",
+        "display_name": "Physics + QIFCP Residual",
+        "mae": 65.869,
+        "rmse": 100.1174,
+        "r2": 0.9878
+      },
+      {
+        "model_id": "random_forest",
+        "display_name": "Random Forest Regressor",
+        "mae": 79.8456,
+        "rmse": 146.9879,
+        "r2": 0.9734
+      },
+      {
+        "model_id": "hist_gradient_boosting",
+        "display_name": "HistGradientBoosting Regressor",
+        "mae": 87.8667,
+        "rmse": 163.9687,
+        "r2": 0.9668
+      },
+      {
+        "model_id": "adaptive_grouped_gamma",
+        "display_name": "Adaptive Grouped QIFCP (Direct)",
+        "mae": 135.8495,
+        "rmse": 215.6777,
+        "r2": 0.9412
+      }
+    ],
+    "level2": [
+      {
+        "model_id": "physics_baseline",
+        "display_name": "Naval Physics Baseline",
+        "mae": 99.2519,
+        "rmse": 159.6839,
+        "r2": 0.968
+      },
+      {
+        "model_id": "random_forest",
+        "display_name": "Random Forest Regressor",
+        "mae": 107.7743,
+        "rmse": 169.305,
+        "r2": 0.9637
+      },
+      {
+        "model_id": "physics_residual_qifcp",
+        "display_name": "Physics + QIFCP Residual",
+        "mae": 128.4318,
+        "rmse": 183.2105,
+        "r2": 0.9579
+      },
+      {
+        "model_id": "hist_gradient_boosting",
+        "display_name": "HistGradientBoosting Regressor",
+        "mae": 139.3332,
+        "rmse": 211.318,
+        "r2": 0.9437
+      },
+      {
+        "model_id": "adaptive_grouped_gamma",
+        "display_name": "Adaptive Grouped QIFCP (Direct)",
+        "mae": 186.6192,
+        "rmse": 263.9444,
+        "r2": 0.9109
+      }
+    ],
+    "level3": [
+      {
+        "model_id": "random_forest",
+        "display_name": "Random Forest Regressor",
+        "mae": 134.3947,
+        "rmse": 200.2856,
+        "r2": 0.9491
+      },
+      {
+        "model_id": "physics_baseline",
+        "display_name": "Naval Physics Baseline",
+        "mae": 143.7185,
+        "rmse": 226.6684,
+        "r2": 0.9353
+      },
+      {
+        "model_id": "physics_residual_qifcp",
+        "display_name": "Physics + QIFCP Residual",
+        "mae": 184.3184,
+        "rmse": 264.4496,
+        "r2": 0.9119
+      },
+      {
+        "model_id": "hist_gradient_boosting",
+        "display_name": "HistGradientBoosting Regressor",
+        "mae": 186.1814,
+        "rmse": 263.8917,
+        "r2": 0.912
+      },
+      {
+        "model_id": "adaptive_grouped_gamma",
+        "display_name": "Adaptive Grouped QIFCP (Direct)",
+        "mae": 262.2569,
+        "rmse": 344.7049,
+        "r2": 0.8437
+      }
+    ]
+  },
+  "component_analysis": {
+    "in_domain": {
+      "physics_mae": {
+        "mean": 50.7908,
+        "std": 10.1776,
+        "min": 39.605,
+        "max": 65.8925
+      },
+      "physics_rmse": {
+        "mean": 78.9968,
+        "std": 13.8418,
+        "min": 63.2359,
+        "max": 94.6373
+      },
+      "physics_bias": {
+        "mean": -8.1927,
+        "std": 24.7686,
+        "min": -39.2662,
+        "max": 19.7084
+      },
+      "mean_residual_correction": {
+        "mean": 29.6446,
+        "std": 16.9255,
+        "min": 13.3291,
+        "max": 55.1572
+      },
+      "std_residual_correction": {
+        "mean": 47.8998,
+        "std": 16.7586,
+        "min": 34.9247,
+        "max": 74.0196
+      },
+      "final_mae": {
+        "mean": 40.0694,
+        "std": 7.8261,
+        "min": 29.0574,
+        "max": 48.5009
+      },
+      "final_rmse": {
+        "mean": 61.5454,
+        "std": 17.8289,
+        "min": 38.6827,
+        "max": 83.7773
+      },
+      "final_bias": {
+        "mean": 21.4519,
+        "std": 9.156,
+        "min": 10.9462,
+        "max": 33.0375
+      },
+      "delta_mae_residual": {
+        "mean": -10.7213,
+        "std": 8.3687,
+        "min": -23.6163,
+        "max": -3.6457
+      },
+      "variance_reduction_pct": {
+        "mean": 99.4225,
+        "std": 0.307,
+        "min": 99.0923,
+        "max": 99.7791
+      }
+    },
+    "level1": {
+      "physics_mae": {
+        "mean": 63.1281,
+        "std": 1.5337,
+        "min": 61.5542,
+        "max": 65.0252
+      },
+      "physics_rmse": {
+        "mean": 103.6318,
+        "std": 2.3766,
+        "min": 101.0915,
+        "max": 106.4127
+      },
+      "physics_bias": {
+        "mean": 26.8067,
+        "std": 5.718,
+        "min": 19.4846,
+        "max": 32.8512
+      },
+      "mean_residual_correction": {
+        "mean": 33.3275,
+        "std": 3.7072,
+        "min": 28.9649,
+        "max": 37.7033
+      },
+      "std_residual_correction": {
+        "mean": 61.1563,
+        "std": 7.4433,
+        "min": 49.3834,
+        "max": 68.3935
+      },
+      "final_mae": {
+        "mean": 65.869,
+        "std": 2.3609,
+        "min": 62.7824,
+        "max": 68.1853
+      },
+      "final_rmse": {
+        "mean": 100.1174,
+        "std": 3.8286,
+        "min": 95.7598,
+        "max": 104.1253
+      },
+      "final_bias": {
+        "mean": 60.1342,
+        "std": 2.5573,
+        "min": 57.1879,
+        "max": 62.8286
+      },
+      "delta_mae_residual": {
+        "mean": 2.7408,
+        "std": 1.2244,
+        "min": 1.2283,
+        "max": 4.0037
+      },
+      "variance_reduction_pct": {
+        "mean": 99.2175,
+        "std": 0.0631,
+        "min": 99.1426,
+        "max": 99.2803
+      }
+    },
+    "level2": {
+      "physics_mae": {
+        "mean": 99.2519,
+        "std": 3.9137,
+        "min": 94.4822,
+        "max": 103.0924
+      },
+      "physics_rmse": {
+        "mean": 159.6839,
+        "std": 5.1446,
+        "min": 153.5947,
+        "max": 165.158
+      },
+      "physics_bias": {
+        "mean": 83.6502,
+        "std": 5.9457,
+        "min": 76.0366,
+        "max": 89.9351
+      },
+      "mean_residual_correction": {
+        "mean": 42.9186,
+        "std": 4.5503,
+        "min": 36.8407,
+        "max": 48.5624
+      },
+      "std_residual_correction": {
+        "mean": 69.9864,
+        "std": 10.14,
+        "min": 54.4078,
+        "max": 77.9427
+      },
+      "final_mae": {
+        "mean": 128.4318,
+        "std": 3.1179,
+        "min": 125.1959,
+        "max": 132.4927
+      },
+      "final_rmse": {
+        "mean": 183.2105,
+        "std": 4.5981,
+        "min": 177.706,
+        "max": 189.4551
+      },
+      "final_bias": {
+        "mean": 126.5688,
+        "std": 2.6595,
+        "min": 123.92,
+        "max": 129.9489
+      },
+      "delta_mae_residual": {
+        "mean": 29.1799,
+        "std": 2.7815,
+        "min": 24.6167,
+        "max": 31.5716
+      },
+      "variance_reduction_pct": {
+        "mean": 97.7997,
+        "std": 0.1307,
+        "min": 97.6182,
+        "max": 97.9669
+      }
+    },
+    "level3": {
+      "physics_mae": {
+        "mean": 143.7185,
+        "std": 4.6248,
+        "min": 137.9743,
+        "max": 148.3333
+      },
+      "physics_rmse": {
+        "mean": 226.6684,
+        "std": 5.8215,
+        "min": 219.7316,
+        "max": 232.8542
+      },
+      "physics_bias": {
+        "mean": 127.6922,
+        "std": 6.1731,
+        "min": 119.7879,
+        "max": 134.2163
+      },
+      "mean_residual_correction": {
+        "mean": 53.7647,
+        "std": 6.6128,
+        "min": 43.9848,
+        "max": 62.1523
+      },
+      "std_residual_correction": {
+        "mean": 79.3898,
+        "std": 13.7353,
+        "min": 59.0293,
+        "max": 90.4478
+      },
+      "final_mae": {
+        "mean": 184.3184,
+        "std": 4.4137,
+        "min": 179.8797,
+        "max": 189.6627
+      },
+      "final_rmse": {
+        "mean": 264.4496,
+        "std": 6.5199,
+        "min": 256.8823,
+        "max": 272.9646
+      },
+      "final_bias": {
+        "mean": 181.4569,
+        "std": 4.1313,
+        "min": 176.9568,
+        "max": 186.3771
+      },
+      "delta_mae_residual": {
+        "mean": 40.5999,
+        "std": 5.3657,
+        "min": 32.0694,
+        "max": 46.2298
+      },
+      "variance_reduction_pct": {
+        "mean": 95.338,
+        "std": 0.2561,
+        "min": 94.9923,
+        "max": 95.663
+      }
+    }
+  },
+  "per_seed_runs": [
+    {
+      "seed": 42,
+      "condition": "in_domain",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 106,
+      "mae": 42.2762,
+      "rmse": 61.3811,
+      "r2": 0.9948,
+      "smape": 6.3748,
+      "bias": 15.891,
+      "residual_std": 59.2884
+    },
+    {
+      "seed": 42,
+      "condition": "in_domain",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 106,
+      "mae": 65.8925,
+      "rmse": 94.6373,
+      "r2": 0.9876,
+      "smape": 5.3725,
+      "bias": -39.2662,
+      "residual_std": 86.1068
+    },
+    {
+      "seed": 42,
+      "condition": "in_domain",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 106,
+      "mae": 97.5094,
+      "rmse": 140.5478,
+      "r2": 0.9726,
+      "smape": 12.3305,
+      "bias": 34.091,
+      "residual_std": 136.3506
+    },
+    {
+      "seed": 42,
+      "condition": "in_domain",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 106,
+      "mae": 138.3716,
+      "rmse": 195.9091,
+      "r2": 0.9467,
+      "smape": 14.8367,
+      "bias": 65.0732,
+      "residual_std": 184.786
+    },
+    {
+      "seed": 42,
+      "condition": "in_domain",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 106,
+      "mae": 152.4002,
+      "rmse": 255.4352,
+      "r2": 0.9094,
+      "smape": 13.9647,
+      "bias": 82.9255,
+      "residual_std": 241.5999
+    },
+    {
+      "seed": 42,
+      "condition": "level1",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 500,
+      "mae": 62.7824,
+      "rmse": 95.7598,
+      "r2": 0.9888,
+      "smape": 8.5476,
+      "bias": 57.1879,
+      "residual_std": 76.8081
+    },
+    {
+      "seed": 42,
+      "condition": "level1",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 500,
+      "mae": 61.5542,
+      "rmse": 101.0915,
+      "r2": 0.9875,
+      "smape": 5.5651,
+      "bias": 19.4846,
+      "residual_std": 99.196
+    },
+    {
+      "seed": 42,
+      "condition": "level1",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 500,
+      "mae": 94.3721,
+      "rmse": 135.3142,
+      "r2": 0.9777,
+      "smape": 17.2577,
+      "bias": 42.243,
+      "residual_std": 128.5514
+    },
+    {
+      "seed": 42,
+      "condition": "level1",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 500,
+      "mae": 93.013,
+      "rmse": 171.8789,
+      "r2": 0.964,
+      "smape": 10.2757,
+      "bias": 29.8929,
+      "residual_std": 169.2595
+    },
+    {
+      "seed": 42,
+      "condition": "level1",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 500,
+      "mae": 100.2305,
+      "rmse": 194.9351,
+      "r2": 0.9536,
+      "smape": 11.0866,
+      "bias": 50.0653,
+      "residual_std": 188.3962
+    },
+    {
+      "seed": 42,
+      "condition": "level2",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 500,
+      "mae": 126.0537,
+      "rmse": 180.312,
+      "r2": 0.9593,
+      "smape": 14.4376,
+      "bias": 124.599,
+      "residual_std": 130.3361
+    },
+    {
+      "seed": 42,
+      "condition": "level2",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 500,
+      "mae": 94.4822,
+      "rmse": 153.5947,
+      "r2": 0.9704,
+      "smape": 8.6799,
+      "bias": 76.0366,
+      "residual_std": 133.4532
+    },
+    {
+      "seed": 42,
+      "condition": "level2",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 500,
+      "mae": 136.3477,
+      "rmse": 196.761,
+      "r2": 0.9515,
+      "smape": 21.1487,
+      "bias": 103.7199,
+      "residual_std": 167.2037
+    },
+    {
+      "seed": 42,
+      "condition": "level2",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 500,
+      "mae": 123.8302,
+      "rmse": 200.7739,
+      "r2": 0.9495,
+      "smape": 13.2051,
+      "bias": 73.5272,
+      "residual_std": 186.8259
+    },
+    {
+      "seed": 42,
+      "condition": "level2",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 500,
+      "mae": 147.538,
+      "rmse": 234.1454,
+      "r2": 0.9313,
+      "smape": 16.7854,
+      "bias": 110.9732,
+      "residual_std": 206.1771
+    },
+    {
+      "seed": 42,
+      "condition": "level3",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 500,
+      "mae": 184.2041,
+      "rmse": 263.8847,
+      "r2": 0.9123,
+      "smape": 20.5664,
+      "bias": 181.9401,
+      "residual_std": 191.1359
+    },
+    {
+      "seed": 42,
+      "condition": "level3",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 500,
+      "mae": 137.9743,
+      "rmse": 219.7316,
+      "r2": 0.9392,
+      "smape": 12.7481,
+      "bias": 119.7879,
+      "residual_std": 184.2087
+    },
+    {
+      "seed": 42,
+      "condition": "level3",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 500,
+      "mae": 182.3268,
+      "rmse": 264.8583,
+      "r2": 0.9117,
+      "smape": 26.0983,
+      "bias": 149.3247,
+      "residual_std": 218.7511
+    },
+    {
+      "seed": 42,
+      "condition": "level3",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 500,
+      "mae": 151.569,
+      "rmse": 233.0058,
+      "r2": 0.9316,
+      "smape": 15.9957,
+      "bias": 101.2821,
+      "residual_std": 209.842
+    },
+    {
+      "seed": 42,
+      "condition": "level3",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 500,
+      "mae": 187.9996,
+      "rmse": 277.9337,
+      "r2": 0.9027,
+      "smape": 21.2604,
+      "bias": 154.7634,
+      "residual_std": 230.8581
+    },
+    {
+      "seed": 43,
+      "condition": "in_domain",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 83,
+      "mae": 45.1399,
+      "rmse": 73.2161,
+      "r2": 0.9886,
+      "smape": 4.505,
+      "bias": 33.0375,
+      "residual_std": 65.3385
+    },
+    {
+      "seed": 43,
+      "condition": "in_domain",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 83,
+      "mae": 52.9205,
+      "rmse": 80.1039,
+      "r2": 0.9864,
+      "smape": 5.2624,
+      "bias": 19.7084,
+      "residual_std": 77.6416
+    },
+    {
+      "seed": 43,
+      "condition": "in_domain",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 83,
+      "mae": 148.5706,
+      "rmse": 202.9305,
+      "r2": 0.9124,
+      "smape": 28.1492,
+      "bias": 19.4826,
+      "residual_std": 201.9931
+    },
+    {
+      "seed": 43,
+      "condition": "in_domain",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 83,
+      "mae": 93.7067,
+      "rmse": 133.7269,
+      "r2": 0.962,
+      "smape": 14.6073,
+      "bias": 28.705,
+      "residual_std": 130.6097
+    },
+    {
+      "seed": 43,
+      "condition": "in_domain",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 83,
+      "mae": 87.1661,
+      "rmse": 149.8916,
+      "r2": 0.9522,
+      "smape": 12.0044,
+      "bias": 20.5769,
+      "residual_std": 148.4725
+    },
+    {
+      "seed": 43,
+      "condition": "level1",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 500,
+      "mae": 67.2014,
+      "rmse": 103.4783,
+      "r2": 0.9869,
+      "smape": 7.7346,
+      "bias": 60.6606,
+      "residual_std": 83.8335
+    },
+    {
+      "seed": 43,
+      "condition": "level1",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 500,
+      "mae": 65.0252,
+      "rmse": 106.4127,
+      "r2": 0.9862,
+      "smape": 5.8495,
+      "bias": 31.6957,
+      "residual_std": 101.5827
+    },
+    {
+      "seed": 43,
+      "condition": "level1",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 500,
+      "mae": 156.7012,
+      "rmse": 250.9328,
+      "r2": 0.9232,
+      "smape": 30.6273,
+      "bias": 44.0615,
+      "residual_std": 247.0341
+    },
+    {
+      "seed": 43,
+      "condition": "level1",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 500,
+      "mae": 76.6062,
+      "rmse": 138.6839,
+      "r2": 0.9765,
+      "smape": 9.2435,
+      "bias": 21.0525,
+      "residual_std": 137.0766
+    },
+    {
+      "seed": 43,
+      "condition": "level1",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 500,
+      "mae": 85.3981,
+      "rmse": 155.8398,
+      "r2": 0.9704,
+      "smape": 11.5522,
+      "bias": 43.7511,
+      "residual_std": 149.5723
+    },
+    {
+      "seed": 43,
+      "condition": "level2",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 500,
+      "mae": 127.6175,
+      "rmse": 182.7821,
+      "r2": 0.9581,
+      "smape": 14.1325,
+      "bias": 125.5751,
+      "residual_std": 132.8164
+    },
+    {
+      "seed": 43,
+      "condition": "level2",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 500,
+      "mae": 103.0007,
+      "rmse": 165.158,
+      "r2": 0.9658,
+      "smape": 9.4275,
+      "bias": 88.7344,
+      "residual_std": 139.296
+    },
+    {
+      "seed": 43,
+      "condition": "level2",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 500,
+      "mae": 193.5261,
+      "rmse": 281.6376,
+      "r2": 0.9006,
+      "smape": 34.7704,
+      "bias": 114.2279,
+      "residual_std": 257.433
+    },
+    {
+      "seed": 43,
+      "condition": "level2",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 500,
+      "mae": 107.9286,
+      "rmse": 162.2373,
+      "r2": 0.967,
+      "smape": 12.5444,
+      "bias": 64.395,
+      "residual_std": 148.9102
+    },
+    {
+      "seed": 43,
+      "condition": "level2",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 500,
+      "mae": 141.2418,
+      "rmse": 209.7967,
+      "r2": 0.9448,
+      "smape": 17.783,
+      "bias": 112.0064,
+      "residual_std": 177.3957
+    },
+    {
+      "seed": 43,
+      "condition": "level3",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 500,
+      "mae": 180.093,
+      "rmse": 259.7931,
+      "r2": 0.915,
+      "smape": 19.471,
+      "bias": 176.9568,
+      "residual_std": 190.2071
+    },
+    {
+      "seed": 43,
+      "condition": "level3",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 500,
+      "mae": 148.0236,
+      "rmse": 232.8542,
+      "r2": 0.9317,
+      "smape": 13.6201,
+      "bias": 132.9721,
+      "residual_std": 191.1531
+    },
+    {
+      "seed": 43,
+      "condition": "level3",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 500,
+      "mae": 237.3936,
+      "rmse": 326.7095,
+      "r2": 0.8656,
+      "smape": 40.1524,
+      "bias": 169.4752,
+      "residual_std": 279.3157
+    },
+    {
+      "seed": 43,
+      "condition": "level3",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 500,
+      "mae": 136.5223,
+      "rmse": 195.6605,
+      "r2": 0.9518,
+      "smape": 15.6238,
+      "bias": 91.257,
+      "residual_std": 173.0757
+    },
+    {
+      "seed": 43,
+      "condition": "level3",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 500,
+      "mae": 194.1148,
+      "rmse": 271.3462,
+      "r2": 0.9073,
+      "smape": 24.6213,
+      "bias": 163.2812,
+      "residual_std": 216.7211
+    },
+    {
+      "seed": 44,
+      "condition": "in_domain",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 95,
+      "mae": 48.5009,
+      "rmse": 83.7773,
+      "r2": 0.99,
+      "smape": 7.5171,
+      "bias": 28.681,
+      "residual_std": 78.7149
+    },
+    {
+      "seed": 44,
+      "condition": "in_domain",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 95,
+      "mae": 52.1466,
+      "rmse": 90.1575,
+      "r2": 0.9884,
+      "smape": 4.7265,
+      "bias": 11.1838,
+      "residual_std": 89.4611
+    },
+    {
+      "seed": 44,
+      "condition": "in_domain",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 95,
+      "mae": 85.2452,
+      "rmse": 151.9386,
+      "r2": 0.967,
+      "smape": 16.6071,
+      "bias": -26.4834,
+      "residual_std": 149.6127
+    },
+    {
+      "seed": 44,
+      "condition": "in_domain",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 95,
+      "mae": 83.3026,
+      "rmse": 133.7242,
+      "r2": 0.9744,
+      "smape": 9.8112,
+      "bias": -41.4061,
+      "residual_std": 127.1522
+    },
+    {
+      "seed": 44,
+      "condition": "in_domain",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 95,
+      "mae": 72.7502,
+      "rmse": 108.2285,
+      "r2": 0.9832,
+      "smape": 9.4245,
+      "bias": 1.4737,
+      "residual_std": 108.2185
+    },
+    {
+      "seed": 44,
+      "condition": "level1",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 500,
+      "mae": 68.1853,
+      "rmse": 104.1253,
+      "r2": 0.9868,
+      "smape": 8.2825,
+      "bias": 62.8286,
+      "residual_std": 83.034
+    },
+    {
+      "seed": 44,
+      "condition": "level1",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 500,
+      "mae": 64.1818,
+      "rmse": 105.5048,
+      "r2": 0.9864,
+      "smape": 5.8644,
+      "bias": 32.8512,
+      "residual_std": 100.2599
+    },
+    {
+      "seed": 44,
+      "condition": "level1",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 500,
+      "mae": 138.5976,
+      "rmse": 223.6795,
+      "r2": 0.939,
+      "smape": 26.9698,
+      "bias": 48.0507,
+      "residual_std": 218.4574
+    },
+    {
+      "seed": 44,
+      "condition": "level1",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 500,
+      "mae": 75.0431,
+      "rmse": 137.9904,
+      "r2": 0.9768,
+      "smape": 8.5867,
+      "bias": 6.2288,
+      "residual_std": 137.8497
+    },
+    {
+      "seed": 44,
+      "condition": "level1",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 500,
+      "mae": 78.9362,
+      "rmse": 144.545,
+      "r2": 0.9745,
+      "smape": 10.4141,
+      "bias": 35.6104,
+      "residual_std": 140.0898
+    },
+    {
+      "seed": 44,
+      "condition": "level2",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 500,
+      "mae": 132.4927,
+      "rmse": 189.4551,
+      "r2": 0.955,
+      "smape": 14.2962,
+      "bias": 129.9489,
+      "residual_std": 137.8641
+    },
+    {
+      "seed": 44,
+      "condition": "level2",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 500,
+      "mae": 103.0924,
+      "rmse": 164.1251,
+      "r2": 0.9662,
+      "smape": 9.6082,
+      "bias": 89.9351,
+      "residual_std": 137.2907
+    },
+    {
+      "seed": 44,
+      "condition": "level2",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 500,
+      "mae": 222.7904,
+      "rmse": 302.3589,
+      "r2": 0.8854,
+      "smape": 38.5712,
+      "bias": 174.3639,
+      "residual_std": 247.0185
+    },
+    {
+      "seed": 44,
+      "condition": "level2",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 500,
+      "mae": 100.3301,
+      "rmse": 156.2867,
+      "r2": 0.9694,
+      "smape": 11.2845,
+      "bias": 48.8644,
+      "residual_std": 148.4513
+    },
+    {
+      "seed": 44,
+      "condition": "level2",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 500,
+      "mae": 125.7849,
+      "rmse": 187.9839,
+      "r2": 0.9557,
+      "smape": 15.6646,
+      "bias": 98.8695,
+      "residual_std": 159.8836
+    },
+    {
+      "seed": 44,
+      "condition": "level3",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 500,
+      "mae": 189.6627,
+      "rmse": 272.9646,
+      "r2": 0.9062,
+      "smape": 20.1447,
+      "bias": 186.3771,
+      "residual_std": 199.4324
+    },
+    {
+      "seed": 44,
+      "condition": "level3",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 500,
+      "mae": 148.3333,
+      "rmse": 231.664,
+      "r2": 0.9324,
+      "smape": 13.8259,
+      "bias": 134.2163,
+      "residual_std": 188.8232
+    },
+    {
+      "seed": 44,
+      "condition": "level3",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 500,
+      "mae": 369.6265,
+      "rmse": 455.0593,
+      "r2": 0.7393,
+      "smape": 64.9018,
+      "bias": 348.947,
+      "residual_std": 292.0872
+    },
+    {
+      "seed": 44,
+      "condition": "level3",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 500,
+      "mae": 126.7489,
+      "rmse": 186.5142,
+      "r2": 0.9562,
+      "smape": 13.8997,
+      "bias": 74.726,
+      "residual_std": 170.8905
+    },
+    {
+      "seed": 44,
+      "condition": "level3",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 500,
+      "mae": 171.2207,
+      "rmse": 239.5843,
+      "r2": 0.9277,
+      "smape": 20.3491,
+      "bias": 146.2455,
+      "residual_std": 189.7707
+    },
+    {
+      "seed": 45,
+      "condition": "in_domain",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 104,
+      "mae": 35.3728,
+      "rmse": 50.6696,
+      "r2": 0.9956,
+      "smape": 14.1265,
+      "bias": 18.7039,
+      "residual_std": 47.0911
+    },
+    {
+      "seed": 45,
+      "condition": "in_domain",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 104,
+      "mae": 39.605,
+      "rmse": 63.2359,
+      "r2": 0.9931,
+      "smape": 4.849,
+      "bias": -6.2158,
+      "residual_std": 62.9296
+    },
+    {
+      "seed": 45,
+      "condition": "in_domain",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 104,
+      "mae": 113.3866,
+      "rmse": 142.3442,
+      "r2": 0.9649,
+      "smape": 35.7905,
+      "bias": -4.9586,
+      "residual_std": 142.2578
+    },
+    {
+      "seed": 45,
+      "condition": "in_domain",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 104,
+      "mae": 75.3521,
+      "rmse": 99.5505,
+      "r2": 0.9828,
+      "smape": 24.5992,
+      "bias": 27.0955,
+      "residual_std": 95.7921
+    },
+    {
+      "seed": 45,
+      "condition": "in_domain",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 104,
+      "mae": 65.0729,
+      "rmse": 87.4906,
+      "r2": 0.9867,
+      "smape": 20.0363,
+      "bias": 18.9813,
+      "residual_std": 85.4068
+    },
+    {
+      "seed": 45,
+      "condition": "level1",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 500,
+      "mae": 67.2417,
+      "rmse": 100.5804,
+      "r2": 0.9877,
+      "smape": 9.9431,
+      "bias": 62.2221,
+      "residual_std": 79.0243
+    },
+    {
+      "seed": 45,
+      "condition": "level1",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 500,
+      "mae": 63.2381,
+      "rmse": 103.7293,
+      "r2": 0.9869,
+      "smape": 5.7103,
+      "bias": 27.2601,
+      "residual_std": 100.0833
+    },
+    {
+      "seed": 45,
+      "condition": "level1",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 500,
+      "mae": 142.5527,
+      "rmse": 240.0153,
+      "r2": 0.9297,
+      "smape": 29.5393,
+      "bias": 27.5937,
+      "residual_std": 238.4239
+    },
+    {
+      "seed": 45,
+      "condition": "level1",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 500,
+      "mae": 73.5569,
+      "rmse": 133.6041,
+      "r2": 0.9782,
+      "smape": 10.8997,
+      "bias": 15.6451,
+      "residual_std": 132.685
+    },
+    {
+      "seed": 45,
+      "condition": "level1",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 500,
+      "mae": 83.3547,
+      "rmse": 153.0404,
+      "r2": 0.9714,
+      "smape": 12.8287,
+      "bias": 40.6685,
+      "residual_std": 147.5379
+    },
+    {
+      "seed": 45,
+      "condition": "level2",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 500,
+      "mae": 130.799,
+      "rmse": 185.7972,
+      "r2": 0.9567,
+      "smape": 15.3344,
+      "bias": 128.8009,
+      "residual_std": 133.9064
+    },
+    {
+      "seed": 45,
+      "condition": "level2",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 500,
+      "mae": 99.5362,
+      "rmse": 160.1978,
+      "r2": 0.9678,
+      "smape": 9.1632,
+      "bias": 84.1217,
+      "residual_std": 136.3336
+    },
+    {
+      "seed": 45,
+      "condition": "level2",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 500,
+      "mae": 164.6286,
+      "rmse": 251.5088,
+      "r2": 0.9207,
+      "smape": 32.0222,
+      "bias": 78.112,
+      "residual_std": 239.0715
+    },
+    {
+      "seed": 45,
+      "condition": "level2",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 500,
+      "mae": 97.6644,
+      "rmse": 151.4527,
+      "r2": 0.9713,
+      "smape": 13.1821,
+      "bias": 53.4004,
+      "residual_std": 141.7262
+    },
+    {
+      "seed": 45,
+      "condition": "level2",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 500,
+      "mae": 135.1969,
+      "rmse": 201.0209,
+      "r2": 0.9494,
+      "smape": 18.3661,
+      "bias": 104.9182,
+      "residual_std": 171.4688
+    },
+    {
+      "seed": 45,
+      "condition": "level3",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 500,
+      "mae": 187.7525,
+      "rmse": 268.7232,
+      "r2": 0.9091,
+      "smape": 21.2057,
+      "bias": 184.409,
+      "residual_std": 195.4623
+    },
+    {
+      "seed": 45,
+      "condition": "level3",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 500,
+      "mae": 144.0911,
+      "rmse": 227.3041,
+      "r2": 0.9349,
+      "smape": 13.3222,
+      "bias": 128.182,
+      "residual_std": 187.714
+    },
+    {
+      "seed": 45,
+      "condition": "level3",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 500,
+      "mae": 193.1099,
+      "rmse": 276.401,
+      "r2": 0.9038,
+      "smape": 35.2943,
+      "bias": 118.3365,
+      "residual_std": 249.7879
+    },
+    {
+      "seed": 45,
+      "condition": "level3",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 500,
+      "mae": 123.0787,
+      "rmse": 182.0137,
+      "r2": 0.9583,
+      "smape": 15.5315,
+      "bias": 76.1909,
+      "residual_std": 165.2996
+    },
+    {
+      "seed": 45,
+      "condition": "level3",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 500,
+      "mae": 178.3076,
+      "rmse": 250.3253,
+      "r2": 0.9211,
+      "smape": 22.988,
+      "bias": 152.2013,
+      "residual_std": 198.7398
+    },
+    {
+      "seed": 46,
+      "condition": "in_domain",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 103,
+      "mae": 29.0574,
+      "rmse": 38.6827,
+      "r2": 0.9976,
+      "smape": 6.9221,
+      "bias": 10.9462,
+      "residual_std": 37.1017
+    },
+    {
+      "seed": 46,
+      "condition": "in_domain",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 103,
+      "mae": 43.3894,
+      "rmse": 66.8494,
+      "r2": 0.9928,
+      "smape": 4.972,
+      "bias": -26.3737,
+      "residual_std": 61.427
+    },
+    {
+      "seed": 46,
+      "condition": "in_domain",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 103,
+      "mae": 109.6811,
+      "rmse": 144.2186,
+      "r2": 0.9666,
+      "smape": 31.865,
+      "bias": 16.6479,
+      "residual_std": 143.2545
+    },
+    {
+      "seed": 46,
+      "condition": "in_domain",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 103,
+      "mae": 108.7558,
+      "rmse": 182.2366,
+      "r2": 0.9467,
+      "smape": 16.5335,
+      "bias": 69.7777,
+      "residual_std": 168.3486
+    },
+    {
+      "seed": 46,
+      "condition": "in_domain",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 103,
+      "mae": 120.2441,
+      "rmse": 203.9598,
+      "r2": 0.9332,
+      "smape": 15.0619,
+      "bias": 74.7415,
+      "residual_std": 189.7717
+    },
+    {
+      "seed": 46,
+      "condition": "level1",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 500,
+      "mae": 63.934,
+      "rmse": 96.6432,
+      "r2": 0.9886,
+      "smape": 7.8845,
+      "bias": 57.7716,
+      "residual_std": 77.4749
+    },
+    {
+      "seed": 46,
+      "condition": "level1",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 500,
+      "mae": 61.6414,
+      "rmse": 101.4208,
+      "r2": 0.9875,
+      "smape": 5.5893,
+      "bias": 22.7417,
+      "residual_std": 98.8382
+    },
+    {
+      "seed": 46,
+      "condition": "level1",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 500,
+      "mae": 147.0241,
+      "rmse": 228.4466,
+      "r2": 0.9363,
+      "smape": 31.9265,
+      "bias": 55.7271,
+      "residual_std": 221.5453
+    },
+    {
+      "seed": 46,
+      "condition": "level1",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 500,
+      "mae": 81.0086,
+      "rmse": 152.7824,
+      "r2": 0.9715,
+      "smape": 10.3529,
+      "bias": 27.9385,
+      "residual_std": 150.2062
+    },
+    {
+      "seed": 46,
+      "condition": "level1",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 500,
+      "mae": 91.4141,
+      "rmse": 171.4831,
+      "r2": 0.9641,
+      "smape": 11.4977,
+      "bias": 56.6454,
+      "residual_std": 161.8572
+    },
+    {
+      "seed": 46,
+      "condition": "level2",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 500,
+      "mae": 125.1959,
+      "rmse": 177.706,
+      "r2": 0.9604,
+      "smape": 14.3422,
+      "bias": 123.92,
+      "residual_std": 127.3706
+    },
+    {
+      "seed": 46,
+      "condition": "level2",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 500,
+      "mae": 96.1478,
+      "rmse": 155.3438,
+      "r2": 0.9698,
+      "smape": 8.905,
+      "bias": 79.423,
+      "residual_std": 133.5054
+    },
+    {
+      "seed": 46,
+      "condition": "level2",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 500,
+      "mae": 215.8034,
+      "rmse": 287.4558,
+      "r2": 0.8964,
+      "smape": 44.0582,
+      "bias": 164.9331,
+      "residual_std": 235.4313
+    },
+    {
+      "seed": 46,
+      "condition": "level2",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 500,
+      "mae": 109.1183,
+      "rmse": 175.7744,
+      "r2": 0.9613,
+      "smape": 13.6471,
+      "bias": 69.3855,
+      "residual_std": 161.5001
+    },
+    {
+      "seed": 46,
+      "condition": "level2",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 500,
+      "mae": 146.9045,
+      "rmse": 223.6433,
+      "r2": 0.9373,
+      "smape": 17.5872,
+      "bias": 126.4656,
+      "residual_std": 184.4526
+    },
+    {
+      "seed": 46,
+      "condition": "level3",
+      "model_id": "physics_residual_qifcp",
+      "display_name": "Physics + QIFCP Residual",
+      "n_eval_samples": 500,
+      "mae": 179.8797,
+      "rmse": 256.8823,
+      "r2": 0.9169,
+      "smape": 20.0805,
+      "bias": 177.6016,
+      "residual_std": 185.5969
+    },
+    {
+      "seed": 46,
+      "condition": "level3",
+      "model_id": "physics_baseline",
+      "display_name": "Naval Physics Baseline",
+      "n_eval_samples": 500,
+      "mae": 140.1701,
+      "rmse": 221.7883,
+      "r2": 0.9381,
+      "smape": 13.0232,
+      "bias": 123.3027,
+      "residual_std": 184.3542
+    },
+    {
+      "seed": 46,
+      "condition": "level3",
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive Grouped QIFCP (Direct)",
+      "n_eval_samples": 500,
+      "mae": 328.8279,
+      "rmse": 400.4962,
+      "r2": 0.798,
+      "smape": 69.2412,
+      "bias": 301.8627,
+      "residual_std": 263.2035
+    },
+    {
+      "seed": 46,
+      "condition": "level3",
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "n_eval_samples": 500,
+      "mae": 134.0546,
+      "rmse": 204.2338,
+      "r2": 0.9475,
+      "smape": 16.1774,
+      "bias": 93.6135,
+      "residual_std": 181.5157
+    },
+    {
+      "seed": 46,
+      "condition": "level3",
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "n_eval_samples": 500,
+      "mae": 199.2642,
+      "rmse": 280.2692,
+      "r2": 0.9011,
+      "smape": 24.1846,
+      "bias": 180.1088,
+      "residual_std": 214.7361
+    }
+  ],
+  "decision_summary": {
+    "verdict": "FREEZE THE CURRENT PHASE 2D QIFCP-V2 ARCHITECTURE",
+    "in_domain_champion": "PhysicsInformedQIFCPRegressor",
+    "level1_robustness": "Competitive (MAE 62.78 t vs Baseline 61.55 t)",
+    "level2_level3_behavior": "Parametric drift causes positive bias in physics baseline which residual does not offset",
+    "circularity_confirmation": "Empirically validates Level 3 circularity finding: unadapted physics prior develops structural bias under shifted parameters",
+    "freezing_recommendation": "Do not attempt ad-hoc heuristic layers or further architecture tuning. The model is frozen for its validated domain."
+  }
+}

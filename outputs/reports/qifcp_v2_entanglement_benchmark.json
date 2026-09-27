@@ -1,0 +1,556 @@
+{
+  "benchmark_version": "2.1.0",
+  "phase": "Phase 2B: Adaptive Deterministic Entanglement Graph",
+  "timestamp": "2026-09-27T07:29:00.640791+00:00",
+  "git_commit": "7e2f710efa71474fd03c515fb59c013f6da02641",
+  "dataset": "C:\\HACKATHONS\\SIH_TRY3\\data\\raw\\voyages_sample.csv",
+  "dataset_hash": "069dfc97f9c3b75ad5e903a772095151692aa6501d07c2c648175cfe27ddcd2c",
+  "target_column": "fuel_consumption",
+  "target_mode": "absolute",
+  "seed": 42,
+  "split_method": "GroupShuffleSplit(groups=vessel_id, test_size=0.2, zero_vessel_leakage)",
+  "train_samples": 394,
+  "test_samples": 106,
+  "train_vessels_count": 48,
+  "test_vessels_count": 12,
+  "input_features_count": 27,
+  "pair_selection_scoring": "mRMR Interaction Ranking: score(i, j) = |corr(x_i, y)| * |corr(x_j, y)| * (1.0 - |corr(x_i, x_j)|)",
+  "leakage_controls": "Zero vessel leakage (GroupShuffleSplit); feature scaling and pair ranking statistics fitted solely on X_train/y_train; inner validation tuning isolated to train partition.",
+  "models": {
+    "random_forest": {
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor (Reference)",
+      "is_quantum": false,
+      "feature_count": 27,
+      "input_features": 27,
+      "mae": 138.3716,
+      "rmse": 195.9091,
+      "r2": 0.9467,
+      "smape": 13.6529,
+      "prediction_bias": 65.0732,
+      "residual_std": 184.786,
+      "training_time_seconds": 0.2391,
+      "inference_time_seconds": 0.0289,
+      "infer_ms_per_100_samples": 27.298
+    },
+    "hist_gradient_boosting": {
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor (Reference)",
+      "is_quantum": false,
+      "feature_count": 27,
+      "input_features": 27,
+      "mae": 152.4002,
+      "rmse": 255.4352,
+      "r2": 0.9094,
+      "smape": 14.2635,
+      "prediction_bias": 82.9255,
+      "residual_std": 241.5999,
+      "training_time_seconds": 0.21,
+      "inference_time_seconds": 0.0012,
+      "infer_ms_per_100_samples": 1.168
+    },
+    "variant_a_random_m15": {
+      "model_id": "variant_a_random_m15",
+      "display_name": "Variant A: QIFCP-v2 K=3 Random (M=15)",
+      "is_quantum": true,
+      "feature_count": 193,
+      "input_features": 27,
+      "mae": 171.8175,
+      "rmse": 236.5966,
+      "r2": 0.9223,
+      "smape": 25.2157,
+      "prediction_bias": 99.6356,
+      "residual_std": 214.5942,
+      "training_time_seconds": 0.9913,
+      "inference_time_seconds": 0.0005,
+      "infer_ms_per_100_samples": 0.46,
+      "harmonic_order": 3,
+      "n_entanglement_pairs": 15,
+      "entanglement_mode": "random",
+      "gamma": 1.7051,
+      "alpha_reg": 7.4183,
+      "selected_pairs": [
+        [
+          1,
+          6
+        ],
+        [
+          1,
+          8
+        ],
+        [
+          10,
+          17
+        ],
+        [
+          13,
+          20
+        ],
+        [
+          2,
+          21
+        ],
+        [
+          12,
+          18
+        ],
+        [
+          1,
+          5
+        ],
+        [
+          12,
+          23
+        ],
+        [
+          6,
+          15
+        ],
+        [
+          15,
+          24
+        ],
+        [
+          6,
+          13
+        ],
+        [
+          8,
+          11
+        ],
+        [
+          13,
+          15
+        ],
+        [
+          11,
+          20
+        ],
+        [
+          21,
+          25
+        ]
+      ],
+      "tuning_history": [
+        308.5604,
+        308.5604,
+        304.7713,
+        304.7056,
+        303.5691,
+        303.5691,
+        303.4863,
+        303.419,
+        303.4093,
+        303.4093
+      ]
+    },
+    "variant_b_adaptive_m5": {
+      "model_id": "variant_b_adaptive_m5",
+      "display_name": "Variant B: QIFCP-v2 K=3 Adaptive (M=5)",
+      "is_quantum": true,
+      "feature_count": 173,
+      "input_features": 27,
+      "mae": 169.1826,
+      "rmse": 236.6556,
+      "r2": 0.9222,
+      "smape": 26.031,
+      "prediction_bias": 110.2733,
+      "residual_std": 209.3935,
+      "training_time_seconds": 1.0474,
+      "inference_time_seconds": 0.0011,
+      "infer_ms_per_100_samples": 1.028,
+      "harmonic_order": 3,
+      "n_entanglement_pairs": 5,
+      "entanglement_mode": "adaptive",
+      "gamma": 1.4811,
+      "alpha_reg": 24.0329,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ]
+      ],
+      "tuning_history": [
+        293.1986,
+        293.1986,
+        293.1147,
+        293.1147,
+        293.1147,
+        293.1006,
+        292.9739,
+        292.9739,
+        292.9617,
+        292.9617
+      ]
+    },
+    "variant_c_adaptive_m10": {
+      "model_id": "variant_c_adaptive_m10",
+      "display_name": "Variant C: QIFCP-v2 K=3 Adaptive (M=10)",
+      "is_quantum": true,
+      "feature_count": 183,
+      "input_features": 27,
+      "mae": 169.8453,
+      "rmse": 233.2879,
+      "r2": 0.9244,
+      "smape": 29.1039,
+      "prediction_bias": 100.369,
+      "residual_std": 210.5928,
+      "training_time_seconds": 1.3129,
+      "inference_time_seconds": 0.0007,
+      "infer_ms_per_100_samples": 0.62,
+      "harmonic_order": 3,
+      "n_entanglement_pairs": 10,
+      "entanglement_mode": "adaptive",
+      "gamma": 0.6872,
+      "alpha_reg": 2.6665,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          16
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ]
+      ],
+      "tuning_history": [
+        195.8707,
+        195.8707,
+        188.647,
+        176.7697,
+        176.7697,
+        176.7697,
+        176.7697,
+        176.7697,
+        175.2918,
+        175.2918
+      ]
+    },
+    "variant_d_adaptive_m15": {
+      "model_id": "variant_d_adaptive_m15",
+      "display_name": "Variant D: QIFCP-v2 K=3 Adaptive (M=15)",
+      "is_quantum": true,
+      "feature_count": 193,
+      "input_features": 27,
+      "mae": 102.2419,
+      "rmse": 144.7695,
+      "r2": 0.9709,
+      "smape": 13.2975,
+      "prediction_bias": 38.2381,
+      "residual_std": 139.6283,
+      "training_time_seconds": 1.0084,
+      "inference_time_seconds": 0.0009,
+      "infer_ms_per_100_samples": 0.835,
+      "harmonic_order": 3,
+      "n_entanglement_pairs": 15,
+      "entanglement_mode": "adaptive",
+      "gamma": 0.7356,
+      "alpha_reg": 2.5706,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          16
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          8,
+          22
+        ],
+        [
+          9,
+          22
+        ],
+        [
+          8,
+          12
+        ],
+        [
+          9,
+          12
+        ],
+        [
+          8,
+          24
+        ]
+      ],
+      "tuning_history": [
+        186.7242,
+        186.7242,
+        178.8927,
+        168.7011,
+        168.5299,
+        168.5299,
+        168.5299,
+        168.5299,
+        168.5299,
+        167.3964
+      ]
+    },
+    "variant_e_adaptive_m20": {
+      "model_id": "variant_e_adaptive_m20",
+      "display_name": "Variant E: QIFCP-v2 K=3 Adaptive (M=20)",
+      "is_quantum": true,
+      "feature_count": 203,
+      "input_features": 27,
+      "mae": 98.7587,
+      "rmse": 140.2088,
+      "r2": 0.9727,
+      "smape": 12.8278,
+      "prediction_bias": 34.5718,
+      "residual_std": 135.8797,
+      "training_time_seconds": 1.2594,
+      "inference_time_seconds": 0.0007,
+      "infer_ms_per_100_samples": 0.643,
+      "harmonic_order": 3,
+      "n_entanglement_pairs": 20,
+      "entanglement_mode": "adaptive",
+      "gamma": 0.7062,
+      "alpha_reg": 2.1359,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          16
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          8,
+          22
+        ],
+        [
+          9,
+          22
+        ],
+        [
+          8,
+          12
+        ],
+        [
+          9,
+          12
+        ],
+        [
+          8,
+          24
+        ],
+        [
+          9,
+          24
+        ],
+        [
+          8,
+          11
+        ],
+        [
+          9,
+          11
+        ],
+        [
+          8,
+          16
+        ],
+        [
+          9,
+          16
+        ]
+      ],
+      "tuning_history": [
+        186.4212,
+        186.4212,
+        178.4148,
+        168.4107,
+        168.4107,
+        168.4107,
+        166.313,
+        166.313,
+        166.313,
+        165.2542
+      ]
+    }
+  },
+  "comparisons": {
+    "delta_adaptive_vs_random_m15": {
+      "mae_diff": -69.5756,
+      "mae_relative_pct": 40.49,
+      "rmse_diff": -91.8271,
+      "rmse_relative_pct": 38.81,
+      "r2_diff": 0.0486,
+      "smape_diff": -11.9182,
+      "smape_relative_pct": 47.26,
+      "prediction_bias_diff": -61.3975,
+      "residual_std_diff": -74.9659
+    },
+    "delta_adaptive_m15_vs_hgbt": {
+      "mae_diff": -50.1583,
+      "mae_relative_pct": 32.91,
+      "rmse_diff": -110.6657,
+      "rmse_relative_pct": 43.32,
+      "r2_diff": 0.0615,
+      "smape_diff": -0.966,
+      "smape_relative_pct": 6.77
+    },
+    "delta_adaptive_m15_vs_rf": {
+      "mae_diff": -36.1297,
+      "mae_relative_pct": 26.11,
+      "rmse_diff": -51.1396,
+      "rmse_relative_pct": 26.1,
+      "r2_diff": 0.0242,
+      "smape_diff": -0.3554,
+      "smape_relative_pct": 2.6
+    },
+    "m_budget_progression": {
+      "m5": {
+        "features": 173,
+        "mae": 169.1826,
+        "rmse": 236.6556,
+        "r2": 0.9222,
+        "smape": 26.031
+      },
+      "m10": {
+        "features": 183,
+        "mae": 169.8453,
+        "rmse": 233.2879,
+        "r2": 0.9244,
+        "smape": 29.1039
+      },
+      "m15": {
+        "features": 193,
+        "mae": 102.2419,
+        "rmse": 144.7695,
+        "r2": 0.9709,
+        "smape": 13.2975
+      },
+      "m20": {
+        "features": 203,
+        "mae": 98.7587,
+        "rmse": 140.2088,
+        "r2": 0.9727,
+        "smape": 12.8278
+      }
+    },
+    "primary_success_criteria": {
+      "criterion_a_lower_rmse": true,
+      "criterion_b_lower_mae": true,
+      "criterion_c_feature_reduction": true,
+      "criterion_d_runtime_stability": true,
+      "success_confirmed": true
+    }
+  }
+}

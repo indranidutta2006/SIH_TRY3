@@ -1,0 +1,1718 @@
+{
+  "metadata": {
+    "phase": "2B (Cross-Split Robustness Validation)",
+    "benchmark_version": "2.2.0",
+    "timestamp": "2026-09-27T07:50:54.773764+00:00",
+    "git_commit": "7e2f710efa71474fd03c515fb59c013f6da02641",
+    "dataset_path": "C:\\HACKATHONS\\SIH_TRY3\\data\\raw\\voyages_sample.csv",
+    "dataset_sha256": "069dfc97f9c3b75ad5e903a772095151692aa6501d07c2c648175cfe27ddcd2c",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "target_mode": "absolute",
+    "test_split": 0.2,
+    "input_features": 27,
+    "feature_names": [
+      "vessel_dwt",
+      "cargo_tons",
+      "distance_nm",
+      "speed_knots",
+      "weather_factor",
+      "sea_state",
+      "cargo_ratio",
+      "cargo_utilization_pct",
+      "transport_work",
+      "ton_nautical_miles",
+      "power_proxy",
+      "implied_hours",
+      "weather_speed_interaction",
+      "weather_sea_interaction",
+      "vessel_type_bulk_carrier",
+      "vessel_type_container_ship",
+      "vessel_type_general_cargo",
+      "vessel_type_oil_tanker",
+      "fuel_type_ammonia",
+      "fuel_type_diesel",
+      "fuel_type_hydrogen",
+      "fuel_type_lng",
+      "fuel_type_methanol",
+      "fuel_type_shorepower",
+      "source_group_short",
+      "source_group_medium",
+      "source_group_long"
+    ]
+  },
+  "per_seed_results": [
+    {
+      "seed": 42,
+      "model_id": "adaptive_qifcp",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15)",
+      "test_samples": 106,
+      "test_vessels": 12,
+      "train_samples": 394,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "mae": 102.2419,
+      "rmse": 144.7695,
+      "r2": 0.9709,
+      "smape": 13.2975,
+      "prediction_bias": 38.2381,
+      "residual_std": 139.6283,
+      "training_time_seconds": 1.0043,
+      "inference_time_seconds": 0.0006,
+      "infer_ms_per_100_samples": 0.576,
+      "gamma": 0.7356,
+      "alpha_reg": 2.5706,
+      "inner_val_rmse": 167.3964,
+      "generalization_gap": -22.6269,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          16
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          8,
+          22
+        ],
+        [
+          9,
+          22
+        ],
+        [
+          8,
+          12
+        ],
+        [
+          9,
+          12
+        ],
+        [
+          8,
+          24
+        ]
+      ],
+      "selected_pair_names": [
+        "vessel_dwt x distance_nm",
+        "cargo_tons x distance_nm",
+        "distance_nm x power_proxy",
+        "vessel_dwt x implied_hours",
+        "cargo_tons x implied_hours",
+        "transport_work x power_proxy",
+        "ton_nautical_miles x power_proxy",
+        "distance_nm x vessel_type_general_cargo",
+        "distance_nm x transport_work",
+        "distance_nm x ton_nautical_miles",
+        "transport_work x fuel_type_methanol",
+        "ton_nautical_miles x fuel_type_methanol",
+        "transport_work x weather_speed_interaction",
+        "ton_nautical_miles x weather_speed_interaction",
+        "transport_work x source_group_short"
+      ]
+    },
+    {
+      "seed": 42,
+      "model_id": "random_qifcp",
+      "display_name": "Random QIFCP (v2, K=3, M=15)",
+      "test_samples": 106,
+      "test_vessels": 12,
+      "train_samples": 394,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "mae": 171.8175,
+      "rmse": 236.5966,
+      "r2": 0.9223,
+      "smape": 25.2157,
+      "prediction_bias": 99.6356,
+      "residual_std": 214.5942,
+      "training_time_seconds": 0.8412,
+      "inference_time_seconds": 0.0013,
+      "infer_ms_per_100_samples": 1.269,
+      "gamma": 1.7051,
+      "alpha_reg": 7.4183,
+      "inner_val_rmse": 303.4093,
+      "generalization_gap": -66.8127,
+      "selected_pairs": [
+        [
+          1,
+          6
+        ],
+        [
+          1,
+          8
+        ],
+        [
+          10,
+          17
+        ],
+        [
+          13,
+          20
+        ],
+        [
+          2,
+          21
+        ],
+        [
+          12,
+          18
+        ],
+        [
+          1,
+          5
+        ],
+        [
+          12,
+          23
+        ],
+        [
+          6,
+          15
+        ],
+        [
+          15,
+          24
+        ],
+        [
+          6,
+          13
+        ],
+        [
+          8,
+          11
+        ],
+        [
+          13,
+          15
+        ],
+        [
+          11,
+          20
+        ],
+        [
+          21,
+          25
+        ]
+      ],
+      "selected_pair_names": [
+        "cargo_tons x cargo_ratio",
+        "cargo_tons x transport_work",
+        "power_proxy x vessel_type_oil_tanker",
+        "weather_sea_interaction x fuel_type_hydrogen",
+        "distance_nm x fuel_type_lng",
+        "weather_speed_interaction x fuel_type_ammonia",
+        "cargo_tons x sea_state",
+        "weather_speed_interaction x fuel_type_shorepower",
+        "cargo_ratio x vessel_type_container_ship",
+        "vessel_type_container_ship x source_group_short",
+        "cargo_ratio x weather_sea_interaction",
+        "transport_work x implied_hours",
+        "weather_sea_interaction x vessel_type_container_ship",
+        "implied_hours x fuel_type_hydrogen",
+        "fuel_type_lng x source_group_medium"
+      ]
+    },
+    {
+      "seed": 42,
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "test_samples": 106,
+      "test_vessels": 12,
+      "train_samples": 394,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "mae": 138.3716,
+      "rmse": 195.9091,
+      "r2": 0.9467,
+      "smape": 13.6529,
+      "prediction_bias": 65.0732,
+      "residual_std": 184.786,
+      "training_time_seconds": 0.1751,
+      "inference_time_seconds": 0.0384,
+      "infer_ms_per_100_samples": 36.21
+    },
+    {
+      "seed": 42,
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "test_samples": 106,
+      "test_vessels": 12,
+      "train_samples": 394,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "mae": 152.4002,
+      "rmse": 255.4352,
+      "r2": 0.9094,
+      "smape": 14.2635,
+      "prediction_bias": 82.9255,
+      "residual_std": 241.5999,
+      "training_time_seconds": 0.2204,
+      "inference_time_seconds": 0.0012,
+      "infer_ms_per_100_samples": 1.164
+    },
+    {
+      "seed": 43,
+      "model_id": "adaptive_qifcp",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15)",
+      "test_samples": 83,
+      "test_vessels": 12,
+      "train_samples": 417,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "mae": 153.7788,
+      "rmse": 204.04,
+      "r2": 0.9115,
+      "smape": 39.401,
+      "prediction_bias": 23.9847,
+      "residual_std": 202.6254,
+      "training_time_seconds": 1.0742,
+      "inference_time_seconds": 0.0008,
+      "infer_ms_per_100_samples": 0.911,
+      "gamma": 0.7664,
+      "alpha_reg": 48.5454,
+      "inner_val_rmse": 243.9098,
+      "generalization_gap": -39.8698,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          2,
+          16
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          8,
+          12
+        ],
+        [
+          9,
+          12
+        ],
+        [
+          8,
+          24
+        ],
+        [
+          9,
+          24
+        ],
+        [
+          0,
+          24
+        ]
+      ],
+      "selected_pair_names": [
+        "vessel_dwt x distance_nm",
+        "cargo_tons x distance_nm",
+        "distance_nm x power_proxy",
+        "vessel_dwt x implied_hours",
+        "cargo_tons x implied_hours",
+        "distance_nm x vessel_type_general_cargo",
+        "transport_work x power_proxy",
+        "ton_nautical_miles x power_proxy",
+        "distance_nm x transport_work",
+        "distance_nm x ton_nautical_miles",
+        "transport_work x weather_speed_interaction",
+        "ton_nautical_miles x weather_speed_interaction",
+        "transport_work x source_group_short",
+        "ton_nautical_miles x source_group_short",
+        "vessel_dwt x source_group_short"
+      ]
+    },
+    {
+      "seed": 43,
+      "model_id": "random_qifcp",
+      "display_name": "Random QIFCP (v2, K=3, M=15)",
+      "test_samples": 83,
+      "test_vessels": 12,
+      "train_samples": 417,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "mae": 165.3051,
+      "rmse": 207.3763,
+      "r2": 0.9086,
+      "smape": 43.2263,
+      "prediction_bias": 19.4573,
+      "residual_std": 206.4615,
+      "training_time_seconds": 0.8146,
+      "inference_time_seconds": 0.0011,
+      "infer_ms_per_100_samples": 1.339,
+      "gamma": 1.9997,
+      "alpha_reg": 45.3324,
+      "inner_val_rmse": 231.2554,
+      "generalization_gap": -23.8791,
+      "selected_pairs": [
+        [
+          5,
+          22
+        ],
+        [
+          20,
+          25
+        ],
+        [
+          7,
+          17
+        ],
+        [
+          3,
+          7
+        ],
+        [
+          15,
+          26
+        ],
+        [
+          9,
+          15
+        ],
+        [
+          3,
+          23
+        ],
+        [
+          13,
+          17
+        ],
+        [
+          6,
+          26
+        ],
+        [
+          10,
+          16
+        ],
+        [
+          8,
+          25
+        ],
+        [
+          15,
+          19
+        ],
+        [
+          0,
+          7
+        ],
+        [
+          5,
+          19
+        ],
+        [
+          0,
+          15
+        ]
+      ],
+      "selected_pair_names": [
+        "sea_state x fuel_type_methanol",
+        "fuel_type_hydrogen x source_group_medium",
+        "cargo_utilization_pct x vessel_type_oil_tanker",
+        "speed_knots x cargo_utilization_pct",
+        "vessel_type_container_ship x source_group_long",
+        "ton_nautical_miles x vessel_type_container_ship",
+        "speed_knots x fuel_type_shorepower",
+        "weather_sea_interaction x vessel_type_oil_tanker",
+        "cargo_ratio x source_group_long",
+        "power_proxy x vessel_type_general_cargo",
+        "transport_work x source_group_medium",
+        "vessel_type_container_ship x fuel_type_diesel",
+        "vessel_dwt x cargo_utilization_pct",
+        "sea_state x fuel_type_diesel",
+        "vessel_dwt x vessel_type_container_ship"
+      ]
+    },
+    {
+      "seed": 43,
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "test_samples": 83,
+      "test_vessels": 12,
+      "train_samples": 417,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "mae": 93.7067,
+      "rmse": 133.7269,
+      "r2": 0.962,
+      "smape": 13.2883,
+      "prediction_bias": 28.705,
+      "residual_std": 130.6097,
+      "training_time_seconds": 0.1507,
+      "inference_time_seconds": 0.0297,
+      "infer_ms_per_100_samples": 35.735
+    },
+    {
+      "seed": 43,
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "test_samples": 83,
+      "test_vessels": 12,
+      "train_samples": 417,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "mae": 87.1661,
+      "rmse": 149.8916,
+      "r2": 0.9522,
+      "smape": 12.5363,
+      "prediction_bias": 20.5769,
+      "residual_std": 148.4725,
+      "training_time_seconds": 0.2461,
+      "inference_time_seconds": 0.0011,
+      "infer_ms_per_100_samples": 1.365
+    },
+    {
+      "seed": 44,
+      "model_id": "adaptive_qifcp",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15)",
+      "test_samples": 95,
+      "test_vessels": 12,
+      "train_samples": 405,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "mae": 87.3094,
+      "rmse": 154.7508,
+      "r2": 0.9657,
+      "smape": 24.0177,
+      "prediction_bias": -25.8856,
+      "residual_std": 152.5704,
+      "training_time_seconds": 0.9691,
+      "inference_time_seconds": 0.0007,
+      "infer_ms_per_100_samples": 0.717,
+      "gamma": 0.2269,
+      "alpha_reg": 0.0794,
+      "inner_val_rmse": 84.5157,
+      "generalization_gap": 70.2351,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          16
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          8,
+          12
+        ],
+        [
+          9,
+          12
+        ],
+        [
+          8,
+          24
+        ],
+        [
+          9,
+          24
+        ],
+        [
+          0,
+          24
+        ]
+      ],
+      "selected_pair_names": [
+        "vessel_dwt x distance_nm",
+        "cargo_tons x distance_nm",
+        "distance_nm x power_proxy",
+        "vessel_dwt x implied_hours",
+        "cargo_tons x implied_hours",
+        "transport_work x power_proxy",
+        "ton_nautical_miles x power_proxy",
+        "distance_nm x vessel_type_general_cargo",
+        "distance_nm x transport_work",
+        "distance_nm x ton_nautical_miles",
+        "transport_work x weather_speed_interaction",
+        "ton_nautical_miles x weather_speed_interaction",
+        "transport_work x source_group_short",
+        "ton_nautical_miles x source_group_short",
+        "vessel_dwt x source_group_short"
+      ]
+    },
+    {
+      "seed": 44,
+      "model_id": "random_qifcp",
+      "display_name": "Random QIFCP (v2, K=3, M=15)",
+      "test_samples": 95,
+      "test_vessels": 12,
+      "train_samples": 405,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "mae": 79.7404,
+      "rmse": 132.085,
+      "r2": 0.975,
+      "smape": 19.2137,
+      "prediction_bias": -19.341,
+      "residual_std": 130.6612,
+      "training_time_seconds": 1.1139,
+      "inference_time_seconds": 0.0005,
+      "infer_ms_per_100_samples": 0.564,
+      "gamma": 0.0891,
+      "alpha_reg": 0.01,
+      "inner_val_rmse": 150.0516,
+      "generalization_gap": -17.9666,
+      "selected_pairs": [
+        [
+          10,
+          20
+        ],
+        [
+          1,
+          17
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          3,
+          16
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          22,
+          26
+        ],
+        [
+          20,
+          24
+        ],
+        [
+          14,
+          19
+        ],
+        [
+          16,
+          19
+        ],
+        [
+          10,
+          23
+        ],
+        [
+          1,
+          6
+        ],
+        [
+          0,
+          7
+        ],
+        [
+          8,
+          13
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          5,
+          24
+        ]
+      ],
+      "selected_pair_names": [
+        "power_proxy x fuel_type_hydrogen",
+        "cargo_tons x vessel_type_oil_tanker",
+        "distance_nm x ton_nautical_miles",
+        "speed_knots x vessel_type_general_cargo",
+        "distance_nm x transport_work",
+        "fuel_type_methanol x source_group_long",
+        "fuel_type_hydrogen x source_group_short",
+        "vessel_type_bulk_carrier x fuel_type_diesel",
+        "vessel_type_general_cargo x fuel_type_diesel",
+        "power_proxy x fuel_type_shorepower",
+        "cargo_tons x cargo_ratio",
+        "vessel_dwt x cargo_utilization_pct",
+        "transport_work x weather_sea_interaction",
+        "cargo_tons x implied_hours",
+        "sea_state x source_group_short"
+      ]
+    },
+    {
+      "seed": 44,
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "test_samples": 95,
+      "test_vessels": 12,
+      "train_samples": 405,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "mae": 83.3026,
+      "rmse": 133.7242,
+      "r2": 0.9744,
+      "smape": 9.7588,
+      "prediction_bias": -41.4061,
+      "residual_std": 127.1522,
+      "training_time_seconds": 0.1565,
+      "inference_time_seconds": 0.0252,
+      "infer_ms_per_100_samples": 26.501
+    },
+    {
+      "seed": 44,
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "test_samples": 95,
+      "test_vessels": 12,
+      "train_samples": 405,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "mae": 72.7502,
+      "rmse": 108.2285,
+      "r2": 0.9832,
+      "smape": 9.1417,
+      "prediction_bias": 1.4737,
+      "residual_std": 108.2185,
+      "training_time_seconds": 0.2375,
+      "inference_time_seconds": 0.002,
+      "infer_ms_per_100_samples": 2.053
+    },
+    {
+      "seed": 45,
+      "model_id": "adaptive_qifcp",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15)",
+      "test_samples": 104,
+      "test_vessels": 12,
+      "train_samples": 396,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "mae": 110.1736,
+      "rmse": 139.1983,
+      "r2": 0.9664,
+      "smape": 54.0738,
+      "prediction_bias": -6.2317,
+      "residual_std": 139.0588,
+      "training_time_seconds": 1.6759,
+      "inference_time_seconds": 0.0004,
+      "infer_ms_per_100_samples": 0.421,
+      "gamma": 0.4676,
+      "alpha_reg": 11.5447,
+      "inner_val_rmse": 182.3269,
+      "generalization_gap": -43.1285,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          10,
+          11
+        ],
+        [
+          8,
+          24
+        ],
+        [
+          9,
+          24
+        ],
+        [
+          0,
+          24
+        ],
+        [
+          8,
+          12
+        ],
+        [
+          9,
+          12
+        ]
+      ],
+      "selected_pair_names": [
+        "vessel_dwt x distance_nm",
+        "cargo_tons x distance_nm",
+        "distance_nm x power_proxy",
+        "vessel_dwt x implied_hours",
+        "cargo_tons x implied_hours",
+        "transport_work x power_proxy",
+        "ton_nautical_miles x power_proxy",
+        "distance_nm x transport_work",
+        "distance_nm x ton_nautical_miles",
+        "power_proxy x implied_hours",
+        "transport_work x source_group_short",
+        "ton_nautical_miles x source_group_short",
+        "vessel_dwt x source_group_short",
+        "transport_work x weather_speed_interaction",
+        "ton_nautical_miles x weather_speed_interaction"
+      ]
+    },
+    {
+      "seed": 45,
+      "model_id": "random_qifcp",
+      "display_name": "Random QIFCP (v2, K=3, M=15)",
+      "test_samples": 104,
+      "test_vessels": 12,
+      "train_samples": 396,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "mae": 90.0004,
+      "rmse": 113.2356,
+      "r2": 0.9778,
+      "smape": 38.6212,
+      "prediction_bias": 15.6388,
+      "residual_std": 112.1505,
+      "training_time_seconds": 1.2312,
+      "inference_time_seconds": 0.0011,
+      "infer_ms_per_100_samples": 1.044,
+      "gamma": 0.3107,
+      "alpha_reg": 0.092,
+      "inner_val_rmse": 91.0914,
+      "generalization_gap": 22.1443,
+      "selected_pairs": [
+        [
+          6,
+          13
+        ],
+        [
+          12,
+          15
+        ],
+        [
+          8,
+          22
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          14,
+          20
+        ],
+        [
+          17,
+          23
+        ],
+        [
+          13,
+          26
+        ],
+        [
+          13,
+          25
+        ],
+        [
+          7,
+          23
+        ],
+        [
+          8,
+          26
+        ],
+        [
+          14,
+          21
+        ],
+        [
+          11,
+          23
+        ],
+        [
+          13,
+          15
+        ],
+        [
+          7,
+          26
+        ],
+        [
+          8,
+          23
+        ]
+      ],
+      "selected_pair_names": [
+        "cargo_ratio x weather_sea_interaction",
+        "weather_speed_interaction x vessel_type_container_ship",
+        "transport_work x fuel_type_methanol",
+        "transport_work x power_proxy",
+        "vessel_type_bulk_carrier x fuel_type_hydrogen",
+        "vessel_type_oil_tanker x fuel_type_shorepower",
+        "weather_sea_interaction x source_group_long",
+        "weather_sea_interaction x source_group_medium",
+        "cargo_utilization_pct x fuel_type_shorepower",
+        "transport_work x source_group_long",
+        "vessel_type_bulk_carrier x fuel_type_lng",
+        "implied_hours x fuel_type_shorepower",
+        "weather_sea_interaction x vessel_type_container_ship",
+        "cargo_utilization_pct x source_group_long",
+        "transport_work x fuel_type_shorepower"
+      ]
+    },
+    {
+      "seed": 45,
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "test_samples": 104,
+      "test_vessels": 12,
+      "train_samples": 396,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "mae": 75.3521,
+      "rmse": 99.5505,
+      "r2": 0.9828,
+      "smape": 17.5278,
+      "prediction_bias": 27.0955,
+      "residual_std": 95.7921,
+      "training_time_seconds": 0.2036,
+      "inference_time_seconds": 0.0265,
+      "infer_ms_per_100_samples": 25.475
+    },
+    {
+      "seed": 45,
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "test_samples": 104,
+      "test_vessels": 12,
+      "train_samples": 396,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "mae": 65.0729,
+      "rmse": 87.4906,
+      "r2": 0.9867,
+      "smape": 15.5715,
+      "prediction_bias": 18.9813,
+      "residual_std": 85.4068,
+      "training_time_seconds": 0.2195,
+      "inference_time_seconds": 0.004,
+      "infer_ms_per_100_samples": 3.878
+    },
+    {
+      "seed": 46,
+      "model_id": "adaptive_qifcp",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15)",
+      "test_samples": 103,
+      "test_vessels": 12,
+      "train_samples": 397,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "mae": 106.3919,
+      "rmse": 144.5785,
+      "r2": 0.9664,
+      "smape": 34.8156,
+      "prediction_bias": 25.0261,
+      "residual_std": 142.396,
+      "training_time_seconds": 1.1248,
+      "inference_time_seconds": 0.0011,
+      "infer_ms_per_100_samples": 1.057,
+      "gamma": 0.4681,
+      "alpha_reg": 4.3577,
+      "inner_val_rmse": 103.2065,
+      "generalization_gap": 41.372,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          16
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          8,
+          24
+        ],
+        [
+          9,
+          24
+        ],
+        [
+          0,
+          24
+        ],
+        [
+          8,
+          16
+        ],
+        [
+          9,
+          16
+        ]
+      ],
+      "selected_pair_names": [
+        "vessel_dwt x distance_nm",
+        "cargo_tons x distance_nm",
+        "distance_nm x power_proxy",
+        "vessel_dwt x implied_hours",
+        "cargo_tons x implied_hours",
+        "transport_work x power_proxy",
+        "ton_nautical_miles x power_proxy",
+        "distance_nm x vessel_type_general_cargo",
+        "distance_nm x transport_work",
+        "distance_nm x ton_nautical_miles",
+        "transport_work x source_group_short",
+        "ton_nautical_miles x source_group_short",
+        "vessel_dwt x source_group_short",
+        "transport_work x vessel_type_general_cargo",
+        "ton_nautical_miles x vessel_type_general_cargo"
+      ]
+    },
+    {
+      "seed": 46,
+      "model_id": "random_qifcp",
+      "display_name": "Random QIFCP (v2, K=3, M=15)",
+      "test_samples": 103,
+      "test_vessels": 12,
+      "train_samples": 397,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "mae": 112.5873,
+      "rmse": 151.7185,
+      "r2": 0.9631,
+      "smape": 36.5279,
+      "prediction_bias": 31.8165,
+      "residual_std": 148.3449,
+      "training_time_seconds": 1.5793,
+      "inference_time_seconds": 0.0005,
+      "infer_ms_per_100_samples": 0.45,
+      "gamma": 0.9973,
+      "alpha_reg": 20.4456,
+      "inner_val_rmse": 179.1006,
+      "generalization_gap": -27.3821,
+      "selected_pairs": [
+        [
+          2,
+          26
+        ],
+        [
+          17,
+          18
+        ],
+        [
+          7,
+          16
+        ],
+        [
+          14,
+          20
+        ],
+        [
+          14,
+          25
+        ],
+        [
+          13,
+          21
+        ],
+        [
+          10,
+          16
+        ],
+        [
+          8,
+          16
+        ],
+        [
+          19,
+          20
+        ],
+        [
+          9,
+          25
+        ],
+        [
+          1,
+          23
+        ],
+        [
+          3,
+          22
+        ],
+        [
+          3,
+          14
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          1,
+          5
+        ]
+      ],
+      "selected_pair_names": [
+        "distance_nm x source_group_long",
+        "vessel_type_oil_tanker x fuel_type_ammonia",
+        "cargo_utilization_pct x vessel_type_general_cargo",
+        "vessel_type_bulk_carrier x fuel_type_hydrogen",
+        "vessel_type_bulk_carrier x source_group_medium",
+        "weather_sea_interaction x fuel_type_lng",
+        "power_proxy x vessel_type_general_cargo",
+        "transport_work x vessel_type_general_cargo",
+        "fuel_type_diesel x fuel_type_hydrogen",
+        "ton_nautical_miles x source_group_medium",
+        "cargo_tons x fuel_type_shorepower",
+        "speed_knots x fuel_type_methanol",
+        "speed_knots x vessel_type_bulk_carrier",
+        "cargo_tons x distance_nm",
+        "cargo_tons x sea_state"
+      ]
+    },
+    {
+      "seed": 46,
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "test_samples": 103,
+      "test_vessels": 12,
+      "train_samples": 397,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "mae": 108.7558,
+      "rmse": 182.2366,
+      "r2": 0.9467,
+      "smape": 14.7452,
+      "prediction_bias": 69.7777,
+      "residual_std": 168.3486,
+      "training_time_seconds": 0.1808,
+      "inference_time_seconds": 0.0431,
+      "infer_ms_per_100_samples": 41.882
+    },
+    {
+      "seed": 46,
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "test_samples": 103,
+      "test_vessels": 12,
+      "train_samples": 397,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "mae": 120.2441,
+      "rmse": 203.9598,
+      "r2": 0.9332,
+      "smape": 13.1436,
+      "prediction_bias": 74.7415,
+      "residual_std": 189.7717,
+      "training_time_seconds": 0.2078,
+      "inference_time_seconds": 0.0021,
+      "infer_ms_per_100_samples": 2.069
+    }
+  ],
+  "aggregate_results": {
+    "adaptive_qifcp": {
+      "model_id": "adaptive_qifcp",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15)",
+      "quantum_features": 193,
+      "mae": {
+        "mean": 111.9791,
+        "std": 24.9254,
+        "cv": 0.2226
+      },
+      "rmse": {
+        "mean": 157.4674,
+        "std": 26.6341,
+        "cv": 0.1691
+      },
+      "r2": {
+        "mean": 0.9562,
+        "std": 0.0251,
+        "cv": 0.0262
+      },
+      "smape": {
+        "mean": 33.1211,
+        "std": 15.4691
+      },
+      "prediction_bias": {
+        "mean": 11.0263,
+        "std": 26.2903
+      },
+      "residual_std": {
+        "mean": 155.2558,
+        "std": 27.0325
+      },
+      "training_time_seconds": {
+        "mean": 1.1697,
+        "std": 0.2894
+      },
+      "infer_ms_per_100_samples": {
+        "mean": 0.7364,
+        "std": 0.2544
+      },
+      "generalization_gap": {
+        "mean": 1.1964,
+        "std": 51.476
+      }
+    },
+    "random_qifcp": {
+      "model_id": "random_qifcp",
+      "display_name": "Random QIFCP (v2, K=3, M=15)",
+      "quantum_features": 193,
+      "mae": {
+        "mean": 123.8901,
+        "std": 42.5373,
+        "cv": 0.3433
+      },
+      "rmse": {
+        "mean": 168.2024,
+        "std": 51.9853,
+        "cv": 0.3091
+      },
+      "r2": {
+        "mean": 0.9494,
+        "std": 0.0318,
+        "cv": 0.0335
+      },
+      "smape": {
+        "mean": 32.561,
+        "std": 9.9789
+      },
+      "prediction_bias": {
+        "mean": 29.4414,
+        "std": 43.597
+      },
+      "residual_std": {
+        "mean": 162.4425,
+        "std": 45.8136
+      },
+      "training_time_seconds": {
+        "mean": 1.116,
+        "std": 0.314
+      },
+      "infer_ms_per_100_samples": {
+        "mean": 0.9332,
+        "std": 0.406
+      },
+      "generalization_gap": {
+        "mean": -22.7792,
+        "std": 31.6332
+      }
+    },
+    "random_forest": {
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor",
+      "quantum_features": 27,
+      "mae": {
+        "mean": 99.8978,
+        "std": 24.8743,
+        "cv": 0.249
+      },
+      "rmse": {
+        "mean": 149.0295,
+        "std": 39.424,
+        "cv": 0.2645
+      },
+      "r2": {
+        "mean": 0.9625,
+        "std": 0.0162,
+        "cv": 0.0169
+      },
+      "smape": {
+        "mean": 13.7946,
+        "std": 2.802
+      },
+      "prediction_bias": {
+        "mean": 29.8491,
+        "std": 44.5006
+      },
+      "residual_std": {
+        "mean": 141.3377,
+        "std": 35.3838
+      },
+      "training_time_seconds": {
+        "mean": 0.1733,
+        "std": 0.021
+      },
+      "infer_ms_per_100_samples": {
+        "mean": 33.1606,
+        "std": 6.9894
+      },
+      "generalization_gap": null
+    },
+    "hist_gradient_boosting": {
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor",
+      "quantum_features": 27,
+      "mae": {
+        "mean": 99.5267,
+        "std": 36.3375,
+        "cv": 0.3651
+      },
+      "rmse": {
+        "mean": 161.0011,
+        "std": 69.0569,
+        "cv": 0.4289
+      },
+      "r2": {
+        "mean": 0.9529,
+        "std": 0.0329,
+        "cv": 0.0346
+      },
+      "smape": {
+        "mean": 12.9313,
+        "std": 2.4139
+      },
+      "prediction_bias": {
+        "mean": 39.7398,
+        "std": 36.5806
+      },
+      "residual_std": {
+        "mean": 154.6939,
+        "std": 62.8142
+      },
+      "training_time_seconds": {
+        "mean": 0.2263,
+        "std": 0.0153
+      },
+      "infer_ms_per_100_samples": {
+        "mean": 2.1058,
+        "std": 1.0701
+      },
+      "generalization_gap": null
+    }
+  },
+  "head_to_head_comparisons": {
+    "random_qifcp": {
+      "reference_id": "random_qifcp",
+      "reference_name": "Random QIFCP (v2, K=3, M=15)",
+      "mae_wins": 3,
+      "rmse_wins": 3,
+      "r2_wins": 3,
+      "total_seeds": 5,
+      "mae_win_rate_pct": 60.0,
+      "rmse_win_rate_pct": 60.0,
+      "r2_win_rate_pct": 60.0
+    },
+    "random_forest": {
+      "reference_id": "random_forest",
+      "reference_name": "Random Forest Regressor",
+      "mae_wins": 2,
+      "rmse_wins": 2,
+      "r2_wins": 2,
+      "total_seeds": 5,
+      "mae_win_rate_pct": 40.0,
+      "rmse_win_rate_pct": 40.0,
+      "r2_win_rate_pct": 40.0
+    },
+    "hist_gradient_boosting": {
+      "reference_id": "hist_gradient_boosting",
+      "reference_name": "HistGradientBoosting Regressor",
+      "mae_wins": 2,
+      "rmse_wins": 2,
+      "r2_wins": 2,
+      "total_seeds": 5,
+      "mae_win_rate_pct": 40.0,
+      "rmse_win_rate_pct": 40.0,
+      "r2_win_rate_pct": 40.0
+    }
+  },
+  "feature_selection_stability": {
+    "total_unique_pairs": 20,
+    "pairs_in_all_5_seeds": 10,
+    "pairs_in_ge_4_seeds": 15,
+    "pairs_in_ge_3_seeds": 15,
+    "pairs_in_2_seeds": 0,
+    "pairs_in_1_seed": 5,
+    "ranked_pairs": [
+      {
+        "pair": "cargo_tons x distance_nm",
+        "appeared_seeds": [
+          42,
+          43,
+          44,
+          45,
+          46
+        ],
+        "frequency_count": 5,
+        "frequency_pct": 100.0
+      },
+      {
+        "pair": "cargo_tons x implied_hours",
+        "appeared_seeds": [
+          42,
+          43,
+          44,
+          45,
+          46
+        ],
+        "frequency_count": 5,
+        "frequency_pct": 100.0
+      },
+      {
+        "pair": "distance_nm x power_proxy",
+        "appeared_seeds": [
+          42,
+          43,
+          44,
+          45,
+          46
+        ],
+        "frequency_count": 5,
+        "frequency_pct": 100.0
+      },
+      {
+        "pair": "distance_nm x ton_nautical_miles",
+        "appeared_seeds": [
+          42,
+          43,
+          44,
+          45,
+          46
+        ],
+        "frequency_count": 5,
+        "frequency_pct": 100.0
+      },
+      {
+        "pair": "distance_nm x transport_work",
+        "appeared_seeds": [
+          42,
+          43,
+          44,
+          45,
+          46
+        ],
+        "frequency_count": 5,
+        "frequency_pct": 100.0
+      },
+      {
+        "pair": "ton_nautical_miles x power_proxy",
+        "appeared_seeds": [
+          42,
+          43,
+          44,
+          45,
+          46
+        ],
+        "frequency_count": 5,
+        "frequency_pct": 100.0
+      },
+      {
+        "pair": "transport_work x power_proxy",
+        "appeared_seeds": [
+          42,
+          43,
+          44,
+          45,
+          46
+        ],
+        "frequency_count": 5,
+        "frequency_pct": 100.0
+      },
+      {
+        "pair": "transport_work x source_group_short",
+        "appeared_seeds": [
+          42,
+          43,
+          44,
+          45,
+          46
+        ],
+        "frequency_count": 5,
+        "frequency_pct": 100.0
+      },
+      {
+        "pair": "vessel_dwt x distance_nm",
+        "appeared_seeds": [
+          42,
+          43,
+          44,
+          45,
+          46
+        ],
+        "frequency_count": 5,
+        "frequency_pct": 100.0
+      },
+      {
+        "pair": "vessel_dwt x implied_hours",
+        "appeared_seeds": [
+          42,
+          43,
+          44,
+          45,
+          46
+        ],
+        "frequency_count": 5,
+        "frequency_pct": 100.0
+      },
+      {
+        "pair": "distance_nm x vessel_type_general_cargo",
+        "appeared_seeds": [
+          42,
+          43,
+          44,
+          46
+        ],
+        "frequency_count": 4,
+        "frequency_pct": 80.0
+      },
+      {
+        "pair": "ton_nautical_miles x source_group_short",
+        "appeared_seeds": [
+          43,
+          44,
+          45,
+          46
+        ],
+        "frequency_count": 4,
+        "frequency_pct": 80.0
+      },
+      {
+        "pair": "ton_nautical_miles x weather_speed_interaction",
+        "appeared_seeds": [
+          42,
+          43,
+          44,
+          45
+        ],
+        "frequency_count": 4,
+        "frequency_pct": 80.0
+      },
+      {
+        "pair": "transport_work x weather_speed_interaction",
+        "appeared_seeds": [
+          42,
+          43,
+          44,
+          45
+        ],
+        "frequency_count": 4,
+        "frequency_pct": 80.0
+      },
+      {
+        "pair": "vessel_dwt x source_group_short",
+        "appeared_seeds": [
+          43,
+          44,
+          45,
+          46
+        ],
+        "frequency_count": 4,
+        "frequency_pct": 80.0
+      },
+      {
+        "pair": "power_proxy x implied_hours",
+        "appeared_seeds": [
+          45
+        ],
+        "frequency_count": 1,
+        "frequency_pct": 20.0
+      },
+      {
+        "pair": "ton_nautical_miles x fuel_type_methanol",
+        "appeared_seeds": [
+          42
+        ],
+        "frequency_count": 1,
+        "frequency_pct": 20.0
+      },
+      {
+        "pair": "ton_nautical_miles x vessel_type_general_cargo",
+        "appeared_seeds": [
+          46
+        ],
+        "frequency_count": 1,
+        "frequency_pct": 20.0
+      },
+      {
+        "pair": "transport_work x fuel_type_methanol",
+        "appeared_seeds": [
+          42
+        ],
+        "frequency_count": 1,
+        "frequency_pct": 20.0
+      },
+      {
+        "pair": "transport_work x vessel_type_general_cargo",
+        "appeared_seeds": [
+          46
+        ],
+        "frequency_count": 1,
+        "frequency_pct": 20.0
+      }
+    ]
+  },
+  "robustness_decision": {
+    "case": "CASE C",
+    "summary": "Competitive but not consistently better.",
+    "details": "Adaptive QIFCP is competitive across partitions (winning 2/5 seeds against Random Forest and HistGradientBoosting, 3/5 seeds against Random QIFCP, and achieving lower mean RMSE and higher mean R2 than HistGBDT), but does not achieve lower mean MAE across all seeds. Do not claim superiority."
+  }
+}

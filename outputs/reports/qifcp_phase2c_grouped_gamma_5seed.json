@@ -1,0 +1,1583 @@
+{
+  "metadata": {
+    "phase": "2C (Grouped Phase Scaling gamma_g)",
+    "benchmark_version": "2.3.0",
+    "timestamp": "2026-09-27T08:14:52.876902+00:00",
+    "git_commit": "7e2f710efa71474fd03c515fb59c013f6da02641",
+    "dataset_path": "C:\\HACKATHONS\\SIH_TRY3\\data\\raw\\voyages_sample.csv",
+    "dataset_sha256": "069dfc97f9c3b75ad5e903a772095151692aa6501d07c2c648175cfe27ddcd2c",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "target_mode": "absolute",
+    "test_split": 0.2,
+    "input_features": 27,
+    "feature_names": [
+      "vessel_dwt",
+      "cargo_tons",
+      "distance_nm",
+      "speed_knots",
+      "weather_factor",
+      "sea_state",
+      "cargo_ratio",
+      "cargo_utilization_pct",
+      "transport_work",
+      "ton_nautical_miles",
+      "power_proxy",
+      "implied_hours",
+      "weather_speed_interaction",
+      "weather_sea_interaction",
+      "vessel_type_bulk_carrier",
+      "vessel_type_container_ship",
+      "vessel_type_general_cargo",
+      "vessel_type_oil_tanker",
+      "fuel_type_ammonia",
+      "fuel_type_diesel",
+      "fuel_type_hydrogen",
+      "fuel_type_lng",
+      "fuel_type_methanol",
+      "fuel_type_shorepower",
+      "source_group_short",
+      "source_group_medium",
+      "source_group_long"
+    ],
+    "phase_groups": {
+      "hydrodynamic": [
+        "vessel_dwt",
+        "distance_nm",
+        "transport_work",
+        "ton_nautical_miles",
+        "power_proxy"
+      ],
+      "operational": [
+        "cargo_tons",
+        "speed_knots",
+        "cargo_ratio",
+        "cargo_utilization_pct",
+        "implied_hours",
+        "vessel_type_bulk_carrier",
+        "vessel_type_container_ship",
+        "vessel_type_general_cargo",
+        "vessel_type_oil_tanker",
+        "fuel_type_ammonia",
+        "fuel_type_diesel",
+        "fuel_type_hydrogen",
+        "fuel_type_lng",
+        "fuel_type_methanol",
+        "fuel_type_shorepower",
+        "source_group_short",
+        "source_group_medium",
+        "source_group_long"
+      ],
+      "environmental": [
+        "weather_factor",
+        "sea_state",
+        "weather_speed_interaction",
+        "weather_sea_interaction"
+      ]
+    }
+  },
+  "per_seed_results": [
+    {
+      "seed": 42,
+      "model_id": "adaptive_global_gamma",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15, Global Gamma)",
+      "test_samples": 106,
+      "test_vessels": 12,
+      "train_samples": 394,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "tuned_parameters_count": 2,
+      "objective_evaluations": 80,
+      "mae": 102.2419,
+      "rmse": 144.7695,
+      "r2": 0.9709,
+      "smape": 13.2975,
+      "prediction_bias": 38.2381,
+      "residual_std": 139.6283,
+      "training_time_seconds": 1.0951,
+      "inference_time_seconds": 0.001,
+      "infer_ms_per_100_samples": 0.97,
+      "alpha_reg": 2.5706,
+      "inner_val_rmse": 167.3964,
+      "generalization_gap": -22.6269,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          16
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          8,
+          22
+        ],
+        [
+          9,
+          22
+        ],
+        [
+          8,
+          12
+        ],
+        [
+          9,
+          12
+        ],
+        [
+          8,
+          24
+        ]
+      ],
+      "gamma": 0.7356,
+      "gamma_hydrodynamic": 0.7356,
+      "gamma_operational": 0.7356,
+      "gamma_environment": 0.7356
+    },
+    {
+      "seed": 42,
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15, Grouped Gamma)",
+      "test_samples": 106,
+      "test_vessels": 12,
+      "train_samples": 394,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "tuned_parameters_count": 4,
+      "objective_evaluations": 80,
+      "mae": 97.5094,
+      "rmse": 140.5478,
+      "r2": 0.9726,
+      "smape": 12.0388,
+      "prediction_bias": 34.091,
+      "residual_std": 136.3506,
+      "training_time_seconds": 1.6692,
+      "inference_time_seconds": 0.0006,
+      "infer_ms_per_100_samples": 0.608,
+      "alpha_reg": 1.6696,
+      "inner_val_rmse": 166.8498,
+      "generalization_gap": -26.302,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          16
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          8,
+          22
+        ],
+        [
+          9,
+          22
+        ],
+        [
+          8,
+          12
+        ],
+        [
+          9,
+          12
+        ],
+        [
+          8,
+          24
+        ]
+      ],
+      "gamma": null,
+      "gamma_hydrodynamic": 0.5176,
+      "gamma_operational": 1.5202,
+      "gamma_environment": 1.2065
+    },
+    {
+      "seed": 42,
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor (Reference)",
+      "test_samples": 106,
+      "test_vessels": 12,
+      "train_samples": 394,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "tuned_parameters_count": 0,
+      "objective_evaluations": 0,
+      "mae": 138.3716,
+      "rmse": 195.9091,
+      "r2": 0.9467,
+      "smape": 13.6529,
+      "prediction_bias": 65.0732,
+      "residual_std": 184.786,
+      "training_time_seconds": 0.1723,
+      "inference_time_seconds": 0.0276,
+      "infer_ms_per_100_samples": 26.027
+    },
+    {
+      "seed": 42,
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor (Reference)",
+      "test_samples": 106,
+      "test_vessels": 12,
+      "train_samples": 394,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "tuned_parameters_count": 0,
+      "objective_evaluations": 0,
+      "mae": 152.4002,
+      "rmse": 255.4352,
+      "r2": 0.9094,
+      "smape": 14.2635,
+      "prediction_bias": 82.9255,
+      "residual_std": 241.5999,
+      "training_time_seconds": 0.2129,
+      "inference_time_seconds": 0.0023,
+      "infer_ms_per_100_samples": 2.139
+    },
+    {
+      "seed": 43,
+      "model_id": "adaptive_global_gamma",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15, Global Gamma)",
+      "test_samples": 83,
+      "test_vessels": 12,
+      "train_samples": 417,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "tuned_parameters_count": 2,
+      "objective_evaluations": 80,
+      "mae": 153.7788,
+      "rmse": 204.04,
+      "r2": 0.9115,
+      "smape": 39.401,
+      "prediction_bias": 23.9847,
+      "residual_std": 202.6254,
+      "training_time_seconds": 0.9878,
+      "inference_time_seconds": 0.0005,
+      "infer_ms_per_100_samples": 0.653,
+      "alpha_reg": 48.5454,
+      "inner_val_rmse": 243.9098,
+      "generalization_gap": -39.8698,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          2,
+          16
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          8,
+          12
+        ],
+        [
+          9,
+          12
+        ],
+        [
+          8,
+          24
+        ],
+        [
+          9,
+          24
+        ],
+        [
+          0,
+          24
+        ]
+      ],
+      "gamma": 0.7664,
+      "gamma_hydrodynamic": 0.7664,
+      "gamma_operational": 0.7664,
+      "gamma_environment": 0.7664
+    },
+    {
+      "seed": 43,
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15, Grouped Gamma)",
+      "test_samples": 83,
+      "test_vessels": 12,
+      "train_samples": 417,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "tuned_parameters_count": 4,
+      "objective_evaluations": 80,
+      "mae": 148.5706,
+      "rmse": 202.9305,
+      "r2": 0.9124,
+      "smape": 38.0185,
+      "prediction_bias": 19.4826,
+      "residual_std": 201.9931,
+      "training_time_seconds": 1.6087,
+      "inference_time_seconds": 0.0015,
+      "infer_ms_per_100_samples": 1.794,
+      "alpha_reg": 45.519,
+      "inner_val_rmse": 238.4686,
+      "generalization_gap": -35.5381,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          2,
+          16
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          8,
+          12
+        ],
+        [
+          9,
+          12
+        ],
+        [
+          8,
+          24
+        ],
+        [
+          9,
+          24
+        ],
+        [
+          0,
+          24
+        ]
+      ],
+      "gamma": null,
+      "gamma_hydrodynamic": 0.4335,
+      "gamma_operational": 0.8651,
+      "gamma_environment": 1.9129
+    },
+    {
+      "seed": 43,
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor (Reference)",
+      "test_samples": 83,
+      "test_vessels": 12,
+      "train_samples": 417,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "tuned_parameters_count": 0,
+      "objective_evaluations": 0,
+      "mae": 93.7067,
+      "rmse": 133.7269,
+      "r2": 0.962,
+      "smape": 13.2883,
+      "prediction_bias": 28.705,
+      "residual_std": 130.6097,
+      "training_time_seconds": 0.2249,
+      "inference_time_seconds": 0.0428,
+      "infer_ms_per_100_samples": 51.604
+    },
+    {
+      "seed": 43,
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor (Reference)",
+      "test_samples": 83,
+      "test_vessels": 12,
+      "train_samples": 417,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "tuned_parameters_count": 0,
+      "objective_evaluations": 0,
+      "mae": 87.1661,
+      "rmse": 149.8916,
+      "r2": 0.9522,
+      "smape": 12.5363,
+      "prediction_bias": 20.5769,
+      "residual_std": 148.4725,
+      "training_time_seconds": 0.3351,
+      "inference_time_seconds": 0.0045,
+      "infer_ms_per_100_samples": 5.389
+    },
+    {
+      "seed": 44,
+      "model_id": "adaptive_global_gamma",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15, Global Gamma)",
+      "test_samples": 95,
+      "test_vessels": 12,
+      "train_samples": 405,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "tuned_parameters_count": 2,
+      "objective_evaluations": 80,
+      "mae": 87.3094,
+      "rmse": 154.7508,
+      "r2": 0.9657,
+      "smape": 24.0177,
+      "prediction_bias": -25.8856,
+      "residual_std": 152.5704,
+      "training_time_seconds": 1.774,
+      "inference_time_seconds": 0.0006,
+      "infer_ms_per_100_samples": 0.667,
+      "alpha_reg": 0.0794,
+      "inner_val_rmse": 84.5157,
+      "generalization_gap": 70.2351,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          16
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          8,
+          12
+        ],
+        [
+          9,
+          12
+        ],
+        [
+          8,
+          24
+        ],
+        [
+          9,
+          24
+        ],
+        [
+          0,
+          24
+        ]
+      ],
+      "gamma": 0.2269,
+      "gamma_hydrodynamic": 0.2269,
+      "gamma_operational": 0.2269,
+      "gamma_environment": 0.2269
+    },
+    {
+      "seed": 44,
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15, Grouped Gamma)",
+      "test_samples": 95,
+      "test_vessels": 12,
+      "train_samples": 405,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "tuned_parameters_count": 4,
+      "objective_evaluations": 80,
+      "mae": 85.2452,
+      "rmse": 151.9386,
+      "r2": 0.967,
+      "smape": 22.4238,
+      "prediction_bias": -26.4834,
+      "residual_std": 149.6127,
+      "training_time_seconds": 1.3188,
+      "inference_time_seconds": 0.0007,
+      "infer_ms_per_100_samples": 0.686,
+      "alpha_reg": 0.01,
+      "inner_val_rmse": 74.5547,
+      "generalization_gap": 77.3839,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          16
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          8,
+          12
+        ],
+        [
+          9,
+          12
+        ],
+        [
+          8,
+          24
+        ],
+        [
+          9,
+          24
+        ],
+        [
+          0,
+          24
+        ]
+      ],
+      "gamma": null,
+      "gamma_hydrodynamic": 0.05,
+      "gamma_operational": 0.2641,
+      "gamma_environment": 0.363
+    },
+    {
+      "seed": 44,
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor (Reference)",
+      "test_samples": 95,
+      "test_vessels": 12,
+      "train_samples": 405,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "tuned_parameters_count": 0,
+      "objective_evaluations": 0,
+      "mae": 83.3026,
+      "rmse": 133.7242,
+      "r2": 0.9744,
+      "smape": 9.7588,
+      "prediction_bias": -41.4061,
+      "residual_std": 127.1522,
+      "training_time_seconds": 0.1828,
+      "inference_time_seconds": 0.0419,
+      "infer_ms_per_100_samples": 44.074
+    },
+    {
+      "seed": 44,
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor (Reference)",
+      "test_samples": 95,
+      "test_vessels": 12,
+      "train_samples": 405,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "tuned_parameters_count": 0,
+      "objective_evaluations": 0,
+      "mae": 72.7502,
+      "rmse": 108.2285,
+      "r2": 0.9832,
+      "smape": 9.1417,
+      "prediction_bias": 1.4737,
+      "residual_std": 108.2185,
+      "training_time_seconds": 0.2365,
+      "inference_time_seconds": 0.0031,
+      "infer_ms_per_100_samples": 3.303
+    },
+    {
+      "seed": 45,
+      "model_id": "adaptive_global_gamma",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15, Global Gamma)",
+      "test_samples": 104,
+      "test_vessels": 12,
+      "train_samples": 396,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "tuned_parameters_count": 2,
+      "objective_evaluations": 80,
+      "mae": 110.1736,
+      "rmse": 139.1983,
+      "r2": 0.9664,
+      "smape": 54.0738,
+      "prediction_bias": -6.2317,
+      "residual_std": 139.0588,
+      "training_time_seconds": 3.1917,
+      "inference_time_seconds": 0.0007,
+      "infer_ms_per_100_samples": 0.719,
+      "alpha_reg": 11.5447,
+      "inner_val_rmse": 182.3269,
+      "generalization_gap": -43.1285,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          10,
+          11
+        ],
+        [
+          8,
+          24
+        ],
+        [
+          9,
+          24
+        ],
+        [
+          0,
+          24
+        ],
+        [
+          8,
+          12
+        ],
+        [
+          9,
+          12
+        ]
+      ],
+      "gamma": 0.4676,
+      "gamma_hydrodynamic": 0.4676,
+      "gamma_operational": 0.4676,
+      "gamma_environment": 0.4676
+    },
+    {
+      "seed": 45,
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15, Grouped Gamma)",
+      "test_samples": 104,
+      "test_vessels": 12,
+      "train_samples": 396,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "tuned_parameters_count": 4,
+      "objective_evaluations": 80,
+      "mae": 113.3866,
+      "rmse": 142.3442,
+      "r2": 0.9649,
+      "smape": 54.2693,
+      "prediction_bias": -4.9586,
+      "residual_std": 142.2578,
+      "training_time_seconds": 0.9721,
+      "inference_time_seconds": 0.0008,
+      "infer_ms_per_100_samples": 0.74,
+      "alpha_reg": 12.5087,
+      "inner_val_rmse": 179.5809,
+      "generalization_gap": -37.2367,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          10,
+          11
+        ],
+        [
+          8,
+          24
+        ],
+        [
+          9,
+          24
+        ],
+        [
+          0,
+          24
+        ],
+        [
+          8,
+          12
+        ],
+        [
+          9,
+          12
+        ]
+      ],
+      "gamma": null,
+      "gamma_hydrodynamic": 0.3876,
+      "gamma_operational": 0.6486,
+      "gamma_environment": 0.05
+    },
+    {
+      "seed": 45,
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor (Reference)",
+      "test_samples": 104,
+      "test_vessels": 12,
+      "train_samples": 396,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "tuned_parameters_count": 0,
+      "objective_evaluations": 0,
+      "mae": 75.3521,
+      "rmse": 99.5505,
+      "r2": 0.9828,
+      "smape": 17.5278,
+      "prediction_bias": 27.0955,
+      "residual_std": 95.7921,
+      "training_time_seconds": 0.2416,
+      "inference_time_seconds": 0.029,
+      "infer_ms_per_100_samples": 27.92
+    },
+    {
+      "seed": 45,
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor (Reference)",
+      "test_samples": 104,
+      "test_vessels": 12,
+      "train_samples": 396,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "tuned_parameters_count": 0,
+      "objective_evaluations": 0,
+      "mae": 65.0729,
+      "rmse": 87.4906,
+      "r2": 0.9867,
+      "smape": 15.5715,
+      "prediction_bias": 18.9813,
+      "residual_std": 85.4068,
+      "training_time_seconds": 0.2108,
+      "inference_time_seconds": 0.0032,
+      "infer_ms_per_100_samples": 3.063
+    },
+    {
+      "seed": 46,
+      "model_id": "adaptive_global_gamma",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15, Global Gamma)",
+      "test_samples": 103,
+      "test_vessels": 12,
+      "train_samples": 397,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "tuned_parameters_count": 2,
+      "objective_evaluations": 80,
+      "mae": 106.3919,
+      "rmse": 144.5785,
+      "r2": 0.9664,
+      "smape": 34.8156,
+      "prediction_bias": 25.0261,
+      "residual_std": 142.396,
+      "training_time_seconds": 1.0091,
+      "inference_time_seconds": 0.0008,
+      "infer_ms_per_100_samples": 0.793,
+      "alpha_reg": 4.3577,
+      "inner_val_rmse": 103.2065,
+      "generalization_gap": 41.372,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          16
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          8,
+          24
+        ],
+        [
+          9,
+          24
+        ],
+        [
+          0,
+          24
+        ],
+        [
+          8,
+          16
+        ],
+        [
+          9,
+          16
+        ]
+      ],
+      "gamma": 0.4681,
+      "gamma_hydrodynamic": 0.4681,
+      "gamma_operational": 0.4681,
+      "gamma_environment": 0.4681
+    },
+    {
+      "seed": 46,
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15, Grouped Gamma)",
+      "test_samples": 103,
+      "test_vessels": 12,
+      "train_samples": 397,
+      "train_vessels": 48,
+      "quantum_features": 193,
+      "input_features": 27,
+      "tuned_parameters_count": 4,
+      "objective_evaluations": 80,
+      "mae": 109.6811,
+      "rmse": 144.2186,
+      "r2": 0.9666,
+      "smape": 39.957,
+      "prediction_bias": 16.6479,
+      "residual_std": 143.2545,
+      "training_time_seconds": 1.3975,
+      "inference_time_seconds": 0.0011,
+      "infer_ms_per_100_samples": 1.102,
+      "alpha_reg": 0.01,
+      "inner_val_rmse": 97.395,
+      "generalization_gap": 46.8236,
+      "selected_pairs": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          1,
+          11
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          2,
+          16
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          8,
+          24
+        ],
+        [
+          9,
+          24
+        ],
+        [
+          0,
+          24
+        ],
+        [
+          8,
+          16
+        ],
+        [
+          9,
+          16
+        ]
+      ],
+      "gamma": null,
+      "gamma_hydrodynamic": 0.05,
+      "gamma_operational": 0.9016,
+      "gamma_environment": 0.2561
+    },
+    {
+      "seed": 46,
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor (Reference)",
+      "test_samples": 103,
+      "test_vessels": 12,
+      "train_samples": 397,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "tuned_parameters_count": 0,
+      "objective_evaluations": 0,
+      "mae": 108.7558,
+      "rmse": 182.2366,
+      "r2": 0.9467,
+      "smape": 14.7452,
+      "prediction_bias": 69.7777,
+      "residual_std": 168.3486,
+      "training_time_seconds": 0.1986,
+      "inference_time_seconds": 0.0286,
+      "infer_ms_per_100_samples": 27.787
+    },
+    {
+      "seed": 46,
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor (Reference)",
+      "test_samples": 103,
+      "test_vessels": 12,
+      "train_samples": 397,
+      "train_vessels": 48,
+      "quantum_features": 27,
+      "input_features": 27,
+      "tuned_parameters_count": 0,
+      "objective_evaluations": 0,
+      "mae": 120.2441,
+      "rmse": 203.9598,
+      "r2": 0.9332,
+      "smape": 13.1436,
+      "prediction_bias": 74.7415,
+      "residual_std": 189.7717,
+      "training_time_seconds": 0.32,
+      "inference_time_seconds": 0.0042,
+      "infer_ms_per_100_samples": 4.082
+    }
+  ],
+  "per_seed_deltas": [
+    {
+      "seed": 42,
+      "global_mae": 102.2419,
+      "grouped_mae": 97.5094,
+      "delta_mae": -4.7325,
+      "mae_win": true,
+      "global_rmse": 144.7695,
+      "grouped_rmse": 140.5478,
+      "delta_rmse": -4.2217,
+      "rmse_win": true,
+      "global_r2": 0.9709,
+      "grouped_r2": 0.9726,
+      "delta_r2": 0.0017,
+      "r2_win": true,
+      "global_smape": 13.2975,
+      "grouped_smape": 12.0388,
+      "delta_smape": -1.2587,
+      "smape_win": true,
+      "global_gamma": 0.7356,
+      "gamma_hydrodynamic": 0.5176,
+      "gamma_operational": 1.5202,
+      "gamma_environment": 1.2065,
+      "global_alpha_reg": 2.5706,
+      "grouped_alpha_reg": 1.6696
+    },
+    {
+      "seed": 43,
+      "global_mae": 153.7788,
+      "grouped_mae": 148.5706,
+      "delta_mae": -5.2082,
+      "mae_win": true,
+      "global_rmse": 204.04,
+      "grouped_rmse": 202.9305,
+      "delta_rmse": -1.1095,
+      "rmse_win": true,
+      "global_r2": 0.9115,
+      "grouped_r2": 0.9124,
+      "delta_r2": 0.0009,
+      "r2_win": true,
+      "global_smape": 39.401,
+      "grouped_smape": 38.0185,
+      "delta_smape": -1.3825,
+      "smape_win": true,
+      "global_gamma": 0.7664,
+      "gamma_hydrodynamic": 0.4335,
+      "gamma_operational": 0.8651,
+      "gamma_environment": 1.9129,
+      "global_alpha_reg": 48.5454,
+      "grouped_alpha_reg": 45.519
+    },
+    {
+      "seed": 44,
+      "global_mae": 87.3094,
+      "grouped_mae": 85.2452,
+      "delta_mae": -2.0642,
+      "mae_win": true,
+      "global_rmse": 154.7508,
+      "grouped_rmse": 151.9386,
+      "delta_rmse": -2.8122,
+      "rmse_win": true,
+      "global_r2": 0.9657,
+      "grouped_r2": 0.967,
+      "delta_r2": 0.0013,
+      "r2_win": true,
+      "global_smape": 24.0177,
+      "grouped_smape": 22.4238,
+      "delta_smape": -1.5939,
+      "smape_win": true,
+      "global_gamma": 0.2269,
+      "gamma_hydrodynamic": 0.05,
+      "gamma_operational": 0.2641,
+      "gamma_environment": 0.363,
+      "global_alpha_reg": 0.0794,
+      "grouped_alpha_reg": 0.01
+    },
+    {
+      "seed": 45,
+      "global_mae": 110.1736,
+      "grouped_mae": 113.3866,
+      "delta_mae": 3.213,
+      "mae_win": false,
+      "global_rmse": 139.1983,
+      "grouped_rmse": 142.3442,
+      "delta_rmse": 3.1459,
+      "rmse_win": false,
+      "global_r2": 0.9664,
+      "grouped_r2": 0.9649,
+      "delta_r2": -0.0015,
+      "r2_win": false,
+      "global_smape": 54.0738,
+      "grouped_smape": 54.2693,
+      "delta_smape": 0.1955,
+      "smape_win": false,
+      "global_gamma": 0.4676,
+      "gamma_hydrodynamic": 0.3876,
+      "gamma_operational": 0.6486,
+      "gamma_environment": 0.05,
+      "global_alpha_reg": 11.5447,
+      "grouped_alpha_reg": 12.5087
+    },
+    {
+      "seed": 46,
+      "global_mae": 106.3919,
+      "grouped_mae": 109.6811,
+      "delta_mae": 3.2892,
+      "mae_win": false,
+      "global_rmse": 144.5785,
+      "grouped_rmse": 144.2186,
+      "delta_rmse": -0.3599,
+      "rmse_win": true,
+      "global_r2": 0.9664,
+      "grouped_r2": 0.9666,
+      "delta_r2": 0.0002,
+      "r2_win": true,
+      "global_smape": 34.8156,
+      "grouped_smape": 39.957,
+      "delta_smape": 5.1414,
+      "smape_win": false,
+      "global_gamma": 0.4681,
+      "gamma_hydrodynamic": 0.05,
+      "gamma_operational": 0.9016,
+      "gamma_environment": 0.2561,
+      "global_alpha_reg": 4.3577,
+      "grouped_alpha_reg": 0.01
+    }
+  ],
+  "aggregate_results": {
+    "adaptive_global_gamma": {
+      "model_id": "adaptive_global_gamma",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15, Global Gamma)",
+      "quantum_features": 193,
+      "tuned_parameters_count": 2,
+      "objective_evaluations": 80,
+      "mae": {
+        "mean": 111.9791,
+        "std": 24.9254,
+        "cv": 0.2226
+      },
+      "rmse": {
+        "mean": 157.4674,
+        "std": 26.6341,
+        "cv": 0.1691
+      },
+      "r2": {
+        "mean": 0.9562,
+        "std": 0.0251,
+        "cv": 0.0262
+      },
+      "smape": {
+        "mean": 33.1211,
+        "std": 15.4691
+      },
+      "prediction_bias": {
+        "mean": 11.0263,
+        "std": 26.2903
+      },
+      "residual_std": {
+        "mean": 155.2558,
+        "std": 27.0325
+      },
+      "training_time_seconds": {
+        "mean": 1.6115,
+        "std": 0.941
+      },
+      "infer_ms_per_100_samples": {
+        "mean": 0.7604,
+        "std": 0.1294
+      },
+      "generalization_gap": {
+        "mean": 1.1964,
+        "std": 51.476
+      }
+    },
+    "adaptive_grouped_gamma": {
+      "model_id": "adaptive_grouped_gamma",
+      "display_name": "Adaptive QIFCP (v2, K=3, M=15, Grouped Gamma)",
+      "quantum_features": 193,
+      "tuned_parameters_count": 4,
+      "objective_evaluations": 80,
+      "mae": {
+        "mean": 110.8786,
+        "std": 23.7919,
+        "cv": 0.2146
+      },
+      "rmse": {
+        "mean": 156.3959,
+        "std": 26.3735,
+        "cv": 0.1686
+      },
+      "r2": {
+        "mean": 0.9567,
+        "std": 0.0249,
+        "cv": 0.0261
+      },
+      "smape": {
+        "mean": 33.3415,
+        "std": 16.4059
+      },
+      "prediction_bias": {
+        "mean": 7.7559,
+        "std": 23.686
+      },
+      "residual_std": {
+        "mean": 154.6937,
+        "std": 26.8562
+      },
+      "training_time_seconds": {
+        "mean": 1.3933,
+        "std": 0.2764
+      },
+      "infer_ms_per_100_samples": {
+        "mean": 0.986,
+        "std": 0.4898
+      },
+      "generalization_gap": {
+        "mean": 5.0261,
+        "std": 53.3754
+      }
+    },
+    "random_forest": {
+      "model_id": "random_forest",
+      "display_name": "Random Forest Regressor (Reference)",
+      "quantum_features": 27,
+      "tuned_parameters_count": 0,
+      "objective_evaluations": 0,
+      "mae": {
+        "mean": 99.8978,
+        "std": 24.8743,
+        "cv": 0.249
+      },
+      "rmse": {
+        "mean": 149.0295,
+        "std": 39.424,
+        "cv": 0.2645
+      },
+      "r2": {
+        "mean": 0.9625,
+        "std": 0.0162,
+        "cv": 0.0169
+      },
+      "smape": {
+        "mean": 13.7946,
+        "std": 2.802
+      },
+      "prediction_bias": {
+        "mean": 29.8491,
+        "std": 44.5006
+      },
+      "residual_std": {
+        "mean": 141.3377,
+        "std": 35.3838
+      },
+      "training_time_seconds": {
+        "mean": 0.204,
+        "std": 0.0289
+      },
+      "infer_ms_per_100_samples": {
+        "mean": 35.4824,
+        "std": 11.6139
+      },
+      "generalization_gap": null
+    },
+    "hist_gradient_boosting": {
+      "model_id": "hist_gradient_boosting",
+      "display_name": "HistGradientBoosting Regressor (Reference)",
+      "quantum_features": 27,
+      "tuned_parameters_count": 0,
+      "objective_evaluations": 0,
+      "mae": {
+        "mean": 99.5267,
+        "std": 36.3375,
+        "cv": 0.3651
+      },
+      "rmse": {
+        "mean": 161.0011,
+        "std": 69.0569,
+        "cv": 0.4289
+      },
+      "r2": {
+        "mean": 0.9529,
+        "std": 0.0329,
+        "cv": 0.0346
+      },
+      "smape": {
+        "mean": 12.9313,
+        "std": 2.4139
+      },
+      "prediction_bias": {
+        "mean": 39.7398,
+        "std": 36.5806
+      },
+      "residual_std": {
+        "mean": 154.6939,
+        "std": 62.8142
+      },
+      "training_time_seconds": {
+        "mean": 0.2631,
+        "std": 0.06
+      },
+      "infer_ms_per_100_samples": {
+        "mean": 3.5952,
+        "std": 1.219
+      },
+      "generalization_gap": null
+    }
+  },
+  "hypothesis_summary": {
+    "comparison": "Adaptive QIFCP Grouped Gamma vs Global Gamma",
+    "total_seeds": 5,
+    "mae_wins": 3,
+    "rmse_wins": 4,
+    "r2_wins": 4,
+    "smape_wins": 3,
+    "mean_delta_mae": -1.1005,
+    "std_delta_mae": 4.1494,
+    "mean_delta_rmse": -1.0715,
+    "std_delta_rmse": 2.795,
+    "mean_delta_r2": 0.0005,
+    "std_delta_r2": 0.0013,
+    "mean_delta_smape": 0.2204,
+    "std_delta_smape": 2.8401,
+    "mae_improvement_per_added_param": 0.5502
+  },
+  "gamma_stability": {
+    "global_gamma": {
+      "mean": 0.5329,
+      "std": 0.2223,
+      "min": 0.2269,
+      "max": 0.7664
+    },
+    "gamma_hydrodynamic": {
+      "mean": 0.2877,
+      "std": 0.222,
+      "min": 0.05,
+      "max": 0.5176
+    },
+    "gamma_operational": {
+      "mean": 0.8399,
+      "std": 0.457,
+      "min": 0.2641,
+      "max": 1.5202
+    },
+    "gamma_environment": {
+      "mean": 0.7577,
+      "std": 0.7817,
+      "min": 0.05,
+      "max": 1.9129
+    },
+    "global_alpha_reg": {
+      "mean": 13.4196,
+      "std": 20.0943,
+      "min": 0.0794,
+      "max": 48.5454
+    },
+    "grouped_alpha_reg": {
+      "mean": 11.9435,
+      "std": 19.4808,
+      "min": 0.01,
+      "max": 45.519
+    }
+  },
+  "phase2c_decision": {
+    "case": "CASE A",
+    "summary": "Grouped gamma improves accuracy and cross-split generalization.",
+    "details": "Grouped phase scaling (gamma_g) achieves lower mean MAE and RMSE across unseen vessel partitions and wins on 3/5 seeds. Evidence supports Phase 2C."
+  }
+}
