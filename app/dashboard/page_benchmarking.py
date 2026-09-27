@@ -24,6 +24,12 @@ from src.benchmarking.convergence_analysis import ConvergenceAnalyzer
 from src.benchmarking.prediction_benchmark import PredictionModelBenchmarker
 from src.benchmarking.scalability_suite import ScalabilitySuite
 from src.benchmarking.statistical_stability import StatisticalStabilityEvaluator
+from src.prediction.benchmark_loader import (
+    DEFAULT_CANONICAL_BENCHMARK_PATH,
+    get_canonical_benchmark_metadata,
+    get_canonical_prediction_dataframe,
+)
+
 
 
 def render_benchmarking_page() -> None:
@@ -285,48 +291,99 @@ def render_benchmarking_page() -> None:
             st.plotly_chart(fig_scale_m, use_container_width=True)
 
     with tab4:
-        st.subheader("Predictive Model Accuracy Leaderboard")
-        st.markdown(
-            "Comparing classical regression models against the Quantum-Inspired Predictor (QIFCP):"
-        )
-        pred_res = pred_benchmarker.benchmark_models()
-        p_rows = []
-        for p in pred_res:
-            p_rows.append({
-                "Model Architecture": p.model_name,
-                "MAE (t/h)": p.mae,
-                "RMSE (t/h)": p.rmse,
-                "R² Score": p.r2,
-                "Inference (ms/1k)": p.inference_time_ms,
-                "Prediction Bias": p.prediction_bias,
-                "Error Std": p.error_std,
-                "Quantum": "⚛️ Yes" if p.is_quantum else "Classical",
-            })
-        df_pred = pd.DataFrame(p_rows)
-        st.dataframe(df_pred, use_container_width=True, hide_index=True)
+        st.subheader("Predictive Model Accuracy Leaderboard (Canonical 5-Seed Benchmark)")
+        if DEFAULT_CANONICAL_BENCHMARK_PATH.exists():
+            meta = get_canonical_benchmark_metadata()
+            st.caption(f"{meta.subtitle} • Dataset: `{meta.dataset_path}`")
+            df_pred = get_canonical_prediction_dataframe()
+            display_cols = [
+                "Model Architecture",
+                "Status",
+                "R² Score",
+                "RMSE (tons)",
+                "MAE (tons)",
+                "sMAPE (%)",
+                "Inference (ms / 100)",
+                "Architecture Class",
+            ]
+            st.dataframe(df_pred[display_cols], use_container_width=True, hide_index=True)
 
-        col_p1, col_p2 = st.columns(2)
-        with col_p1:
-            fig_r2 = px.bar(
-                df_pred,
-                x="Model Architecture",
-                y="R² Score",
-                color="Quantum",
-                title="Coefficient of Determination (R² Higher is Better)",
-            )
-            fig_r2.update_layout(height=360, margin=dict(l=20, r=20, t=50, b=20))
-            st.plotly_chart(fig_r2, use_container_width=True)
+            status_color_map = {
+                "PRODUCTION / FROZEN": "#1565C0",
+                "REFERENCE": "#757575",
+                "ABLATION": "#FB8C00",
+            }
+            col_p1, col_p2 = st.columns(2)
+            with col_p1:
+                fig_r2 = px.bar(
+                    df_pred,
+                    x="Model Architecture",
+                    y="R² Score",
+                    color="Status",
+                    color_discrete_map=status_color_map,
+                    text="R² Score",
+                    title="Model Accuracy (R² Score)",
+                )
+                fig_r2.update_traces(texttemplate="%{text:.4f}", textposition="outside")
+                fig_r2.update_yaxes(range=[0.90, 1.00])
+                fig_r2.update_layout(height=360, margin=dict(l=20, r=20, t=50, b=20))
+                st.plotly_chart(fig_r2, use_container_width=True)
 
-        with col_p2:
-            fig_rmse = px.bar(
-                df_pred,
-                x="Model Architecture",
-                y="RMSE (t/h)",
-                color="Quantum",
-                title="Root Mean Squared Error (Lower is Better)",
+            with col_p2:
+                fig_rmse = px.bar(
+                    df_pred,
+                    x="Model Architecture",
+                    y="RMSE (tons)",
+                    color="Status",
+                    color_discrete_map=status_color_map,
+                    text="RMSE (tons)",
+                    title="Prediction Error (RMSE)",
+                )
+                fig_rmse.update_traces(texttemplate="%{text:.1f} t", textposition="outside")
+                fig_rmse.update_layout(height=360, margin=dict(l=20, r=20, t=50, b=20))
+                st.plotly_chart(fig_rmse, use_container_width=True)
+        else:
+            st.markdown(
+                "Comparing classical regression models against the Quantum-Inspired Predictor (QIFCP):"
             )
-            fig_rmse.update_layout(height=360, margin=dict(l=20, r=20, t=50, b=20))
-            st.plotly_chart(fig_rmse, use_container_width=True)
+            pred_res = pred_benchmarker.benchmark_models()
+            p_rows = []
+            for p in pred_res:
+                p_rows.append({
+                    "Model Architecture": p.model_name,
+                    "MAE (t/h)": p.mae,
+                    "RMSE (t/h)": p.rmse,
+                    "R² Score": p.r2,
+                    "Inference (ms/1k)": p.inference_time_ms,
+                    "Prediction Bias": p.prediction_bias,
+                    "Error Std": p.error_std,
+                    "Quantum": "⚛️ Yes" if p.is_quantum else "Classical",
+                })
+            df_pred = pd.DataFrame(p_rows)
+            st.dataframe(df_pred, use_container_width=True, hide_index=True)
+
+            col_p1, col_p2 = st.columns(2)
+            with col_p1:
+                fig_r2 = px.bar(
+                    df_pred,
+                    x="Model Architecture",
+                    y="R² Score",
+                    color="Quantum",
+                    title="Coefficient of Determination (R² Higher is Better)",
+                )
+                fig_r2.update_layout(height=360, margin=dict(l=20, r=20, t=50, b=20))
+                st.plotly_chart(fig_r2, use_container_width=True)
+
+            with col_p2:
+                fig_rmse = px.bar(
+                    df_pred,
+                    x="Model Architecture",
+                    y="RMSE (t/h)",
+                    color="Quantum",
+                    title="Root Mean Squared Error (Lower is Better)",
+                )
+                fig_rmse.update_layout(height=360, margin=dict(l=20, r=20, t=50, b=20))
+                st.plotly_chart(fig_rmse, use_container_width=True)
 
     with tab5:
         st.subheader("Statistical Stability & Repeatability (Monte Carlo Analysis)")

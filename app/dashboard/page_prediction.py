@@ -1,13 +1,23 @@
-"""Page 2: Fuel Consumption Prediction & Quantum-Inspired Modeling (QIFCP)."""
+"""Page 2: Fuel Consumption Prediction & Quantum-Inspired Modeling (QIFCP).
 
-import json
+Problem ID: SIH26138 - Quantum-Inspired Fuel Consumption Prediction & Green Fleet Optimization.
+Presents the canonical 5-seed vessel-disjoint prediction benchmark comparing the frozen
+production predictor (Physics + Residual QIFCP) against naval physics and classical tree references.
+"""
+
 from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
 from contracts.schemas import VoyageRecord
-from src.prediction.model_manager import ProductionModelManager
+from src.prediction.benchmark_loader import (
+    DEFAULT_CANONICAL_BENCHMARK_PATH,
+    get_canonical_benchmark_metadata,
+    get_canonical_prediction_dataframe,
+    load_canonical_prediction_benchmark,
+)
+from src.prediction.fuel_prediction_service import get_fuel_prediction_service
 
 
 def render_prediction_page() -> None:
@@ -16,99 +26,83 @@ def render_prediction_page() -> None:
     st.markdown(
         """
         **Objective 1:** High-precision fuel consumption estimation across nonlinear hydrodynamic drag,
-        weather resistance, and payload states using classical ensembles and Quantum-Inspired Modeling (**QIFCP**).
+        weather resistance, and payload states using the frozen **Physics-Informed Residual QIFCP** architecture.
         """
     )
 
-    report_path = Path("outputs/reports/prediction_benchmark.json")
+    report_path = DEFAULT_CANONICAL_BENCHMARK_PATH
     if not report_path.exists():
-        st.warning(f"Prediction report `{report_path}` not found. Please run the build script.")
+        st.warning(f"Canonical prediction benchmark report `{report_path}` not found. Please ensure reports are generated.")
         return
 
-    data = json.loads(report_path.read_text(encoding="utf-8"))
-    models = data.get("models", {})
+    try:
+        data = load_canonical_prediction_benchmark(report_path)
+        meta = get_canonical_benchmark_metadata(data)
+        leaderboard_df = get_canonical_prediction_dataframe(data)
+    except Exception as exc:
+        st.error(f"Error loading canonical prediction benchmark: {exc}")
+        return
 
-    # 1. 4-Model Comparison Table
-    st.subheader("Model Benchmark Leaderboard (5,000 Verified Test Voyages)")
-    rows = []
-    for name, m in models.items():
-        rows.append(
-            {
-                "Model Architecture": m.get("model_name", name),
-                "R² Score": m.get("r2", 0.0),
-                "RMSE (tons)": m.get("rmse", 0.0),
-                "MAE (tons)": m.get("mae", 0.0),
-                "MAPE (%)": m.get("mape", 0.0),
-                "Inference (ms / 100)": m.get("infer_ms_per_100_samples", 0.0),
-                "Fit Time (s)": m.get("fit_time_seconds", 0.0),
-            }
-        )
+    # Production Model Status Banner
+    st.success(
+        f"**Model Status:** `PRODUCTION / FROZEN`  \n"
+        f"**Canonical Architecture:** `PhysicsInformedQIFCPRegressor` (K=3, M=15, adaptive entanglement, grouped γ, λ=1.0)  \n"
+        f"**Accuracy Claim:** {meta.accuracy_claim}  \n"
+        f"**Evaluation Context:** {meta.subtitle}  \n"
+        f"**Dataset:** `{meta.dataset_path}`"
+    )
 
-    leaderboard_df = pd.DataFrame(rows).sort_values(by="R² Score", ascending=False)
-    st.dataframe(leaderboard_df, use_container_width=True)
+    # 1. Canonical 5-Seed Leaderboard Table
+    st.subheader("Model Benchmark Leaderboard")
+    st.caption(f"{meta.subtitle} • Dataset: `{meta.dataset_path}`")
 
-    # ── Per-Source Normalized Error Subsection ──────────────────────────────
-    st.subheader("Per-Source Normalized Error")
+    display_cols = [
+        "Model Architecture",
+        "Status",
+        "R² Score",
+        "RMSE (tons)",
+        "MAE (tons)",
+        "sMAPE (%)",
+        "Inference (ms / 100)",
+        "Architecture Class",
+    ]
+    st.dataframe(
+        leaderboard_df[display_cols],
+        use_container_width=True,
+        hide_index=True,
+    )
 
-    norm_rows = []
-    for name, m in models.items():
-        by_source = m.get("by_source", {})
-        for src, sm in by_source.items():
-            norm_rows.append(
-                {
-                    "Model": m.get("model_name", name),
-                    "Source": src,
-                    "NRMSE_mean": sm.get("nrmse_mean", None),
-                    "MAPE_pct": sm.get("mape_pct", None),
-                    "R²": sm.get("r2", None),
-                }
-            )
+    st.caption(
+        "Note: Results represent unpooled sample means across 5 independent vessel-disjoint splits (GroupShuffleSplit on vessel_id). "
+        "Synthetic benchmark evaluation on disjoint vessel groups; real-world commercial vessel deployment requires dynamic recalibration "
+        "using operational telemetry (noon reports, torque meters, AIS)."
+    )
 
-    if norm_rows:
-        norm_df = pd.DataFrame(norm_rows)
-
-        def _color_nrmse(val):
-            """Green if NRMSE < 1.0 (error < target mean), red if > 1.0."""
-            if val is None:
-                return ""
-            if val < 1.0:
-                return "color: #2e7d32"  # green
-            return "color: #c62828"  # red
-
-        styled = (
-            norm_df.style
-            .format({"NRMSE_mean": "{:.4f}", "MAPE_pct": "{:.2f}%", "R²": "{:.4f}"}, na_rep="—")
-            .map(_color_nrmse, subset=["NRMSE_mean"])
-        )
-        st.dataframe(styled, use_container_width=True)
-
-        st.caption(
-            "FuelCast's low raw RMSE (56.50 t) partly reflects its smaller target scale "
-            "(mean ≈ 57 t vs. ≈ 871 t for Mock); normalized metrics (NRMSE, MAPE) should be "
-            "used for fair cross-source comparison."
-        )
-
-        st.info(
-            "**Cross-source trade-off:** Tree-based models (RF, HistGBDT) achieve excellent accuracy on Mock "
-            "(NRMSE 0.11) but suffer severe leaf shrinkage on FuelCast's low-rate regime (NRMSE 2.66–2.88). "
-            "QIFCP's continuous quantum projection is more stable across sources (FuelCast NRMSE 0.99) but "
-            "less accurate than trees on Mock (NRMSE 0.34 vs. 0.11). Neither model class is categorically "
-            "superior — the choice depends on whether source-balanced fairness or peak single-source accuracy "
-            "is prioritised."
-        )
-    else:
-        st.info("Per-source normalized metrics not available. Re-run the benchmark with `--target-mode rate`.")
-
-    # 2. Performance Comparison Charts
+    # 2. Performance Comparison Charts (Chart A & Chart B)
     col1, col2 = st.columns(2)
+
+    status_color_map = {
+        "PRODUCTION / FROZEN": "#1565C0",  # Dark Blue
+        "REFERENCE": "#757575",            # Neutral Gray
+        "ABLATION": "#FB8C00",             # Amber / Orange
+    }
+
     with col1:
         fig_r2 = px.bar(
             leaderboard_df,
             x="Model Architecture",
             y="R² Score",
-            color="R² Score",
-            color_continuous_scale="Blues",
+            color="Status",
+            color_discrete_map=status_color_map,
+            text="R² Score",
             title="Model Accuracy (R² Score)",
+        )
+        fig_r2.update_traces(texttemplate="%{text:.4f}", textposition="outside")
+        fig_r2.update_yaxes(range=[0.90, 1.00])
+        fig_r2.update_layout(
+            height=380,
+            margin=dict(l=20, r=20, t=50, b=20),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         )
         st.plotly_chart(fig_r2, use_container_width=True)
 
@@ -117,9 +111,16 @@ def render_prediction_page() -> None:
             leaderboard_df,
             x="Model Architecture",
             y="RMSE (tons)",
-            color="RMSE (tons)",
-            color_continuous_scale="Reds_r",
-            title="Root Mean Squared Error (Lower is Better)",
+            color="Status",
+            color_discrete_map=status_color_map,
+            text="RMSE (tons)",
+            title="Prediction Error (RMSE)",
+        )
+        fig_rmse.update_traces(texttemplate="%{text:.1f} t", textposition="outside")
+        fig_rmse.update_layout(
+            height=380,
+            margin=dict(l=20, r=20, t=50, b=20),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         )
         st.plotly_chart(fig_rmse, use_container_width=True)
 
@@ -127,13 +128,13 @@ def render_prediction_page() -> None:
 
     # 3. Interactive Prediction Sandbox
     st.subheader("🔮 Live Voyage Fuel Prediction Sandbox")
-    st.markdown("Run real-time inference using the verified production model (`HistGradientBoosting`).")
+    st.markdown("Run real-time inference using the frozen production model (**Physics + Residual QIFCP**).")
 
     with st.form("prediction_form"):
         pcol1, pcol2, pcol3 = st.columns(3)
         with pcol1:
-            v_type = st.selectbox("Vessel Type", ["Bulk Carrier", "Container", "Tanker", "RoRo", "LNG Carrier"])
-            fuel_type = st.selectbox("Fuel Type", ["Diesel", "LNG", "Methanol"])
+            v_type = st.selectbox("Vessel Type", ["Bulk Carrier", "Container", "Tanker", "General Cargo"])
+            fuel_type = st.selectbox("Fuel Type", ["Diesel", "LNG", "Methanol", "Hydrogen", "Ammonia", "ShorePower"])
             distance_nm = st.number_input("Voyage Distance (nm)", min_value=100.0, max_value=20000.0, value=1200.0, step=50.0)
         with pcol2:
             speed_knots = st.number_input("Speed (knots)", min_value=8.0, max_value=25.0, value=14.0, step=0.5)
@@ -146,9 +147,7 @@ def render_prediction_page() -> None:
 
     if submitted:
         try:
-            manager = ProductionModelManager()
-            prod_model = manager.get_best_model()
-
+            fuel_service = get_fuel_prediction_service()
             hours_at_sea = distance_nm / max(speed_knots, 1.0)
             record = VoyageRecord(
                 voyage_id="SANDBOX-001",
@@ -168,17 +167,17 @@ def render_prediction_page() -> None:
                 co2_emissions=None,
             )
 
-            preds = prod_model.predict([record])
-            pred_fuel = preds[0].predicted_fuel_consumption
+            pred = fuel_service.predict(record)
+            pred_fuel = pred.predicted_fuel_consumption
 
             res1, res2, res3 = st.columns(3)
             with res1:
                 st.metric("Predicted Fuel", f"{pred_fuel:.2f} metric tons")
             with res2:
-                tons_per_day = pred_fuel / (hours_at_sea / 24.0)
+                tons_per_day = pred_fuel / (hours_at_sea / 24.0) if hours_at_sea > 0 else 0.0
                 st.metric("Consumption Rate", f"{tons_per_day:.2f} t/day")
             with res3:
-                model_name = preds[0].model_name
+                model_name = pred.model_name
                 st.metric("Model Deployed", model_name)
 
         except Exception as exc:
