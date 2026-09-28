@@ -70,22 +70,23 @@ def test_dockerignore_whitelists_canonical_prediction_benchmark() -> None:
         "to ensure the canonical benchmark is bundled inside the container."
     )
 
-    # Simulate Docker ignore evaluation:
-    # A path is ignored if matched by an ignore pattern, unless subsequently overridden by an unignore (!) pattern.
-    target_rel = "outputs/reports/final_prediction_benchmark.json"
-    is_ignored = False
-    for pattern in lines:
-        if pattern.startswith("!"):
-            unignore = pattern[1:]
-            if fnmatch.fnmatch(target_rel, unignore):
-                is_ignored = False
-        else:
-            if fnmatch.fnmatch(target_rel, pattern):
-                is_ignored = True
+    for target_rel in [
+        "outputs/reports/final_prediction_benchmark.json",
+        "outputs/reports/final_integrated_optimization_benchmark.json",
+    ]:
+        is_ignored = False
+        for pattern in lines:
+            if pattern.startswith("!"):
+                unignore = pattern[1:]
+                if fnmatch.fnmatch(target_rel, unignore):
+                    is_ignored = False
+            else:
+                if fnmatch.fnmatch(target_rel, pattern):
+                    is_ignored = True
 
-    assert not is_ignored, (
-        f"'{target_rel}' would be ignored during docker build under current .dockerignore rules!"
-    )
+        assert not is_ignored, (
+            f"'{target_rel}' would be ignored during docker build under current .dockerignore rules!"
+        )
 
 
 def test_canonical_benchmark_path_resolution_robustness() -> None:
